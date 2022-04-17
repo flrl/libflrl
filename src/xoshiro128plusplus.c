@@ -18,27 +18,26 @@ See <http://creativecommons.org/publicdomain/zero/1.0/>. */
 
    The state must be seeded so that it is not everywhere zero. */
 
+#include "xoshiro.h"
 
 static inline uint32_t rotl(const uint32_t x, int k) {
     return (x << k) | (x >> (32 - k));
 }
 
 
-static uint32_t s[4];
+uint32_t xoshiro128plusplus_next(struct xoshiro128plusplus_state *state) {
+    const uint32_t result = rotl(state->s[0] + state->s[3], 7) + state->s[0];
 
-uint32_t next(void) {
-    const uint32_t result = rotl(s[0] + s[3], 7) + s[0];
+    const uint32_t t = state->s[1] << 9;
 
-    const uint32_t t = s[1] << 9;
+    state->s[2] ^= state->s[0];
+    state->s[3] ^= state->s[1];
+    state->s[1] ^= state->s[2];
+    state->s[0] ^= state->s[3];
 
-    s[2] ^= s[0];
-    s[3] ^= s[1];
-    s[1] ^= s[2];
-    s[0] ^= s[3];
+    state->s[2] ^= t;
 
-    s[2] ^= t;
-
-    s[3] = rotl(s[3], 11);
+    state->s[3] = rotl(state->s[3], 11);
 
     return result;
 }
@@ -48,7 +47,7 @@ uint32_t next(void) {
    to 2^64 calls to next(); it can be used to generate 2^64
    non-overlapping subsequences for parallel computations. */
 
-void jump(void) {
+void xoshiro128plusplus_jump(struct xoshiro128plusplus_state *state) {
     static const uint32_t JUMP[] = { 0x8764000b, 0xf542d2d3, 0x6fa035c3, 0x77f2db5b };
 
     uint32_t s0 = 0;
@@ -58,18 +57,18 @@ void jump(void) {
     for(unsigned i = 0; i < sizeof JUMP / sizeof *JUMP; i++)
         for(unsigned b = 0; b < 32; b++) {
             if (JUMP[i] & UINT32_C(1) << b) {
-                s0 ^= s[0];
-                s1 ^= s[1];
-                s2 ^= s[2];
-                s3 ^= s[3];
+                s0 ^= state->s[0];
+                s1 ^= state->s[1];
+                s2 ^= state->s[2];
+                s3 ^= state->s[3];
             }
-            next(); 
+            xoshiro128plusplus_next(state);
         }
-        
-    s[0] = s0;
-    s[1] = s1;
-    s[2] = s2;
-    s[3] = s3;
+
+    state->s[0] = s0;
+    state->s[1] = s1;
+    state->s[2] = s2;
+    state->s[3] = s3;
 }
 
 
@@ -78,7 +77,7 @@ void jump(void) {
    from each of which jump() will generate 2^32 non-overlapping
    subsequences for parallel distributed computations. */
 
-void long_jump(void) {
+void xoshiro128plusplus_long_jump(struct xoshiro128plusplus_state *state) {
     static const uint32_t LONG_JUMP[] = { 0xb523952e, 0x0b6f099f, 0xccf5a0ef, 0x1c580662 };
 
     uint32_t s0 = 0;
@@ -88,16 +87,16 @@ void long_jump(void) {
     for(unsigned i = 0; i < sizeof LONG_JUMP / sizeof *LONG_JUMP; i++)
         for(unsigned b = 0; b < 32; b++) {
             if (LONG_JUMP[i] & UINT32_C(1) << b) {
-                s0 ^= s[0];
-                s1 ^= s[1];
-                s2 ^= s[2];
-                s3 ^= s[3];
+                s0 ^= state->s[0];
+                s1 ^= state->s[1];
+                s2 ^= state->s[2];
+                s3 ^= state->s[3];
             }
-            next(); 
+            xoshiro128plusplus_next(state);
         }
-        
-    s[0] = s0;
-    s[1] = s1;
-    s[2] = s2;
-    s[3] = s3;
+
+    state->s[0] = s0;
+    state->s[1] = s1;
+    state->s[2] = s2;
+    state->s[3] = s3;
 }

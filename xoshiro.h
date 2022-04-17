@@ -17,8 +17,25 @@ struct xoshiro128plus_state {
     uint32_t s[4];
 };
 extern uint32_t xoshiro128plus_next(struct xoshiro128plus_state *state);
-extern void xoshiro128plus_long_jump(struct xoshiro128plus_state *state);
 extern void xoshiro128plus_jump(struct xoshiro128plus_state *state);
+extern void xoshiro128plus_long_jump(struct xoshiro128plus_state *state);
+
+
+/* This is xoshiro128++ 1.0, one of our 32-bit all-purpose, rock-solid
+   generators. It has excellent speed, a state size (128 bits) that is
+   large enough for mild parallelism, and it passes all tests we are aware
+   of.
+
+   For generating just single-precision (i.e., 32-bit) floating-point
+   numbers, xoshiro128+ is even faster.
+
+   The state must be seeded so that it is not everywhere zero. */
+struct xoshiro128plusplus_state {
+    uint32_t s[4];
+};
+extern uint32_t xoshiro128plusplus_next(struct xoshiro128plusplus_state *state);
+extern void xoshiro128plusplus_jump(struct xoshiro128plusplus_state *state);
+extern void xoshiro128plusplus_long_jump(struct xoshiro128plusplus_state *state);
 
 
 #endif
