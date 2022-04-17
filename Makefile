@@ -29,6 +29,7 @@ $(TARGET): $(OBJS)
 
 $(OBJS) $(DEPS): | $(BUILDDIR)
 
+$(OBJS): CPPFLAGS += -I.
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(BUILDDIR)/%.d
 	$(CC) $(CFLAGS) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/$*.d -o $@ -c $<
 
