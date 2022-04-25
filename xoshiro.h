@@ -1,6 +1,10 @@
 #ifndef LIBFLRL_XOSHIRO_H
 #define LIBFLRL_XOSHIRO_H
 
+#include <stdint.h>
+
+extern void xoshiro_seed64(void *statep, size_t size, uint64_t seed);
+
 /* This is xoshiro128+ 1.0, our best and fastest 32-bit generator for 32-bit
    floating-point numbers. We suggest to use its upper bits for
    floating-point generation, as it is slightly faster than xoshiro128**.
@@ -19,6 +23,8 @@ struct xoshiro128plus_state {
 extern uint32_t xoshiro128plus_next(struct xoshiro128plus_state *state);
 extern void xoshiro128plus_jump(struct xoshiro128plus_state *state);
 extern void xoshiro128plus_long_jump(struct xoshiro128plus_state *state);
+#define xoshiro128plus_seed64(statep, seed) \
+    xoshiro_seed64((statep), sizeof(struct xoshiro128plus_state), (seed))
 
 
 /* This is xoshiro128++ 1.0, one of our 32-bit all-purpose, rock-solid
@@ -36,6 +42,8 @@ struct xoshiro128plusplus_state {
 extern uint32_t xoshiro128plusplus_next(struct xoshiro128plusplus_state *state);
 extern void xoshiro128plusplus_jump(struct xoshiro128plusplus_state *state);
 extern void xoshiro128plusplus_long_jump(struct xoshiro128plusplus_state *state);
+#define xoshiro128plusplus_seed64(statep, seed) \
+    xoshiro_seed64((statep), sizeof(struct xoshiro128plusplus_state), (seed))
 
 
 /* This is xoshiro128** 1.1, one of our 32-bit all-purpose, rock-solid
@@ -56,6 +64,8 @@ struct xoshiro128starstar_state {
 extern uint32_t xoshiro128starstar_next(struct xoshiro128starstar_state *state);
 extern void xoshiro128starstar_jump(struct xoshiro128starstar_state *state);
 extern void xoshiro128starstar_long_jump(struct xoshiro128starstar_state *state);
+#define xoshiro128starstar_seed64(statep, seed) \
+    xoshiro_seed64((statep), sizeof(struct xoshiro128starstar_state), (seed))
 
 
 /* This is xoshiro256+ 1.0, our best and fastest generator for floating-point
@@ -78,6 +88,8 @@ struct xoshiro256plus_state {
 extern uint64_t xoshiro256plus_next(struct xoshiro256plus_state *state);
 extern void xoshiro256plus_jump(struct xoshiro256plus_state *state);
 extern void xoshiro256plus_long_jump(struct xoshiro256plus_state *state);
+#define xoshiro256plus_seed64(statep, seed) \
+    xoshiro_seed64((statep), sizeof(struct xoshiro256plus_state), (seed))
 
 
 /* This is xoshiro256++ 1.0, one of our all-purpose, rock-solid generators.
@@ -96,6 +108,8 @@ struct xoshiro256plusplus_state {
 extern uint64_t xoshiro256plusplus_next(struct xoshiro256plusplus_state *state);
 extern void xoshiro256plusplus_jump(struct xoshiro256plusplus_state *state);
 extern void xoshiro256plusplus_long_jump(struct xoshiro256plusplus_state *state);
+#define xoshiro256plusplus_seed64(statep, seed) \
+    xoshiro_seed64((statep), sizeof(struct xoshiro256plusplus_state), (seed))
 
 
 /* This is xoshiro256** 1.0, one of our all-purpose, rock-solid
@@ -114,5 +128,7 @@ struct xoshiro256starstar_state {
 extern uint64_t xoshiro256starstar_next(struct xoshiro256starstar_state *state);
 extern void xoshiro256starstar_jump(struct xoshiro256starstar_state *state);
 extern void xoshiro256starstar_long_jump(struct xoshiro256starstar_state *state);
+#define xoshiro256starstar_seed64(statep, seed) \
+    xoshiro_seed64((statep), sizeof(struct xoshiro256starstar_state), (seed))
 
 #endif
