@@ -12,6 +12,6 @@
 struct splitmix64_state {
     uint64_t x; /* The state can be seeded with any value. */
 };
-extern uint64_t splitmix64_next(struct splitmix64_state *state);
+extern uint64_t splitmix64_next(void *state);
 
 #endif
