@@ -20,7 +20,7 @@ extern void xoshiro_seed64(void *statep, size_t size, uint64_t seed);
 struct xoshiro128plus_state {
     uint32_t s[4];
 };
-extern uint32_t xoshiro128plus_next(struct xoshiro128plus_state *state);
+extern uint32_t xoshiro128plus_next(void *state);
 extern void xoshiro128plus_jump(struct xoshiro128plus_state *state);
 extern void xoshiro128plus_long_jump(struct xoshiro128plus_state *state);
 #define xoshiro128plus_seed64(statep, seed) \
@@ -39,7 +39,7 @@ extern void xoshiro128plus_long_jump(struct xoshiro128plus_state *state);
 struct xoshiro128plusplus_state {
     uint32_t s[4];
 };
-extern uint32_t xoshiro128plusplus_next(struct xoshiro128plusplus_state *state);
+extern uint32_t xoshiro128plusplus_next(void *state);
 extern void xoshiro128plusplus_jump(struct xoshiro128plusplus_state *state);
 extern void xoshiro128plusplus_long_jump(struct xoshiro128plusplus_state *state);
 #define xoshiro128plusplus_seed64(statep, seed) \
@@ -61,7 +61,7 @@ extern void xoshiro128plusplus_long_jump(struct xoshiro128plusplus_state *state)
 struct xoshiro128starstar_state {
     uint32_t s[4];
 };
-extern uint32_t xoshiro128starstar_next(struct xoshiro128starstar_state *state);
+extern uint32_t xoshiro128starstar_next(void *state);
 extern void xoshiro128starstar_jump(struct xoshiro128starstar_state *state);
 extern void xoshiro128starstar_long_jump(struct xoshiro128starstar_state *state);
 #define xoshiro128starstar_seed64(statep, seed) \
@@ -85,7 +85,7 @@ extern void xoshiro128starstar_long_jump(struct xoshiro128starstar_state *state)
 struct xoshiro256plus_state {
     uint64_t s[4];
 };
-extern uint64_t xoshiro256plus_next(struct xoshiro256plus_state *state);
+extern uint64_t xoshiro256plus_next(void *state);
 extern void xoshiro256plus_jump(struct xoshiro256plus_state *state);
 extern void xoshiro256plus_long_jump(struct xoshiro256plus_state *state);
 #define xoshiro256plus_seed64(statep, seed) \
@@ -105,7 +105,7 @@ extern void xoshiro256plus_long_jump(struct xoshiro256plus_state *state);
 struct xoshiro256plusplus_state {
     uint64_t s[4];
 };
-extern uint64_t xoshiro256plusplus_next(struct xoshiro256plusplus_state *state);
+extern uint64_t xoshiro256plusplus_next(void *state);
 extern void xoshiro256plusplus_jump(struct xoshiro256plusplus_state *state);
 extern void xoshiro256plusplus_long_jump(struct xoshiro256plusplus_state *state);
 #define xoshiro256plusplus_seed64(statep, seed) \
@@ -125,7 +125,7 @@ extern void xoshiro256plusplus_long_jump(struct xoshiro256plusplus_state *state)
 struct xoshiro256starstar_state {
     uint64_t s[4];
 };
-extern uint64_t xoshiro256starstar_next(struct xoshiro256starstar_state *state);
+extern uint64_t xoshiro256starstar_next(void *state);
 extern void xoshiro256starstar_jump(struct xoshiro256starstar_state *state);
 extern void xoshiro256starstar_long_jump(struct xoshiro256starstar_state *state);
 #define xoshiro256starstar_seed64(statep, seed) \

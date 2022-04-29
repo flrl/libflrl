@@ -30,7 +30,8 @@ static inline uint64_t rotl(const uint64_t x, int k) {
 }
 
 
-uint64_t xoshiro256plus_next(struct xoshiro256plus_state *state) {
+uint64_t xoshiro256plus_next(void *statep) {
+    struct xoshiro256plus_state *state = (struct xoshiro256plus_state *) statep;
     const uint64_t result = state->s[0] + state->s[3];
 
     const uint64_t t = state->s[1] << 17;

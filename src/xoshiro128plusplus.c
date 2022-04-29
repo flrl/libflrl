@@ -25,7 +25,8 @@ static inline uint32_t rotl(const uint32_t x, int k) {
 }
 
 
-uint32_t xoshiro128plusplus_next(struct xoshiro128plusplus_state *state) {
+uint32_t xoshiro128plusplus_next(void *statep) {
+    struct xoshiro128plusplus_state *state = (struct xoshiro128plusplus_state *) statep;
     const uint32_t result = rotl(state->s[0] + state->s[3], 7) + state->s[0];
 
     const uint32_t t = state->s[1] << 9;
