@@ -159,19 +159,13 @@ unsigned sample32p(uint32_t (*randfunc)(void *), void *randstate,
 
     rand = rand32_inrange(randfunc, randstate, 0, sum - 1);
 
-    prev = NULL;
     i = 0;
     do {
         wp = (struct weight *)((data + i * rowsize) + weight_offset);
 
-        if (rand < wp->cumulative
-            && (prev == NULL || rand >= prev->cumulative))
-        {
-            break;
-        }
+        if (rand < wp->cumulative) break;
 
         i++;
-        prev = wp;
     } while (i < rows);
 
     return i;
