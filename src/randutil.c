@@ -139,8 +139,8 @@ unsigned sample32p(uint32_t (*randfunc)(void *), void *randstate,
     assert(rows > 0);
     assert(rowsize > 0);
 
-    /* lazy load cdf when first cumulative value is zero */
-    wp = (struct weight *)(data + weight_offset);
+    /* lazy load cdf when last cumulative value is zero */
+    wp = (struct weight *)((data + (rows - 1) * rowsize) + weight_offset);
     if (wp->cumulative == 0) {
         prev = NULL;
         for (p = data; p < (data + rows * rowsize); p += rowsize) {
@@ -148,7 +148,11 @@ unsigned sample32p(uint32_t (*randfunc)(void *), void *randstate,
             sum += wp->weight;
             assert(prev == NULL || sum >= prev->cumulative); /* overflow */
             wp->cumulative = sum;
+            prev = wp;
         }
+    }
+    else {
+        sum = wp->cumulative;
     }
     assert(sum > 0);
     if (sum == 0) return 0;
