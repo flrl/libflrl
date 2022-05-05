@@ -12,7 +12,10 @@ uint32_t rand32_inrange(uint32_t (*randfunc)(void *), void *randstate,
     uint32_t value;
     int needloop;
 
-    assert(max > min);
+    assert(max >= min);
+
+    if (max == min) return min;
+
     range = 1 + max - min; /* inclusive */
     needloop = (0 != UINT32_MAX % range);
 
@@ -30,7 +33,10 @@ uint64_t rand64_inrange(uint64_t (*randfunc)(void *), void *randstate,
     uint64_t value;
     int needloop;
 
-    assert(max > min);
+    assert(max >= min);
+
+    if (max == min) return min;
+
     range = 1 + max - min; /* inclusive */
     needloop = (0 != UINT64_MAX % range);
 
