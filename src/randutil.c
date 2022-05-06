@@ -5,7 +5,7 @@
 
 #include "randutil.h"
 
-uint32_t rand32_inrange(uint32_t (*randfunc)(void *), void *randstate,
+uint32_t rand32_inrange(const struct rand32 *r,
                         uint32_t min, uint32_t max)
 {
     uint32_t range;
@@ -20,13 +20,13 @@ uint32_t rand32_inrange(uint32_t (*randfunc)(void *), void *randstate,
     needloop = (0 != UINT32_MAX % range);
 
     do {
-        value = randfunc(randstate);
+        value = r->func(r->state);
     } while (needloop && value > UINT32_MAX - range);
 
     return min + value % range;
 }
 
-uint64_t rand64_inrange(uint64_t (*randfunc)(void *), void *randstate,
+uint64_t rand64_inrange(const struct rand64 *r,
                         uint64_t min, uint64_t max)
 {
     uint64_t range;
@@ -41,13 +41,13 @@ uint64_t rand64_inrange(uint64_t (*randfunc)(void *), void *randstate,
     needloop = (0 != UINT64_MAX % range);
 
     do {
-        value = randfunc(randstate);
+        value = r->func(r->state);
     } while (needloop && value > UINT64_MAX - range);
 
     return min + value % range;
 }
 
-unsigned sample32(uint32_t (*randfunc)(void *), void *randstate,
+unsigned sample32(const struct rand32 *r,
                   const unsigned weights[], size_t n_weights)
 {
     unsigned *cdf = NULL;
@@ -70,7 +70,7 @@ unsigned sample32(uint32_t (*randfunc)(void *), void *randstate,
     assert(sum > 0);
     if (sum == 0) return 0;
 
-    rand = rand32_inrange(randfunc, randstate, 0, sum - 1);
+    rand = rand32_inrange(r, 0, sum - 1);
     for (i = 0; i < n_weights && rand >= cdf[i]; i++)
         ;
 
@@ -78,7 +78,7 @@ unsigned sample32(uint32_t (*randfunc)(void *), void *randstate,
     return i;
 }
 
-unsigned sample32v(uint32_t (*randfunc)(void *), void *randstate,
+unsigned sample32v(const struct rand32 *r,
                    size_t n_pairs, ...)
 {
     unsigned *values = NULL;
@@ -114,7 +114,7 @@ unsigned sample32v(uint32_t (*randfunc)(void *), void *randstate,
     assert(sum > 0);
     if (sum == 0) return 0;
 
-    rand = rand32_inrange(randfunc, randstate, 0, sum - 1);
+    rand = rand32_inrange(r, 0, sum - 1);
     for (i = 0; i < n_pairs && rand >= cdf[i]; i++)
         ;
 
@@ -126,7 +126,7 @@ unsigned sample32v(uint32_t (*randfunc)(void *), void *randstate,
 }
 
 /* n elems of size z with struct weight at offset t, save cdf, return index */
-unsigned sample32p(uint32_t (*randfunc)(void *), void *randstate,
+unsigned sample32p(const struct rand32 *r,
                    void *data, size_t rows, size_t rowsize,
                    size_t weight_offset)
 {
@@ -157,7 +157,7 @@ unsigned sample32p(uint32_t (*randfunc)(void *), void *randstate,
     assert(sum > 0);
     if (sum == 0) return 0;
 
-    rand = rand32_inrange(randfunc, randstate, 0, sum - 1);
+    rand = rand32_inrange(r, 0, sum - 1);
 
     i = 0;
     do {
@@ -172,14 +172,14 @@ unsigned sample32p(uint32_t (*randfunc)(void *), void *randstate,
 }
 
 /* n weights, build temp cdf, return index */
-extern unsigned sample64(uint64_t (*randfunc)(void *), void *randstate,
+extern unsigned sample64(const struct rand64 *r,
                          const unsigned weights[], size_t n_weights);
 
 /* n weight|value pairs, build temp cdf, return value */
-extern unsigned sample64v(uint64_t (*randfunc)(void *), void *randstate,
+extern unsigned sample64v(const struct rand64 *r,
                           size_t n_pairs, ...);
 
 /* n elems of size z with struct weight at offset t, save cdf, return index */
-extern unsigned sample64p(uint64_t (*randfunc)(void *), void *randstate,
+extern unsigned sample64p(const struct rand64 *r,
                           void *data, size_t rows, size_t rowsize,
                           size_t weight_offset);
