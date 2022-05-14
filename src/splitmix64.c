@@ -15,7 +15,7 @@ See <http://creativecommons.org/publicdomain/zero/1.0/>. */
    It is a very fast generator passing BigCrush, and it can be useful if
    for some reason you absolutely want 64 bits of state. */
 
-#include "splitmix64.h"
+#include "flrl/splitmix64.h"
 
 uint64_t splitmix64_next(void *statep) {
     struct splitmix64_state *state = (struct splitmix64_state *) statep;

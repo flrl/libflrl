@@ -18,7 +18,7 @@ See <http://creativecommons.org/publicdomain/zero/1.0/>. */
 
    The state must be seeded so that it is not everywhere zero. */
 
-#include "xoshiro.h"
+#include "flrl/xoshiro.h"
 
 static inline uint32_t rotl(const uint32_t x, int k) {
     return (x << k) | (x >> (32 - k));

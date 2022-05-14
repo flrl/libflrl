@@ -1,7 +1,7 @@
 #include <float.h>
 #include <math.h>
 
-#include "fputil.h"
+#include "flrl/fputil.h"
 
 int floats_equalish(float a, float b, float epsilon, float abs_th)
 {

@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "randutil.h"
+#include "flrl/randutil.h"
 
 uint32_t rand32_inrange(const struct rand32 *r,
                         uint32_t min, uint32_t max)

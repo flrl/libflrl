@@ -1,7 +1,7 @@
 #include <string.h>
 
-#include "splitmix64.h"
-#include "xoshiro.h"
+#include "flrl/splitmix64.h"
+#include "flrl/xoshiro.h"
 
 void xoshiro_seed64(void *statep, size_t size, uint64_t seed)
 {
