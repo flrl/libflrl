@@ -47,6 +47,20 @@ uint64_t rand64_inrange(const struct rand64 *r,
     return min + value % range;
 }
 
+int rand32_coin(const struct rand32 *r, double p_heads)
+{
+    double roll = r->func(r->state) / UINT32_MAX * 1.0;
+
+    return (roll < p_heads);
+}
+
+int rand64_coin(const struct rand64 *r, double p_heads)
+{
+    double roll = r->func(r->state) / UINT64_MAX * 1.0;
+
+    return (roll < p_heads);
+}
+
 unsigned sample32(const struct rand32 *r,
                   const unsigned weights[], size_t n_weights)
 {

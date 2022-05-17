@@ -15,6 +15,10 @@ extern uint32_t rand32_inrange(const struct rand32 *r, uint32_t min, uint32_t ma
 
 extern uint64_t rand64_inrange(const struct rand64 *r, uint64_t min, uint64_t max);
 
+extern int rand32_coin(const struct rand32 *r, double p_heads);
+
+extern int rand64_coin(const struct rand64 *r, double p_heads);
+
 struct weight {
     uint16_t weight;
     uint16_t cumulative;
