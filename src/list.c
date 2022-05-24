@@ -50,6 +50,8 @@ void *list_shift(struct list *list)
     struct list_item *item = list->head;
     void *data;
 
+    if (!item) return NULL;
+
     list->head = item->next;
     if (list->head)
         list->head->prev = NULL;
@@ -68,6 +70,8 @@ void *list_pop(struct list *list)
 {
     struct list_item *item = list->tail;
     void *data;
+
+    if (!item) return NULL;
 
     list->tail = item->prev;
     if (list->tail)
