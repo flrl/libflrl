@@ -1,6 +1,8 @@
 #ifndef LIBFLRL_RANDUTIL_H
 #define LIBFLRL_RANDUTIL_H
 
+#include <stdint.h>
+
 struct rand32 {
     uint32_t (*func)(void *);
     void *state;
