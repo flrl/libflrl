@@ -6,7 +6,118 @@
 
 #include "flrl/randutil.h"
 
-uint32_t rand32_inrange(const struct rand32 *r,
+extern inline int32_t randi32(const struct rng *rng, int32_t min, int32_t max);
+extern inline int64_t randi64(const struct rng *rng, int64_t min, int64_t max);
+extern inline uint32_t randu32(const struct rng *rng, uint32_t min, uint32_t max);
+extern inline uint64_t randu64(const struct rng *rng, uint64_t min, uint64_t max);
+extern inline float randf32(const struct rng *rng, double min, double max);
+extern inline double randf64(const struct rng *rng, double min, double max);
+
+void randi32v(const struct rng *rng,
+              int32_t *out,
+              size_t count,
+              int32_t min,
+              int32_t max)
+{
+    const uint64_t max_range = UINT64_C(1) + UINT32_MAX;
+    uint32_t range, div, limit;
+    size_t i;
+
+    assert(min < max);
+    if (min > max) min = max;
+
+    range = max - min + 1; /* wraps to zero at max_range */
+    div = range > 1 ? max_range / range : 1;
+    limit = range ? range * div : 0;
+
+    for (i = 0; i < count; i++) {
+        uint32_t v;
+
+        do {
+            v = rng->func(rng->state);
+        } while (limit && v >= limit);
+
+        out[i] = v / div + min;
+    }
+}
+
+void randi64v(const struct rng *rng __attribute__((unused)),
+              int64_t *out __attribute__((unused)),
+              size_t count __attribute__((unused)),
+              int64_t min __attribute__((unused)),
+              int64_t max __attribute__((unused)))
+{
+    abort();
+}
+
+void randu32v(const struct rng *rng,
+              uint32_t *out,
+              size_t count,
+              uint32_t min,
+              uint32_t max)
+{
+    const uint64_t max_range = UINT64_C(1) + UINT32_MAX;
+    uint32_t range, div, limit;
+    size_t i;
+
+    assert(min < max);
+    if (min > max) min = max;
+
+    range = max - min + 1; /* wraps to zero at max_range */
+    div = range > 1 ? max_range / range :  1;
+    limit = range ? range * div : 0;
+
+    for (i = 0; i < count; i++) {
+        uint32_t v;
+
+        do {
+            v = rng->func(rng->state);
+        } while (limit && v >= limit);
+
+        out[i] = v / div + min;
+    }
+}
+
+void randu64v(const struct rng *rng __attribute__((unused)),
+              uint64_t *out __attribute__((unused)),
+              size_t count __attribute__((unused)),
+              uint64_t min __attribute__((unused)),
+              uint64_t max __attribute__((unused)))
+{
+    abort();
+}
+
+void randf32v(const struct rng *rng,
+              float *out,
+              size_t count,
+              double min,
+              double max)
+{
+    size_t i;
+
+    assert(min < max);
+
+    /* XXX this does not produce good uniform values! */
+    for (i = 0; i < count; i++) {
+        double scale = rng->func(rng->state) / (double) UINT32_MAX;
+        out[i] = min + scale * (max - min);
+    }
+}
+
+void randf64v(const struct rng *rng __attribute__((unused)),
+              double *out __attribute__((unused)),
+              size_t count __attribute__((unused)),
+              double min __attribute__((unused)),
+              double max __attribute__((unused)))
+{
+    abort();
+}
+
+/* XXX wrandx functions for struct wrng */
+
+/* XXX legacy */
+
+uint32_t rand32_inrange(const struct rng *r,
                         uint32_t min, uint32_t max)
 {
     uint32_t range;
@@ -27,7 +138,7 @@ uint32_t rand32_inrange(const struct rand32 *r,
     return min + value % range;
 }
 
-uint64_t rand64_inrange(const struct rand64 *r,
+uint64_t rand64_inrange(const struct wrng *r,
                         uint64_t min, uint64_t max)
 {
     uint64_t range;
@@ -48,23 +159,23 @@ uint64_t rand64_inrange(const struct rand64 *r,
     return min + value % range;
 }
 
-float rand32f_uniform(const struct rand32 *r)
+float rand32f_uniform(const struct rng *r)
 {
     /* XXX naive approach, not actually uniform! */
     return r->func(r->state) * 1.0 / UINT32_MAX;
 }
 
-double rand64f_uniform(const struct rand64 *r)
+double rand64f_uniform(const struct wrng *r)
 {
     /* XXX naive approach, not actually uniform! */
     return r->func(r->state) * 1.0 / UINT64_MAX;
 }
 
-extern inline int rand32_coin(const struct rand32 *r, float p_heads);
+extern inline int rand32_coin(const struct rng *r, float p_heads);
 
-extern inline int rand64_coin(const struct rand64 *r, double p_heads);
+extern inline int rand64_coin(const struct wrng *r, double p_heads);
 
-unsigned sample32(const struct rand32 *r,
+unsigned sample32(const struct rng *r,
                   const unsigned weights[], size_t n_weights)
 {
     unsigned *cdf = NULL;
@@ -95,7 +206,7 @@ unsigned sample32(const struct rand32 *r,
     return i;
 }
 
-unsigned sample32v(const struct rand32 *r,
+unsigned sample32v(const struct rng *r,
                    size_t n_pairs, ...)
 {
     unsigned *values = NULL;
@@ -143,7 +254,7 @@ unsigned sample32v(const struct rand32 *r,
 }
 
 /* n elems of size z with struct weight at offset t, save cdf, return index */
-unsigned sample32p(const struct rand32 *r,
+unsigned sample32p(const struct rng *r,
                    void *data, size_t rows, size_t rowsize,
                    size_t weight_offset)
 {
@@ -189,19 +300,19 @@ unsigned sample32p(const struct rand32 *r,
 }
 
 /* n weights, build temp cdf, return index */
-extern unsigned sample64(const struct rand64 *r,
+extern unsigned sample64(const struct wrng *r,
                          const unsigned weights[], size_t n_weights);
 
 /* n weight|value pairs, build temp cdf, return value */
-extern unsigned sample64v(const struct rand64 *r,
+extern unsigned sample64v(const struct wrng *r,
                           size_t n_pairs, ...);
 
 /* n elems of size z with struct weight at offset t, save cdf, return index */
-extern unsigned sample64p(const struct rand64 *r,
+extern unsigned sample64p(const struct wrng *r,
                           void *data, size_t rows, size_t rowsize,
                           size_t weight_offset);
 
-float rand32f_gaussian(const struct rand32 *r, float mean, float stdev)
+float rand32f_gaussian(const struct rng *r, float mean, float stdev)
 {
     static float v1, v2, s;
     static int phase = 0;
@@ -228,7 +339,7 @@ float rand32f_gaussian(const struct rand32 *r, float mean, float stdev)
     return x * stdev + mean;
 }
 
-double rand64f_gaussian(const struct rand64 *r, double mean, double stdev)
+double rand64f_gaussian(const struct wrng *r, double mean, double stdev)
 {
     static double v1, v2, s;
     static int phase = 0;
