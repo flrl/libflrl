@@ -1,10 +1,15 @@
+#include "flrl/randutil.h"
+
 #include <assert.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "flrl/randutil.h"
+#ifdef UNIT_TESTING
+#undef assert
+#define assert(ignore) ((void) 0)
+#endif
 
 extern inline int32_t randi32(const struct rng *rng, int32_t min, int32_t max);
 extern inline int64_t randi64(const struct rng *rng, int64_t min, int64_t max);
@@ -275,6 +280,7 @@ unsigned sample32p(const struct rng *r,
             wp = (struct weight *)(p + weight_offset);
             sum += wp->weight;
             assert(prev == NULL || sum >= prev->cumulative); /* overflow */
+            (void) prev; /* XXX shush 'prev unused' with assertions off */
             wp->cumulative = sum;
             prev = wp;
         }

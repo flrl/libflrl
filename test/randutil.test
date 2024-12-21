@@ -1,0 +1,18 @@
+#include "test/unitmain.h"
+
+static void fn_randi32v(NO_STATE)
+{
+
+}
+
+const char *const um_group_name = "randutil";
+const struct CMUnitTest um_group_tests[] =
+{
+    cmocka_unit_test(fn_randi32v),
+};
+const size_t um_group_n_tests = sizeof(um_group_tests)
+                                / sizeof(um_group_tests[0]);
+CMFixtureFunction um_group_setup = NULL;
+CMFixtureFunction um_group_teardown = NULL;
+
+/* vim: set ft=c */
