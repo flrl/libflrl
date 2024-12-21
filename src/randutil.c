@@ -24,25 +24,40 @@ void randi32v(const struct rng *rng,
               int32_t min,
               int32_t max)
 {
-    const uint64_t max_range = UINT64_C(1) + UINT32_MAX;
-    uint32_t range, div, limit;
+    uint32_t range;
     size_t i;
 
     assert(min < max);
     if (min > max) min = max;
 
     range = max - min + 1; /* wraps to zero at max_range */
-    div = range > 1 ? max_range / range : 1;
-    limit = range ? range * div : 0;
 
-    for (i = 0; i < count; i++) {
-        uint32_t v;
+    if (range != 1) {
+        uint32_t div = 1, limit = 0;
 
-        do {
-            v = rng->func(rng->state);
-        } while (limit && v >= limit);
+        if (range) {
+            /* max_range should be UINT32_MAX + 1, but would need a wider type.
+             * get around that with: a / b == 1 + (a - b) / b
+             */
+            uint32_t max_range = UINT32_MAX - range + 1;
+            div = range > 1 ? 1 + max_range / range : 1;
+            limit = range * div;
+        }
 
-        out[i] = v / div + min;
+        for (i = 0; i < count; i++) {
+            uint32_t v;
+
+            do {
+                v = rng->func(rng->state);
+            } while (limit && v >= limit);
+
+            out[i] = v / div + min;
+        }
+    }
+    else {
+        for (i = 0; i < count; i++) {
+            out[i] = min;
+        }
     }
 }
 

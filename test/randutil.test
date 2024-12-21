@@ -1,8 +1,66 @@
 #include "test/unitmain.h"
 
+#include "src/randutil.c"
+
+#include "flrl/xoshiro.h"
+
+#include <stdlib.h>
+#include <time.h>
+
+/* testing the interface, not the randomness */
 static void fn_randi32v(NO_STATE)
 {
+    const struct {
+        int32_t min;
+        int32_t max;
+    } tests[] = {
+        {         0,         0 },
+        {         0,         1 },
+        {        -1,         1 },
+        {       -10,         0 },
+        {      -100,       -10 },
+        {         1,        10 },
+        {        10,       100 },
+        {      -100,       100 },
+        { INT32_MIN, INT32_MAX },
+        { INT32_MIN,         0 },
+        {         0, INT32_MAX },
+        { INT32_MIN, INT32_MIN },
+        { INT32_MAX, INT32_MAX },
 
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    size_t n_values = 10000;
+    int32_t *values;
+    unsigned i;
+
+    xoshiro128plusplus_seed64(rng.state, time(0));
+
+    values = calloc(n_values, sizeof(values[0]));
+    assert_non_null(values);
+
+    for (i = 0; i < n_tests; i++) {
+        int32_t expect_min = tests[i].min;
+        int32_t expect_max = tests[i].max;
+        int32_t largest = INT32_MIN, smallest = INT32_MAX;
+        unsigned j;
+
+        if (expect_min > expect_max) expect_min = expect_max;
+
+        randi32v(&rng, values, n_values, tests[i].min, tests[i].max);
+
+        for (j = 0; j < n_values; j++) {
+            if (values[j] > largest) largest = values[j];
+            if (values[j] < smallest) smallest = values[j];
+            assert_int_in_range(values[j], expect_min, expect_max);
+        }
+
+        if (expect_min != expect_max && n_values > 10)
+            assert_int_not_equal(smallest, largest);
+    }
+
+    free(values);
 }
 
 const char *const um_group_name = "randutil";
