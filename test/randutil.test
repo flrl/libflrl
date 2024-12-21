@@ -7,7 +7,8 @@
 #include <stdlib.h>
 #include <time.h>
 
-/* testing the interface, not the randomness */
+/* testing the interfaces, not the randomness */
+
 static void fn_randi32v(NO_STATE)
 {
     const struct {
@@ -16,6 +17,7 @@ static void fn_randi32v(NO_STATE)
     } tests[] = {
         {         0,         0 },
         {         0,         1 },
+        {         1,         0 },
         {        -1,         1 },
         {       -10,         0 },
         {      -100,       -10 },
@@ -27,7 +29,6 @@ static void fn_randi32v(NO_STATE)
         {         0, INT32_MAX },
         { INT32_MIN, INT32_MIN },
         { INT32_MAX, INT32_MAX },
-
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
@@ -63,10 +64,59 @@ static void fn_randi32v(NO_STATE)
     free(values);
 }
 
+static void fn_randu32v(NO_STATE)
+{
+    const struct {
+        uint32_t min;
+        uint32_t max;
+    } tests[] = {
+        {          0,          0 },
+        {          0,          1 },
+        {          1,          0 },
+        {          1,         10 },
+        {         10,        100 },
+        {          0, UINT32_MAX },
+        { UINT32_MAX,          0 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    size_t n_values = 10000;
+    uint32_t *values;
+    unsigned i;
+
+    xoshiro128plusplus_seed64(rng.state, time(0));
+
+    values = calloc(n_values, sizeof(values[0]));
+    assert_non_null(values);
+
+    for (i = 0; i < n_tests; i++) {
+        uint32_t expect_min = tests[i].min;
+        uint32_t expect_max = tests[i].max;
+        uint32_t largest = 0, smallest = UINT32_MAX;
+        unsigned j;
+
+        if (expect_min > expect_max) expect_min = expect_max;
+
+        randu32v(&rng, values, n_values, tests[i].min, tests[i].max);
+
+        for (j = 0; j < n_values; j++) {
+            if (values[j] > largest) largest = values[j];
+            if (values[j] < smallest) smallest = values[j];
+            assert_int_in_range(values[j], expect_min, expect_max);
+        }
+
+        if (expect_min != expect_max && n_values > 10)
+            assert_int_not_equal(smallest, largest);
+    }
+
+    free(values);
+}
+
 const char *const um_group_name = "randutil";
 const struct CMUnitTest um_group_tests[] =
 {
     cmocka_unit_test(fn_randi32v),
+    cmocka_unit_test(fn_randu32v),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);

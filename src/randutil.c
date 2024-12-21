@@ -61,50 +61,47 @@ void randi32v(const struct rng *rng,
     }
 }
 
-void randi64v(const struct rng *rng __attribute__((unused)),
-              int64_t *out __attribute__((unused)),
-              size_t count __attribute__((unused)),
-              int64_t min __attribute__((unused)),
-              int64_t max __attribute__((unused)))
-{
-    abort();
-}
-
 void randu32v(const struct rng *rng,
               uint32_t *out,
               size_t count,
               uint32_t min,
               uint32_t max)
 {
-    const uint64_t max_range = UINT64_C(1) + UINT32_MAX;
-    uint32_t range, div, limit;
+    uint32_t range;
     size_t i;
 
     assert(min < max);
     if (min > max) min = max;
 
     range = max - min + 1; /* wraps to zero at max_range */
-    div = range > 1 ? max_range / range :  1;
-    limit = range ? range * div : 0;
 
-    for (i = 0; i < count; i++) {
-        uint32_t v;
+    if (range != 1) {
+        uint32_t div = 1, limit = 0;
 
-        do {
-            v = rng->func(rng->state);
-        } while (limit && v >= limit);
+        if (range) {
+            /* max_range should be UINT32_MAX + 1, but would need a wider type.
+             * get around that with: a / b == 1 + (a - b) / b
+             */
+            uint32_t max_range = UINT32_MAX - range + 1;
+            div = range > 1 ? 1 + max_range / range : 1;
+            limit = range * div;
+        }
 
-        out[i] = v / div + min;
+        for (i = 0; i < count; i++) {
+            uint32_t v;
+
+            do {
+                v = rng->func(rng->state);
+            } while (limit && v >= limit);
+
+            out[i] = v / div + min;
+        }
     }
-}
-
-void randu64v(const struct rng *rng __attribute__((unused)),
-              uint64_t *out __attribute__((unused)),
-              size_t count __attribute__((unused)),
-              uint64_t min __attribute__((unused)),
-              uint64_t max __attribute__((unused)))
-{
-    abort();
+    else {
+        for (i = 0; i < count; i++) {
+            out[i] = min;
+        }
+    }
 }
 
 void randf32v(const struct rng *rng,
@@ -122,6 +119,24 @@ void randf32v(const struct rng *rng,
         double scale = rng->func(rng->state) / (double) UINT32_MAX;
         out[i] = min + scale * (max - min);
     }
+}
+
+void randi64v(const struct rng *rng __attribute__((unused)),
+              int64_t *out __attribute__((unused)),
+              size_t count __attribute__((unused)),
+              int64_t min __attribute__((unused)),
+              int64_t max __attribute__((unused)))
+{
+    abort();
+}
+
+void randu64v(const struct rng *rng __attribute__((unused)),
+              uint64_t *out __attribute__((unused)),
+              size_t count __attribute__((unused)),
+              uint64_t min __attribute__((unused)),
+              uint64_t max __attribute__((unused)))
+{
+    abort();
 }
 
 void randf64v(const struct rng *rng __attribute__((unused)),
