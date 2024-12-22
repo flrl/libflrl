@@ -14,20 +14,26 @@ LDLIBS += $(shell pkg-config --libs $(REQUIRES))
 SRCDIR := src
 TESTDIR := test
 BUILDDIR := build
+MISCDIR := misc
 
 LIBOBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(wildcard $(SRCDIR)/*.c))
 TESTOBJS := $(patsubst $(TESTDIR)/%.test,$(BUILDDIR)/test-%.o,$(wildcard $(TESTDIR)/*.test))
 TESTS := $(patsubst $(TESTDIR)/%.test,%,$(wildcard $(TESTDIR)/*.test))
 TESTTARGETOBJS := $(patsubst $(TESTDIR)/%.c,$(BUILDDIR)/%.o,$(wildcard $(TESTDIR)/*.c))
 TESTTARGETS := $(patsubst $(TESTDIR)/%.test,$(TESTDIR)/%,$(wildcard $(TESTDIR)/*.test))
+MISCTARGETOBJS := $(patsubst $(MISCDIR)/%.c,$(BUILDDIR)/misc-%.o,$(wildcard $(MISCDIR)/*.c))
+MISCTARGETS := $(patsubst $(MISCDIR)/%.c,$(MISCDIR)/%,$(wildcard $(MISCDIR)/*.c))
+
+OBJS := $(LIBOBJS) $(TESTOBJS) $(TESTTARGETOBJS) $(MISCTARGETOBJS)
 
 DEPS := $(patsubst %.o,%.d,$(LIBOBJS))
 DEPS += $(patsubst %.o,%.d,$(TESTOBJS))
 DEPS += $(patsubst %.o,%.d,$(TESTTARGETOBJS))
+DEPS += $(patsubst %.o,%.d,$(MISCTARGETOBJS))
 
 TARGET = libflrl.a
 
-all: $(TARGET)
+all: $(TARGET) $(MISCTARGETS)
 
 ifneq ($(strip $(UTMUX)),)
 check-%: $(TESTDIR)/%
@@ -54,7 +60,10 @@ vcheck: $(foreach t,$(TESTS),vcheck-$(t))
 endif
 
 clean:
-	$(RM) $(TARGET) $(LIBOBJS) $(TESTOBJS) $(TESTTARGETOBJS) $(TESTTARGETS) $(DEPS)
+	$(RM) $(TARGET) $(LIBOBJS)
+	$(RM) $(TESTOBJS) $(TESTTARGETOBJS) $(TESTTARGETS)
+	$(RM) $(MISCTARGETOBJS) $(MISCTARGETS)
+	$(RM) $(DEPS)
 
 tests: $(TESTTARGETS)
 
@@ -76,9 +85,12 @@ filt_flrl = $(filter-out $(BUILDDIR)/$(1).o, $(2))
 $(TESTTARGETS): $(TESTDIR)/%: $(BUILDDIR)/test-%.o $(TESTTARGETOBJS) $(LIBOBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(call filt_flrl,$*,$^) $(LDLIBS)
 
-$(LIBOBJS) $(TESTOBJS) $(TESTTARGETOBJS) $(DEPS): | $(BUILDDIR)
+$(MISCTARGETS): $(MISCDIR)/%: $(BUILDDIR)/misc-%.o $(TARGET)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $+
 
-$(LIBOBJS) $(TESTOBJS) $(TESTTARGETOBJS): CPPFLAGS += -I.
+$(OBJS) $(DEPS): | $(BUILDDIR)
+
+$(OBJS): CPPFLAGS += -I.
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(BUILDDIR)/%.d
 	$(CC) $(CFLAGS) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/$*.d -o $@ -c $<
@@ -88,6 +100,9 @@ $(BUILDDIR)/%.o: $(TESTDIR)/%.c $(BUILDDIR)/%.d
 
 $(BUILDDIR)/test-%.o: $(TESTDIR)/%.test $(BUILDDIR)/test-%.d
 	$(CC) $(CFLAGS) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/test-$*.d -o $@ -x c -c $<
+
+$(BUILDDIR)/misc-%.o: $(MISCDIR)/%.c $(BUILDDIR)/misc-%.d
+	$(CC) $(CFLAGS) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/misc-$*.d -o $@ -c $<
 
 $(DEPS):
 -include $(DEPS)
