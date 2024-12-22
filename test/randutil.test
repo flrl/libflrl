@@ -7,6 +7,30 @@
 #include <stdlib.h>
 #include <time.h>
 
+struct mock_rng32_state {
+    uint32_t next_index;
+    uint32_t call_count;
+    uint32_t n_outputs;
+    uint32_t outputs[];
+};
+
+static uint32_t mock_rng32(void *state__)
+{
+    struct mock_rng32_state *state = state__;
+    uint32_t val;
+
+    if (!state->n_outputs) abort();
+
+    state->call_count ++;
+
+    val = state->outputs[state->next_index ++];
+
+    if (state->next_index >= state->n_outputs)
+        state->next_index = 0;
+
+    return val;
+}
+
 /* testing the interfaces, not the randomness */
 #define N_VALUES (10000)
 
@@ -173,12 +197,112 @@ static void fn_randi64v(NO_STATE)
     free(values);
 }
 
+static void fn_bs_bits(NO_STATE)
+{
+    uint32_t rng_state[] = {
+        0,
+        0,
+        3,
+        0b01010101101010100011001111001100,
+        0b00001111111100000000000011111111,
+        0b01010101101010100011001111001100,
+    };
+    const struct {
+        unsigned want_bits;
+        uint32_t expect_bits;
+    } tests[] = {
+        {  0, 0b0 },
+        {  1, 0b0 },
+        {  2, 0b10 },
+        {  3, 0b001 },
+        {  4, 0b1111 },
+        {  5, 0b01100 },
+        {  6, 0b010100 },
+        {  7, 0b0101101 },
+        {  8, 0b11110101 },
+        {  9, 0b000001111 },
+        { 10, 0b1110000000 },
+        { 11, 0b00000011111 },
+        { 12, 0b110011110011 },
+        { 13, 0b1011010101000 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    struct rng rng = { .func = mock_rng32, .state = rng_state };
+    struct bitstream bs = BITSTREAM_INITIALIZER(&rng);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        uint32_t v = bs_bits(&bs, tests[i].want_bits);
+        assert_int_equal(tests[i].expect_bits, v);
+    }
+
+    assert_int_equal(rng_state[1], rng_state[2]);
+}
+
+static void fn_bs_zeroes(NO_STATE)
+{
+    uint32_t rng_state[] = {
+        0,
+        0,
+        9,
+        0b00000110000000010000000100000010,
+        0b11000000000000000000000000000010,
+        0b00000000000000000000000000000001,
+        0b10000000000000000110000000000000,
+        0b00000000000000000000000000000000,
+        0b00000000000000000000000000000000,
+        0b00000000000000000000000000001000,
+        0b00000000000000000000000000000000,
+        0b10000000000000000000000000000000,
+    };
+    const struct {
+        unsigned limit;
+        unsigned expect_zeroes;
+        uint32_t expect_call_count;
+    } tests[] = {
+        {  7,  1, 1 },
+        {  7,  6, 1 },
+        {  7,  7, 1 },
+        {  7,  0, 1 },
+        {  7,  7, 1 },
+        {  7,  1, 1 },
+        {  7,  0, 1 },
+        {  7,  6, 2 },
+        { 15, 15, 2 },
+        { 15, 13, 2 },
+        { 15,  0, 2 },
+        { 15,  0, 3 },
+        { 15, 15, 3 },
+        { 15, 15, 3 },
+        { 15, 14, 4 },
+        { 15,  0, 4 },
+        { 15, 15, 4 },
+        { 15,  1, 4 },
+        { 80, 67, 7 },
+        { 64, 64, 9 },
+        { 32, 27, 9 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    struct rng rng = { .func = mock_rng32, .state = rng_state };
+    struct bitstream bs = BITSTREAM_INITIALIZER(&rng);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        unsigned zeroes = bs_zeroes(&bs, tests[i].limit);
+
+        assert_int_equal(tests[i].expect_zeroes, zeroes);
+        assert_int_equal(tests[i].expect_call_count, rng_state[1]);
+    }
+}
+
 const char *const um_group_name = "randutil";
 const struct CMUnitTest um_group_tests[] =
 {
     cmocka_unit_test(fn_randi32v),
     cmocka_unit_test(fn_randu32v),
     cmocka_unit_test(fn_randi64v),
+    cmocka_unit_test(fn_bs_bits),
+    cmocka_unit_test(fn_bs_zeroes),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);

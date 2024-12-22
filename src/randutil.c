@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <math.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -10,6 +11,99 @@
 #undef assert
 #define assert(ignore) ((void) 0)
 #endif
+
+/* XXX these should be somewhere else... */
+#define MAX(a,b) ({         \
+    __auto_type _a = (a);   \
+    __auto_type _b = (b);   \
+    _a > _b ? _a : _b;      \
+})
+#define MIN(a,b) ({         \
+    __auto_type _a = (a);   \
+    __auto_type _b = (b);   \
+    _a < _b ? _a : _b;      \
+})
+
+struct bitstream {
+    struct rng *rng;
+    uint64_t bits;
+    unsigned n_bits;
+};
+#define BITSTREAM_INITIALIZER(g) (struct bitstream){ .rng = (g) }
+
+static inline uint32_t mask_bits(unsigned bits)
+{
+    return bits < 32
+           ? (UINT32_C(1) << bits) - 1
+           : UINT32_C(0) - 1;
+}
+
+static uint32_t bs_bits(struct bitstream *bs, unsigned want_bits)
+{
+    uint32_t bits;
+
+    assert(want_bits > 0 && want_bits <= 32);
+    if (!want_bits) return 0;
+    if (want_bits > 32) abort();
+
+    if (bs->n_bits < want_bits) {
+        uint64_t v = bs->rng->func(bs->rng->state);
+
+        bs->bits |= (v << bs->n_bits);
+        bs->n_bits += 32;
+    }
+
+    bits = bs->bits & mask_bits(want_bits);
+    bs->bits >>= want_bits;
+    bs->n_bits -= want_bits;
+
+    return bits;
+}
+
+static unsigned bs_zeroes(struct bitstream *bs, unsigned limit)
+{
+    unsigned zeroes = 0, z;
+
+    if (limit == 0 || limit > INT_MAX)
+        limit = INT_MAX;
+
+    while (limit) {
+        if (bs->n_bits == 0) {
+            bs->bits |= bs->rng->func(bs->rng->state);
+            bs->n_bits += 32;
+        }
+
+        if (bs->bits == 0) {
+            z = MIN(bs->n_bits, limit);
+            zeroes += z;
+            limit -= z;
+            bs->bits >>= z;
+            bs->n_bits -= z;
+        }
+        else {
+            /* if the string of zeroes was stopped by a one, need to consume it
+             * otherwise next bit is guaranteed to be one.  especially in the
+             * case where there were no zeroes, in which case the state of the
+             * rng won't advance if we don't consume at least one bit
+             */
+            bool saw_one = true;
+
+            z = __builtin_ctzll(bs->bits);
+
+            if (z >= limit) {
+                saw_one = false;
+                z = limit;
+            }
+
+            zeroes += z;
+            bs->bits >>= z + saw_one;
+            bs->n_bits -= z + saw_one;
+            break;
+        }
+    }
+
+    return zeroes;
+}
 
 extern inline int32_t randi32(const struct rng *rng, int32_t min, int32_t max);
 extern inline int64_t randi64(const struct rng *rng, int64_t min, int64_t max);
