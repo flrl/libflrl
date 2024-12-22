@@ -4,6 +4,8 @@
 
 #include "flrl/xoshiro.h"
 
+#include <float.h>
+#include <math.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -197,6 +199,56 @@ static void fn_randi64v(NO_STATE)
     free(values);
 }
 
+static void fn_randf32v(NO_STATE)
+{
+    const struct {
+        double min;
+        double max;
+    } tests[] = {
+        {      0.0,     1.0 },
+        {  FLT_MIN,     1.0 },
+        {     -0.5,     0.5 },
+        {     -1.0,     1.0 },
+        {     -2.0,    -1.0 },
+        { -FLT_MAX,     0.0 },
+//         { -FLT_MAX, FLT_MAX }, /* XXX overflows range */
+        {      0.0, FLT_MAX },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    const size_t n_values = N_VALUES;
+    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    float *values;
+    unsigned i;
+
+    xoshiro128plusplus_seed64(rng.state, time(0));
+
+    values = calloc(n_values, sizeof(values[0]));
+    assert_non_null(values);
+
+    for (i = 0; i < n_tests; i++) {
+        float expect_min = tests[i].min;
+        float expect_max = tests[i].max;
+        float largest = -INFINITY, smallest = INFINITY;
+        unsigned j;
+
+        if (expect_min > expect_max) expect_min = expect_max;
+
+        randf32v(&rng, values, n_values, tests[i].min, tests[i].max);
+
+        for (j = 0; j < n_values; j++) {
+            if (values[j] > largest) largest = values[j];
+            if (values[j] < smallest) smallest = values[j];
+
+            assert_float_in_range(values[j], expect_min, expect_max);
+        }
+
+        if (expect_min != expect_max && n_values > 10)
+            assert_float_not_equal(smallest, largest, FLT_EPSILON);
+    }
+
+    free(values);
+}
+
 static void fn_bs_bits(NO_STATE)
 {
     uint32_t rng_state[] = {
@@ -301,6 +353,7 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test(fn_randi32v),
     cmocka_unit_test(fn_randu32v),
     cmocka_unit_test(fn_randi64v),
+    cmocka_unit_test(fn_randf32v),
     cmocka_unit_test(fn_bs_bits),
     cmocka_unit_test(fn_bs_zeroes),
 };

@@ -1,6 +1,7 @@
 #include "flrl/randutil.h"
 
 #include <assert.h>
+#include <float.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -25,7 +26,7 @@
 })
 
 struct bitstream {
-    struct rng *rng;
+    const struct rng *rng;
     uint64_t bits;
     unsigned n_bits;
 };
@@ -198,20 +199,50 @@ void randu32v(const struct rng *rng,
     }
 }
 
+/* based on https://allendowney.com/research/rand/downey07randfloat.pdf */
 void randf32v(const struct rng *rng,
               float *out,
               size_t count,
               double min,
               double max)
 {
+    struct bitstream bs = BITSTREAM_INITIALIZER(rng);
+    union overlay { float f; uint32_t i; };
     size_t i;
 
     assert(min < max);
+    if (min > max) min = max;
+    const double range = max - min;
+    assert(range <= FLT_MAX);
+    if (range > FLT_MAX) abort();
 
-    /* XXX this does not produce good uniform values! */
+    /* we'll generate values in [0, 1], then scale and translate to [min,max] */
+    const union overlay low = { .f = 0.0 };
+    const union overlay high = { .f = 1.0 };
+    const unsigned low_exp = (low.i >> 23) & 0xff;
+    const unsigned high_exp = ((high.i >> 23) & 0xff) - 1;
+    assert(high_exp > low_exp);
+
     for (i = 0; i < count; i++) {
-        double scale = rng->func(rng->state) / (double) UINT32_MAX;
-        out[i] = min + scale * (max - min);
+        uint32_t mantissa, exponent;
+        union overlay val;
+
+        /* choose random bits and decrement exponent until a 1 appears.
+         * start at high_exp - 1 to leave room to maybe +1 later. */
+        exponent = high_exp - bs_zeroes(&bs, high_exp - low_exp);
+
+        /* choose a random 23-bit mantissa */
+        mantissa = bs_bits(&bs, 23);
+
+        /* if the mantissa is zero, half the time we should move to the next
+         * exponent range */
+        if (mantissa == 0 && bs_bits(&bs, 1))
+            exponent ++;
+
+        /* combine the exponent and the mantissa */
+        val.i = (exponent << 23) | mantissa;
+
+        out[i] = fma(range, val.f, min);
     }
 }
 
@@ -331,7 +362,7 @@ uint64_t rand64_inrange(const struct wrng *r,
 
 float rand32f_uniform(const struct rng *r)
 {
-    /* XXX naive approach, not actually uniform! */
+    /* XXX naive: reasonably uniform, but only 83886081 possible values */
     return r->func(r->state) * 1.0 / UINT32_MAX;
 }
 

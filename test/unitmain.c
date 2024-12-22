@@ -103,7 +103,7 @@ void my_assert_float_equal(float a, float b,
 {
     const char msgprefix[] = "        --->";
 
-    int equalish = floats_equalish(a, b, 128 * FLT_EPSILON, FLT_MIN);
+    bool equalish = floats_equalish(a, b, 128 * FLT_EPSILON, FLT_MIN);
 
     if (!equalish) {
         cm_print_error("%.8g != %.8g (difference: %.8g)\n",
@@ -113,6 +113,18 @@ void my_assert_float_equal(float a, float b,
     else if (verbose && a != b) {
         print_message("%s Dissimilar: %14.8g != %-14.8g (diff: %-.8f)\n",
                       msgprefix, a, b, fabs(a-b));
+    }
+}
+
+void my_assert_float_not_equal(float a, float b,
+                               const char *const file, const int line)
+{
+    bool equalish = floats_equalish(a, b, 128 * FLT_EPSILON, FLT_MIN);
+
+    if (equalish) {
+        cm_print_error("%.8g and %.8g are equalish (difference: %.8g)\n",
+                       a, b, fabsf(a - b));
+        _fail(file, line);
     }
 }
 
@@ -128,9 +140,27 @@ void my_assert_int_in_range(const intmax_t value,
     bool in_range = value >= range_min && value <= range_max;
 
     if (!in_range) {
-        cm_print_error("%" PRIiMAX "d is not within the range[%" PRIiMAX "d, "
+        cm_print_error("%" PRIiMAX "d is not within the range [%" PRIiMAX "d, "
                        "%" PRIiMAX "d]\n",
                        value, range_min, range_max);
+        _fail(file, line);
+    }
+}
+
+/* XXX long double would be nice here but mingw can't printf it */
+void my_assert_float_in_range(const double value,
+                              const double range_min,
+                              const double range_max,
+                              const char *const file,
+                              const int line)
+{
+    bool in_range = value >= range_min && value <= range_max;
+
+    if (!in_range) {
+        cm_print_error("%.*g is not within the range [%.*g, %.*g]\n",
+                       DBL_DECIMAL_DIG, value,
+                       DBL_DECIMAL_DIG, range_min,
+                       DBL_DECIMAL_DIG, range_max);
         _fail(file, line);
     }
 }

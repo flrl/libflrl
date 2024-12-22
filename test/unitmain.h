@@ -29,6 +29,14 @@ extern CMFixtureFunction um_group_teardown;
 extern void my_assert_float_equal(float a, float b,
                                   const char *const file, const int line);
 
+#undef assert_float_not_equal
+#define assert_float_not_equal(a, b, e) do {                \
+    (void) (e);                                             \
+    my_assert_float_not_equal((a), (b), __FILE__, __LINE__);\
+} while (0)
+extern void my_assert_float_not_equal(float a, float b,
+                                      const char *const file, const int line);
+
 #define assert_int_in_range(v, l, u)                        \
     my_assert_int_in_range((v), (l), (u), __FILE__, __LINE__)
 extern void my_assert_int_in_range(const intmax_t value,
@@ -37,7 +45,15 @@ extern void my_assert_int_in_range(const intmax_t value,
                                    const char *const file,
                                    const int line);
 
-#define assert_string_prefix_equal(a, b, l)                                 \
+#define assert_float_in_range(v, l, u)                      \
+    my_assert_float_in_range((v), (l), (u), __FILE__, __LINE__)
+extern void my_assert_float_in_range(const double value,
+                                     const double range_min,
+                                     const double range_max,
+                                     const char *const file,
+                                     const int line);
+
+#define assert_string_prefix_equal(a, b, l)                 \
     my_assert_string_prefix_equal((a), (b), (l), __FILE__, __LINE__)
 extern void my_assert_string_prefix_equal(const char *a,
                                           const char *b,
