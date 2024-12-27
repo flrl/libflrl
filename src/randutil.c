@@ -314,6 +314,66 @@ void randf64v(const struct rng *rng __attribute__((unused)),
     abort();
 }
 
+void gaussf32v(const struct rng *rng,
+               float *out,
+               size_t count,
+               double mean,
+               double stddev)
+{
+    size_t i;
+
+    for (i = 0; i < count; i += 2) {
+        double v[2], s, t;
+
+        do {
+            float u[2];
+
+            randf32v(rng, u, 2, 0.0, 1.0);
+
+            v[0] = fma(2.0, u[0], -1.0);
+            v[1] = fma(2.0, u[1], -1.0);
+            s = v[0] * v[0] + v[1] * v[1];
+        } while (s >= 1.0 || s == 0.0);
+
+        t = sqrt(-2.0 * log(s) / s);
+
+        out[i] = fma(stddev, v[0] * t, mean);
+        if (i + 1 < count)
+            out[i + 1] = fma(stddev, v[1] * t, mean);
+    }
+}
+
+float gaussf32(const struct rng *rng, double mean, double stddev)
+{
+    static double v[2], t;
+    static int phase = 0;
+    double x;
+
+    if (0 == phase) {
+        double s;
+
+        do {
+            float u[2];
+
+            randf32v(rng, u, 2, 0.0, 1.0);
+
+            v[0] = fma(2.0, u[0], -1.0);
+            v[1] = fma(2.0, u[1], -1.0);
+            s = v[0] * v[0] + v[1] * v[1];
+        } while (s >= 1.0 || s == 0.0);
+
+        t = sqrt(-2.0 * log(s) / s);
+        x = v[0] * t;
+    }
+    else {
+        x = v[1] * t;
+    }
+
+    phase = 1 - phase;
+
+    return fma(stddev, x, mean);
+}
+
 /* XXX wrandx functions for struct wrng */
 
 /* XXX legacy */
@@ -513,33 +573,6 @@ extern unsigned sample64v(const struct wrng *r,
 extern unsigned sample64p(const struct wrng *r,
                           void *data, size_t rows, size_t rowsize,
                           size_t weight_offset);
-
-float rand32f_gaussian(const struct rng *r, float mean, float stdev)
-{
-    static float v1, v2, s;
-    static int phase = 0;
-    float x;
-
-    if (0 == phase) {
-        do {
-            float u1 = rand32f_uniform(r);
-            float u2 = rand32f_uniform(r);
-
-            v1 = 2 * u1 - 1;
-            v2 = 2 * u2 - 1;
-            s = v1 * v1 + v2 * v2;
-        } while (s >= 1 || s == 0);
-
-        x = v1 * sqrt(-2 * log(s) / s);
-    }
-    else {
-        x = v2 * sqrt(-2 * log(s) / s);
-    }
-
-    phase = 1 - phase;
-
-    return x * stdev + mean;
-}
 
 double rand64f_gaussian(const struct wrng *r, double mean, double stdev)
 {

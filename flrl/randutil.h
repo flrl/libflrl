@@ -116,6 +116,14 @@ inline double randf64(const struct rng *rng, double min, double max)
     return v;
 }
 
+extern void gaussf32v(const struct rng *rng,
+                      float *out,
+                      size_t count,
+                      double mean,
+                      double stddev);
+
+extern float gaussf32(const struct rng *rng, double mean, double stddev);
+
 /* XXX wrandx functions for struct wrng */
 
 /* XXX legacy */
