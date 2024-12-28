@@ -1,0 +1,98 @@
+#include "test/unitmain.h"
+
+#include "src/fputil.c"
+
+#include <float.h>
+#include <math.h>
+#include <stdio.h>
+
+static void fn_kbn_sumf32v(NO_STATE)
+{
+    const struct {
+        float values[16];
+        size_t n_values;
+        double expect_sum;
+    } tests[] = {
+        { { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0 },
+          12, 78.0 },
+        { { 1.0, powf(10.0, 37.0), 1.0, -powf(10.0, 37.0) },
+          4, 2.0 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        double kbn_sum = kbn_sumf32v(tests[i].values, tests[i].n_values);
+        double naive_sum = 0.0;
+        unsigned j;
+        const char *sep = "";
+
+        if (verbose) {
+            for (j = 0; j < tests[i].n_values; j++) {
+                naive_sum += tests[i].values[j];
+                printf("%s%.*g", sep, FLT_DECIMAL_DIG, tests[i].values[j]);
+                sep = " + ";
+            }
+            printf(" = kbn: %.*g naive: %.*g expected: %.*g\n",
+                   DBL_DECIMAL_DIG, kbn_sum,
+                   DBL_DECIMAL_DIG, naive_sum,
+                   DBL_DECIMAL_DIG, tests[i].expect_sum);
+        }
+
+        /* XXX assert_double_equal */
+        assert_true(floats_equalish(tests[i].expect_sum, kbn_sum,
+                                    128 * DBL_EPSILON, DBL_MIN));
+    }
+}
+
+static void fn_kbn_sumf64v(NO_STATE)
+{
+    const struct {
+        double values[16];
+        size_t n_values;
+        double expect_sum;
+    } tests[] = {
+        { { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0 },
+          12, 78.0 },
+        { { 1.0, pow(10.0, 100.0), 1.0, -pow(10.0, 100.0) },
+          4, 2.0 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        double kbn_sum = kbn_sumf64v(tests[i].values, tests[i].n_values);
+        double naive_sum = 0.0;
+        unsigned j;
+        const char *sep = "";
+
+        if (verbose) {
+            for (j = 0; j < tests[i].n_values; j++) {
+                naive_sum += tests[i].values[j];
+                printf("%s%.*g", sep, DBL_DECIMAL_DIG, tests[i].values[j]);
+                sep = " + ";
+            }
+            printf(" = kbn: %.*g naive: %.*g expected: %.*g\n",
+                   DBL_DECIMAL_DIG, kbn_sum,
+                   DBL_DECIMAL_DIG, naive_sum,
+                   DBL_DECIMAL_DIG, tests[i].expect_sum);
+        }
+
+        /* XXX assert_double_equal */
+        assert_true(floats_equalish(tests[i].expect_sum, kbn_sum,
+                                    128 * DBL_EPSILON, DBL_MIN));
+    }
+}
+
+const char *const um_group_name = "fputil";
+const struct CMUnitTest um_group_tests[] =
+{
+    cmocka_unit_test(fn_kbn_sumf32v),
+    cmocka_unit_test(fn_kbn_sumf64v),
+};
+const size_t um_group_n_tests = sizeof(um_group_tests)
+                                / sizeof(um_group_tests[0]);
+CMFixtureFunction um_group_setup = NULL;
+CMFixtureFunction um_group_teardown = NULL;
+
+/* vim: set ft=c */
