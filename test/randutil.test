@@ -2,6 +2,7 @@
 
 #include "src/randutil.c"
 
+#include "flrl/fputil.h"
 #include "flrl/xoshiro.h"
 
 #include <float.h>
@@ -412,14 +413,10 @@ static void gaussf32v_mean(NO_STATE)
     assert_non_null(values);
 
     for (i = 0; i < n_tests; i++) {
-        double mean = 0.0, mean_stddev;
-        unsigned j;
+        double mean, mean_stddev;
 
         gaussf32v(&rng, values, n_values, tests[i].mean, tests[i].stddev);
-
-        for (j = 0; j < n_values; j++) {
-            mean += values[j] * recip_n_values;
-        }
+        mean = kbn_sumf32v(values, n_values) * recip_n_values;
 
         /* the standard deviation of the mean is smaller than the standard
          * deviation of individual samples by a factor of 1/sqrt(n)
@@ -460,15 +457,11 @@ static void gaussf32v_variance(NO_STATE)
 
     for (i = 0; i < n_tests; i++) {
         const double expected_variance = tests[i].stddev * tests[i].stddev;
-        double mean = 0.0, variance = 0.0, variance_stddev;
+        double mean, variance = 0.0, variance_stddev;
         unsigned j;
 
         gaussf32v(&rng, values, n_values, tests[i].mean, tests[i].stddev);
-
-        for (j = 0; j < n_values; j++) {
-            mean += values[j] * recip_n_values;
-            /* can't compute variance until we have the mean... */
-        }
+        mean = kbn_sumf32v(values, n_values) *recip_n_values;
 
         for (j = 0; j < n_values; j++) {
             double diff = values[j] - mean;
