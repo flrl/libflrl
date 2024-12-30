@@ -406,6 +406,59 @@ static void randu64v_range(NO_STATE)
     free(values);
 }
 
+static void randf64v_range(NO_STATE)
+{
+    const struct {
+        double min;
+        double max;
+    } tests[] = {
+        {      0.0,     1.0 },
+        {  DBL_MIN,     1.0 },
+        {     -0.5,     0.5 },
+        {     -1.0,     1.0 },
+        {     -2.0,    -1.0 },
+        { -DBL_MAX,     0.0 },
+//         { -DBL_MAX, DBL_MAX }, /* XXX overflows range */
+        {      0.0, DBL_MAX },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    const size_t n_values = N_VALUES;
+    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    double *values;
+    unsigned i;
+
+    memcpy(rng.state, seed128, sizeof(seed128));
+
+    values = calloc(n_values, sizeof(values[0]));
+    assert_non_null(values);
+
+    for (i = 0; i < n_tests; i++) {
+        double expect_min = tests[i].min;
+        double expect_max = tests[i].max;
+        double largest = -INFINITY, smallest = INFINITY;
+        unsigned j;
+
+        if (expect_min > expect_max) expect_min = expect_max;
+
+        randf64v(&rng, values, n_values, tests[i].min, tests[i].max);
+
+        for (j = 0; j < n_values; j++) {
+            if (values[j] > largest) largest = values[j];
+            if (values[j] < smallest) smallest = values[j];
+
+            assert_float_in_range(values[j], expect_min, expect_max);
+        }
+
+        if (expect_min != expect_max && n_values > 10) {
+            /* XXX assert_double_not_equal */
+            assert_false(floats_equalish(smallest, largest,
+                                         128 * DBL_EPSILON, DBL_MIN));
+        }
+    }
+
+    free(values);
+}
+
 static void gaussf32v_gaussf32_same_seq(NO_STATE)
 {
     const struct {
@@ -619,6 +672,7 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test(randf32v_range),
     cmocka_unit_test(randi64v_range),
     cmocka_unit_test(randu64v_range),
+    cmocka_unit_test(randf64v_range),
     cmocka_unit_test(gaussf32v_gaussf32_same_seq),
     cmocka_unit_test(gaussf32v_mean),
     cmocka_unit_test(gaussf32v_variance),

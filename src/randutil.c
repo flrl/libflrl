@@ -346,13 +346,51 @@ void randu64v(const struct rng *rng,
     }
 }
 
-void randf64v(const struct rng *rng __attribute__((unused)),
-              double *out __attribute__((unused)),
-              size_t count __attribute__((unused)),
-              double min __attribute__((unused)),
-              double max __attribute__((unused)))
+/* based on https://allendowney.com/research/rand/downey07randfloat.pdf */
+void randf64v(const struct rng *rng,
+              double *out,
+              size_t count,
+              double min,
+              double max)
 {
-    abort();
+    struct bitstream bs = BITSTREAM_INITIALIZER(rng);
+    union overlay { double f; uint64_t i; };
+    size_t i;
+
+    assert(min < max);
+    if (min > max) min = max;
+    const double range = max - min;
+    assert(range <= DBL_MAX);
+    if (range > DBL_MAX) abort();
+
+    /* we'll generate values in [0, 1], then scale and translate to [min,max] */
+    const union overlay low = { .f = 0.0 };
+    const union overlay high = { .f = 1.0 };
+    const unsigned low_exp = (low.i >> 52) & 0x7ff;
+    const unsigned high_exp = ((high.i >> 52) & 0x7ff) - 1;
+    assert(high_exp > low_exp);
+
+    for (i = 0; i < count; i++) {
+        uint64_t mantissa, exponent;
+        union overlay val;
+
+        /* choose random bits and decrement exponent until a 1 appears.
+         * start at high_exp - 1 to leave room to maybe +1 later. */
+        exponent = high_exp - bs_zeroes(&bs, high_exp - low_exp);
+
+        /* choose a random 52-bit mantissa */
+        mantissa = (uint64_t) bs_bits(&bs, 20) << 32 | bs_bits(&bs, 32);
+
+        /* if the mantissa is zero, half the time we should move to the next
+         * exponent range */
+        if (mantissa == 0 && bs_bits(&bs, 1))
+            exponent ++;
+
+        /* combine the exponent and the mantissa */
+        val.i = (exponent << 52) | mantissa;
+
+        out[i] = fma(range, val.f, min);
+    }
 }
 
 void gaussf32v(const struct rng *rng,
