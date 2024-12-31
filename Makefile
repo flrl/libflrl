@@ -1,6 +1,6 @@
 CC := gcc
 AR := ar
-CFLAGS := -O0 -g -Wall -Wextra -Werror -Wsuggest-attribute=format $(CFLAGS)
+CFLAGS := -O0 -ggdb3 -Wall -Wextra -Werror -Wsuggest-attribute=format $(CFLAGS)
 LDFLAGS := $(LDFLAGS)
 UTMUX := $(shell which utmux 2>/dev/null)
 
