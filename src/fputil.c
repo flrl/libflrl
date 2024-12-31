@@ -1,28 +1,26 @@
+#include "flrl/fputil.h"
+
 #include <float.h>
 #include <math.h>
 
-#include "flrl/fputil.h"
-
-int floats_equalish(float a, float b, float epsilon, float abs_th)
+bool floats_equalish(double a, double b, double epsilon, double abs_th)
 {
     /* https://stackoverflow.com/a/32334103 */
-    float diff, norm, ref;
+    double diff, norm, ref;
 
-    if (epsilon == 0.0f) epsilon = 128 * FLT_EPSILON;
-    if (abs_th == 0.0f) abs_th = FLT_MIN;
+    if (epsilon == 0.0f) epsilon = 128 * DBL_EPSILON;
+    if (abs_th == 0.0f) abs_th = DBL_MIN;
 
-    if (a == b) return 1;
+    if (a == b) return true;
 
-    diff = fabsf(a - b);
-    norm = fabsf(a + b);
-    if (norm > FLT_MAX) norm = FLT_MAX;
+    diff = fabs(a - b);
+    norm = fabs(a + b);
+    if (norm > DBL_MAX) norm = DBL_MAX;
 
     ref = epsilon * norm;
     if (ref < abs_th) ref = abs_th;
 
-    if (diff < ref) return 1;
-
-    return 0;
+    return diff < ref;
 }
 
 /* Kahan Babushka Neumaier sum */
