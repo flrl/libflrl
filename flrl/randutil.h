@@ -155,6 +155,14 @@ extern void gaussf32v(struct randbs *bs,
 
 extern float gaussf32(struct randbs *bs, double mean, double stddev);
 
+extern void gaussf64v(struct randbs *bs,
+                      double *out,
+                      size_t count,
+                      double mean,
+                      double stddev);
+
+extern double gaussf64(struct randbs *bs, double mean, double stddev);
+
 inline bool coin(struct randbs *bs, float p_true)
 {
     return randf32(bs, 0.0, 1.0) <= p_true;

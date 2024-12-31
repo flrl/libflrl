@@ -231,4 +231,18 @@ float gaussf32(struct randbs *bs, double mean, double stddev)
     return gauss<struct randbs, float, uint32_t>(bs, mean, stddev);
 }
 
+void gaussf64v(struct randbs *bs,
+               double *out,
+               size_t count,
+               double mean,
+               double stddev)
+{
+    gaussv<struct randbs, double, uint64_t>(bs, out, count, mean, stddev);
+}
+
+double gaussf64(struct randbs *bs, double mean, double stddev)
+{
+    return gauss<struct randbs, double, uint64_t>(bs, mean, stddev);
+}
+
 } /* extern "C" */

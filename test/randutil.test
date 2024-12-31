@@ -808,7 +808,6 @@ static void randf64v_chi2(NO_STATE)
     free(values);
 }
 
-
 static void gaussf32v_gaussf32_same_seq(NO_STATE)
 {
     const struct {
@@ -1012,6 +1011,211 @@ static void gaussf32v_chi2(NO_STATE)
 
     free(values);
 }
+
+static void gaussf64v_gaussf64_same_seq(NO_STATE)
+{
+    const struct {
+        double mean;
+        double stddev;
+    } tests[] = {
+        { 0.0, 1.0 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    const size_t n_values = N_VALUES;
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    double *values;
+    unsigned i;
+
+    values = calloc(n_values, sizeof(values[0]));
+    assert_non_null(values);
+
+    for (i = 0; i < n_tests; i++) {
+        unsigned j;
+
+        randbs_seed(&bs, seed128, sizeof(seed128));
+        gaussf64v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
+
+        randbs_seed(&bs, seed128, sizeof(seed128));
+        for (j = 0; j < n_values; j++) {
+            double v = gaussf64(&bs, tests[i].mean, tests[i].stddev);
+
+            assert_float_equal(v, values[j], FLT_EPSILON);
+        }
+    }
+
+    free(values);
+}
+
+static void gaussf64v_mean(NO_STATE)
+{
+    const struct {
+        double mean;
+        double stddev;
+    } tests[] = {
+        { 0.0, 1.0 },
+        { 4.0, 3.0 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    const size_t n_values = 1 << 20; /* about a million, as a power of two */
+    const double recip_n_values = 1.0 / n_values;
+    const double recip_sqrt_n_values = 1.0 / sqrt(n_values);
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    double *values;
+    unsigned i;
+
+    randbs_seed64(&bs, time(NULL));
+
+    values = calloc(n_values, sizeof(values[0]));
+    assert_non_null(values);
+
+    for (i = 0; i < n_tests; i++) {
+        double mean, mean_stddev;
+
+        gaussf64v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
+        mean = kbn_sumf64v(values, n_values) * recip_n_values;
+
+        /* the standard deviation of the mean is smaller than the standard
+         * deviation of individual samples by a factor of 1/sqrt(n)
+         */
+        mean_stddev = tests[i].stddev * recip_sqrt_n_values;
+
+        /* should be within 2 standard deviations 95% of the time, and within
+         * 3 standard deviations 99.7% of the time
+         */
+        assert_float_in_range(mean,
+                              fma(-3.0, mean_stddev, tests[i].mean),
+                              fma(3.0, mean_stddev, tests[i].mean));
+    }
+
+    free(values);
+}
+
+static void gaussf64v_variance(NO_STATE)
+{
+    const struct {
+        double mean;
+        double stddev;
+    } tests[] = {
+        {  0.0, 1.0 },
+        { -2.0, 7.0 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    const size_t n_values = 1 << 20; /* about a million, as a power of two */
+    const double recip_n_values = 1.0 / n_values;
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    double *values;
+    unsigned i;
+
+    randbs_seed64(&bs, time(NULL));
+
+    values = calloc(n_values, sizeof(values[0]));
+    assert_non_null(values);
+
+    for (i = 0; i < n_tests; i++) {
+        const double expected_variance = tests[i].stddev * tests[i].stddev;
+        double mean, variance = 0.0, variance_stddev;
+        unsigned j;
+
+        gaussf64v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
+        mean = kbn_sumf64v(values, n_values) *recip_n_values;
+
+        for (j = 0; j < n_values; j++) {
+            double diff = values[j] - mean;
+
+            /* n.b. using population variance rather than sample variance,
+             * because x/n plays nicer with floating point than x/(n - 1)
+             * when n is a power of 2
+             */
+            variance += diff * diff * recip_n_values;
+        }
+
+        /* sample variance approximately has a normal distribution with mean
+         * of stddev^2 and variance of 2*stddev^4 / (n - 1)
+         */
+        variance_stddev = sqrt(2.0 * pow(tests[i].stddev, 4.0) * recip_n_values);
+        assert_float_in_range(variance,
+                              fma(-3.0, variance_stddev, expected_variance),
+                              fma(3.0, variance_stddev, expected_variance));
+    }
+
+    free(values);
+}
+
+static void gaussf64v_chi2(NO_STATE)
+{
+    const struct {
+        double mean;
+        double stddev;
+    } tests[] = {
+        {  0.0, 1.0 },
+        { -2.0, 7.0 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    const size_t n_values = 1 << 20; /* about a million, as a power of two */
+    const size_t n_buckets = 8;
+    const double bucket_p[8] = { 0.00135, 0.0214, 0.1359, 0.34135,
+                                 0.34135, 0.1359, 0.0214, 0.00135 };
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    double *values;
+    unsigned i;
+
+    randbs_seed64(&bs, time(NULL));
+
+    values = calloc(n_values, sizeof(values[0]));
+    assert_non_null(values);
+
+    for (i = 0; i < n_tests; i++) {
+        double chi2 = 0.0;
+        unsigned bucket[8] = { 0 };
+        unsigned j;
+
+        gaussf64v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
+
+        for (j = 0; j < n_values; j++) {
+            if (values[j] < tests[i].mean - 3.0 * tests[i].stddev) {
+                bucket[0] ++;
+            }
+            else if (values[j] < tests[i].mean - 2.0 * tests[i].stddev) {
+                bucket[1] ++;
+            }
+            else if (values[j] < tests[i].mean - tests[i].stddev) {
+                bucket[2] ++;
+            }
+            else if (values[j] < tests[i].mean) {
+                bucket[3] ++;
+            }
+            else if (values[j] < tests[i].mean + tests[i].stddev) {
+                bucket[4] ++;
+            }
+            else if (values[j] < tests[i].mean + 2.0 * tests[i].stddev) {
+                bucket[5] ++;
+            }
+            else if (values[j] < tests[i].mean + 3.0 * tests[i].stddev) {
+                bucket[6] ++;
+            }
+            else {
+                bucket[7] ++;
+            }
+        }
+
+        for (j = 0; j < n_buckets; j++) {
+            double e, x;
+
+            e = bucket_p[j] * n_values;
+            x = bucket[j] - e;
+            chi2 += x * x / e;
+        }
+
+        double chi2_stddev = sqrt(fma(2.0, n_buckets, -2.0));
+
+        assert_float_in_range(chi2,
+                              fma(-3.0, chi2_stddev, n_buckets - 1.0),
+                              fma(3.0, chi2_stddev, n_buckets - 1.0));
+    }
+
+    free(values);
+}
+
 const char *const um_group_name = "randutil";
 const struct CMUnitTest um_group_tests[] =
 {
@@ -1033,6 +1237,10 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test(gaussf32v_mean),
     cmocka_unit_test(gaussf32v_variance),
     cmocka_unit_test(gaussf32v_chi2),
+    cmocka_unit_test(gaussf64v_gaussf64_same_seq),
+    cmocka_unit_test(gaussf64v_mean),
+    cmocka_unit_test(gaussf64v_variance),
+    cmocka_unit_test(gaussf64v_chi2),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);
