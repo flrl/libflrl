@@ -296,6 +296,84 @@ static void randf32v_range(NO_STATE)
     free(values);
 }
 
+static void randf32v_chi2(NO_STATE)
+{
+    const struct {
+        double min;
+        double max;
+    } tests[] = {
+        {      0.0,     1.0 },
+        {  FLT_MIN,     1.0 },
+        {     -0.5,     0.5 },
+        {     -1.0,     1.0 },
+        {     -2.0,    -1.0 },
+        { -FLT_MAX,     0.0 },
+        {      0.0, FLT_MAX },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    const size_t n_values = 1000000;
+    const size_t n_buckets = 16;
+    const double bucket_p = 1.0 / n_buckets;
+    /* from table: 15 dof at p=0.995, p=0.005 */
+    const double critical_value[] = { 4.601, 32.801 };
+    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    unsigned *bucket;
+    double *bucket_t, *deviation;
+    float *values;
+    unsigned i;
+
+    memcpy(rng.state, seed128, sizeof(seed128));
+
+    values = calloc(n_values, sizeof(values[0]));
+    bucket = calloc(n_buckets, sizeof(bucket[0]));
+    bucket_t = calloc(n_buckets, sizeof(bucket_t[0]));
+    deviation = calloc(n_buckets, sizeof(deviation[0]));
+
+    assert_true(values && bucket);
+
+    for (i = 0; i < n_tests; i++) {
+        const double range = (tests[i].max - tests[i].min) / n_buckets;
+        double chi2;
+        unsigned j;
+
+        randf32v(&rng, values, n_values, tests[i].min, tests[i].max);
+
+        memset(bucket_t, 0, n_buckets * sizeof(bucket_t[0]));
+        for (j = 0; j < n_buckets; j++) {
+            bucket_t[j] = fma(j + 1.0, range, tests[i].min);
+        }
+
+        memset(bucket, 0, n_buckets * sizeof(bucket[0]));
+        for (j = 0; j < n_values; j++) {
+            unsigned b;
+
+            /* no buckets for out-of-range values */
+            assert_float_in_range(values[j], tests[i].min, tests[i].max);
+
+            for (b = 0; b < n_buckets; b++) {
+                if (values[j] < bucket_t[b]) {
+                    bucket[b] ++;
+                    break;
+                }
+            }
+        }
+
+        memset(deviation, 0, n_buckets * sizeof(deviation[0]));
+        for (j = 0; j < n_buckets; j++) {
+            double e = bucket_p * n_values;
+            double x = bucket[j] - e;
+            deviation[j] = x * x / e;
+        }
+        chi2 = kbn_sumf64v(deviation, n_buckets);
+        assert_float_in_range(chi2, critical_value[0], critical_value[1]);
+    }
+
+    free(deviation);
+    free(bucket_t);
+    free(bucket);
+    free(values);
+}
+
 static void randi64v_range(NO_STATE)
 {
     const struct {
@@ -458,6 +536,85 @@ static void randf64v_range(NO_STATE)
 
     free(values);
 }
+
+static void randf64v_chi2(NO_STATE)
+{
+    const struct {
+        double min;
+        double max;
+    } tests[] = {
+        {      0.0,     1.0 },
+        {  DBL_MIN,     1.0 },
+        {     -0.5,     0.5 },
+        {     -1.0,     1.0 },
+        {     -2.0,    -1.0 },
+        { -DBL_MAX,     0.0 },
+        {      0.0, DBL_MAX },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    const size_t n_values = 1000000;
+    const size_t n_buckets = 16;
+    const double bucket_p = 1.0 / n_buckets;
+    /* from table: 15 dof at p=0.995, p=0.005 */
+    const double critical_value[] = { 4.601, 32.801 };
+    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    unsigned *bucket;
+    double *bucket_t, *deviation;
+    double *values;
+    unsigned i;
+
+    memcpy(rng.state, seed128, sizeof(seed128));
+
+    values = calloc(n_values, sizeof(values[0]));
+    bucket = calloc(n_buckets, sizeof(bucket[0]));
+    bucket_t = calloc(n_buckets, sizeof(bucket_t[0]));
+    deviation = calloc(n_buckets, sizeof(deviation[0]));
+
+    assert_true(values && bucket);
+
+    for (i = 0; i < n_tests; i++) {
+        const double range = (tests[i].max - tests[i].min) / n_buckets;
+        double chi2;
+        unsigned j;
+
+        randf64v(&rng, values, n_values, tests[i].min, tests[i].max);
+
+        memset(bucket_t, 0, n_buckets * sizeof(bucket_t[0]));
+        for (j = 0; j < n_buckets; j++) {
+            bucket_t[j] = fma(j + 1.0, range, tests[i].min);
+        }
+
+        memset(bucket, 0, n_buckets * sizeof(bucket[0]));
+        for (j = 0; j < n_values; j++) {
+            unsigned b;
+
+            /* no buckets for out-of-range values */
+            assert_float_in_range(values[j], tests[i].min, tests[i].max);
+
+            for (b = 0; b < n_buckets; b++) {
+                if (values[j] < bucket_t[b]) {
+                    bucket[b] ++;
+                    break;
+                }
+            }
+        }
+
+        memset(deviation, 0, n_buckets * sizeof(deviation[0]));
+        for (j = 0; j < n_buckets; j++) {
+            double e = bucket_p * n_values;
+            double x = bucket[j] - e;
+            deviation[j] = x * x / e;
+        }
+        chi2 = kbn_sumf64v(deviation, n_buckets);
+        assert_float_in_range(chi2, critical_value[0], critical_value[1]);
+    }
+
+    free(deviation);
+    free(bucket_t);
+    free(bucket);
+    free(values);
+}
+
 
 static void gaussf32v_gaussf32_same_seq(NO_STATE)
 {
@@ -670,9 +827,11 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test(randi32v_range),
     cmocka_unit_test(randu32v_range),
     cmocka_unit_test(randf32v_range),
+    cmocka_unit_test(randf32v_chi2),
     cmocka_unit_test(randi64v_range),
     cmocka_unit_test(randu64v_range),
     cmocka_unit_test(randf64v_range),
+    cmocka_unit_test(randf64v_chi2),
     cmocka_unit_test(gaussf32v_gaussf32_same_seq),
     cmocka_unit_test(gaussf32v_mean),
     cmocka_unit_test(gaussf32v_variance),
