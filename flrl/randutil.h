@@ -1,6 +1,7 @@
 #ifndef LIBFLRL_RANDUTIL_H
 #define LIBFLRL_RANDUTIL_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 struct rng {
@@ -131,6 +132,11 @@ extern void gaussf64v(const struct rng *rng,
                       double stddev);
 
 extern double gaussf64(const struct rng *rng, double mean, double stddev);
+
+inline bool coin(const struct rng *rng, float p_true)
+{
+    return randf32(rng, 0.0, 1.0) <= p_true;
+}
 
 /* XXX wrandx functions for struct wrng */
 

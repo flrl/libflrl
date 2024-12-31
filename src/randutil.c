@@ -112,6 +112,7 @@ extern inline uint32_t randu32(const struct rng *rng, uint32_t min, uint32_t max
 extern inline uint64_t randu64(const struct rng *rng, uint64_t min, uint64_t max);
 extern inline float randf32(const struct rng *rng, double min, double max);
 extern inline double randf64(const struct rng *rng, double min, double max);
+extern inline bool coin(const struct rng *rng, float p_true);
 
 void randi32v(const struct rng *rng,
               int32_t *out,
