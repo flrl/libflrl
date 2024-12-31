@@ -141,24 +141,6 @@ inline bool coin(const struct rng *rng, float p_true)
 /* XXX wrandx functions for struct wrng */
 
 /* XXX legacy */
-extern uint32_t rand32_inrange(const struct rng *r, uint32_t min, uint32_t max);
-
-extern uint64_t rand64_inrange(const struct wrng *r, uint64_t min, uint64_t max);
-
-extern float rand32f_uniform(const struct rng *r);
-
-extern double rand64f_uniform(const struct wrng *r);
-
-inline int rand32_coin(const struct rng *r, float p_heads)
-{
-    return (rand32f_uniform(r) < p_heads);
-}
-
-inline int rand64_coin(const struct wrng *r, double p_heads)
-{
-    return (rand64f_uniform(r) < p_heads);
-}
-
 struct weight {
     uint16_t weight;
     uint16_t cumulative;
@@ -189,10 +171,4 @@ extern unsigned sample64v(const struct wrng *r,
 extern unsigned sample64p(const struct wrng *r,
                           void *data, size_t rows, size_t rowsize,
                           size_t weight_offset);
-
-/* for "standard normal distribution", specify mean=0 and stdev=1 */
-extern float rand32f_gaussian(const struct rng *rng, float mean, float stdev);
-
-extern double rand64f_gaussian(const struct wrng *r, double mean, double stdev);
-
 #endif
