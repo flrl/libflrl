@@ -124,6 +124,14 @@ extern void gaussf32v(const struct rng *rng,
 
 extern float gaussf32(const struct rng *rng, double mean, double stddev);
 
+extern void gaussf64v(const struct rng *rng,
+                      double *out,
+                      size_t count,
+                      double mean,
+                      double stddev);
+
+extern double gaussf64(const struct rng *rng, double mean, double stddev);
+
 /* XXX wrandx functions for struct wrng */
 
 /* XXX legacy */

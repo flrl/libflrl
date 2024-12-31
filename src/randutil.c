@@ -453,6 +453,66 @@ float gaussf32(const struct rng *rng, double mean, double stddev)
     return fma(stddev, x, mean);
 }
 
+void gaussf64v(const struct rng *rng,
+               double *out,
+               size_t count,
+               double mean,
+               double stddev)
+{
+    size_t i;
+
+    for (i = 0; i < count; i += 2) {
+        double v[2], s, t;
+
+        do {
+            double u[2];
+
+            randf64v(rng, u, 2, 0.0, 1.0);
+
+            v[0] = fma(2.0, u[0], -1.0);
+            v[1] = fma(2.0, u[1], -1.0);
+            s = v[0] * v[0] + v[1] * v[1];
+        } while (s >= 1.0 || s == 0.0);
+
+        t = sqrt(-2.0 * log(s) / s);
+
+        out[i] = fma(stddev, v[0] * t, mean);
+        if (i + 1 < count)
+            out[i + 1] = fma(stddev, v[1] * t, mean);
+    }
+}
+
+double gaussf64(const struct rng *rng, double mean, double stddev)
+{
+    static double v[2], t;
+    static int phase = 0;
+    double x;
+
+    if (0 == phase) {
+        double s;
+
+        do {
+            double u[2];
+
+            randf64v(rng, u, 2, 0.0, 1.0);
+
+            v[0] = fma(2.0, u[0], -1.0);
+            v[1] = fma(2.0, u[1], -1.0);
+            s = v[0] * v[0] + v[1] * v[1];
+        } while (s >= 1.0 || s == 0.0);
+
+        t = sqrt(-2.0 * log(s) / s);
+        x = v[0] * t;
+    }
+    else {
+        x = v[1] * t;
+    }
+
+    phase = 1 - phase;
+
+    return fma(stddev, x, mean);
+}
+
 /* XXX wrandx functions for struct wrng */
 
 /* XXX legacy */
