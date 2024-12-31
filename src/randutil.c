@@ -458,65 +458,7 @@ float gaussf32(const struct rng *rng, double mean, double stddev)
 
 /* XXX legacy */
 
-uint32_t rand32_inrange(const struct rng *r,
-                        uint32_t min, uint32_t max)
-{
-    uint32_t range;
-    uint32_t value;
-    int needloop;
-
-    assert(max >= min);
-
-    if (max == min) return min;
-
-    range = 1 + max - min; /* inclusive */
-    needloop = (0 != UINT32_MAX % range);
-
-    do {
-        value = r->func(r->state);
-    } while (needloop && value > UINT32_MAX - range);
-
-    return min + value % range;
-}
-
-uint64_t rand64_inrange(const struct wrng *r,
-                        uint64_t min, uint64_t max)
-{
-    uint64_t range;
-    uint64_t value;
-    int needloop;
-
-    assert(max >= min);
-
-    if (max == min) return min;
-
-    range = 1 + max - min; /* inclusive */
-    needloop = (0 != UINT64_MAX % range);
-
-    do {
-        value = r->func(r->state);
-    } while (needloop && value > UINT64_MAX - range);
-
-    return min + value % range;
-}
-
-float rand32f_uniform(const struct rng *r)
-{
-    /* XXX naive: reasonably uniform, but only 83886081 possible values */
-    return r->func(r->state) * 1.0 / UINT32_MAX;
-}
-
-double rand64f_uniform(const struct wrng *r)
-{
-    /* XXX naive approach, not actually uniform! */
-    return r->func(r->state) * 1.0 / UINT64_MAX;
-}
-
-extern inline int rand32_coin(const struct rng *r, float p_heads);
-
-extern inline int rand64_coin(const struct wrng *r, double p_heads);
-
-unsigned sample32(const struct rng *r,
+unsigned sample32(const struct rng *rng,
                   const unsigned weights[], size_t n_weights)
 {
     unsigned *cdf = NULL;
@@ -539,7 +481,7 @@ unsigned sample32(const struct rng *r,
     assert(sum > 0);
     if (sum == 0) return 0;
 
-    rand = rand32_inrange(r, 0, sum - 1);
+    rand = randu32(rng, 0, sum - 1);
     for (i = 0; i < n_weights && rand >= cdf[i]; i++)
         ;
 
@@ -547,7 +489,7 @@ unsigned sample32(const struct rng *r,
     return i;
 }
 
-unsigned sample32v(const struct rng *r,
+unsigned sample32v(const struct rng *rng,
                    size_t n_pairs, ...)
 {
     unsigned *values = NULL;
@@ -583,7 +525,7 @@ unsigned sample32v(const struct rng *r,
     assert(sum > 0);
     if (sum == 0) return 0;
 
-    rand = rand32_inrange(r, 0, sum - 1);
+    rand = randu32(rng, 0, sum - 1);
     for (i = 0; i < n_pairs && rand >= cdf[i]; i++)
         ;
 
@@ -595,7 +537,7 @@ unsigned sample32v(const struct rng *r,
 }
 
 /* n elems of size z with struct weight at offset t, save cdf, return index */
-unsigned sample32p(const struct rng *r,
+unsigned sample32p(const struct rng *rng,
                    void *data, size_t rows, size_t rowsize,
                    size_t weight_offset)
 {
@@ -627,7 +569,7 @@ unsigned sample32p(const struct rng *r,
     assert(sum > 0);
     if (sum == 0) return 0;
 
-    rand = rand32_inrange(r, 0, sum - 1);
+    rand = randu32(rng, 0, sum - 1);
 
     i = 0;
     do {
@@ -642,41 +584,14 @@ unsigned sample32p(const struct rng *r,
 }
 
 /* n weights, build temp cdf, return index */
-extern unsigned sample64(const struct wrng *r,
+extern unsigned sample64(const struct wrng *rng,
                          const unsigned weights[], size_t n_weights);
 
 /* n weight|value pairs, build temp cdf, return value */
-extern unsigned sample64v(const struct wrng *r,
+extern unsigned sample64v(const struct wrng *rng,
                           size_t n_pairs, ...);
 
 /* n elems of size z with struct weight at offset t, save cdf, return index */
-extern unsigned sample64p(const struct wrng *r,
+extern unsigned sample64p(const struct wrng *rng,
                           void *data, size_t rows, size_t rowsize,
                           size_t weight_offset);
-
-double rand64f_gaussian(const struct wrng *r, double mean, double stdev)
-{
-    static double v1, v2, s;
-    static int phase = 0;
-    double x;
-
-    if (0 == phase) {
-        do {
-            double u1 = rand64f_uniform(r);
-            double u2 = rand64f_uniform(r);
-
-            v1 = 2 * u1 - 1;
-            v2 = 2 * u2 - 1;
-            s = v1 * v1 + v2 * v2;
-        } while (s >= 1 || s == 0);
-
-        x = v1 * sqrt(-2 * log(s) / s);
-    }
-    else {
-        x = v2 * sqrt(-2 * log(s) / s);
-    }
-
-    phase = 1 - phase;
-
-    return x * stdev + mean;
-}
