@@ -45,16 +45,16 @@ struct wrng {
     &(struct xoshiro256star_state){{0}},            \
 }
 
-struct bitstream {
+struct randbs {
     const struct rng *rng;
     uint64_t bits;
     unsigned n_bits;
 };
-#define BITSTREAM_INITIALIZER(g) (struct bitstream){ (g), 0, 0 }
-#define BITSTREAM_MAX_BITS (64U)
+#define RANDBS_INITIALIZER(g) (struct randbs){ (g), 0, 0 }
+#define RANDBS_MAX_BITS (64U)
 
-extern uint64_t bs_bits(struct bitstream *bs, unsigned want_bits);
-extern unsigned bs_zeroes(struct bitstream *bs, unsigned limit);
+extern uint64_t randbs_bits(struct randbs *bs, unsigned want_bits);
+extern unsigned randbs_zeroes(struct randbs *bs, unsigned limit);
 
 extern void randi32v(const struct rng *rng,
                      int32_t *out,

@@ -27,21 +27,21 @@ static inline uint64_t mask_bits(unsigned bits)
            : UINT64_C(0) - 1;
 }
 
-uint64_t bs_bits(struct bitstream *bs, unsigned want_bits)
+uint64_t randbs_bits(struct randbs *bs, unsigned want_bits)
 {
     uint64_t bits;
     uint32_t extra = 0;
 
-    assert(want_bits > 0 && want_bits <= BITSTREAM_MAX_BITS);
+    assert(want_bits > 0 && want_bits <= RANDBS_MAX_BITS);
     if (!want_bits) return 0;
-    if (want_bits > BITSTREAM_MAX_BITS) abort();
+    if (want_bits > RANDBS_MAX_BITS) abort();
 
     while (bs->n_bits < want_bits) {
         uint64_t v;
         unsigned b;
 
         v = bs->rng->func(bs->rng->state);
-        b = BITSTREAM_MAX_BITS - bs->n_bits;
+        b = RANDBS_MAX_BITS - bs->n_bits;
 
         bs->bits |= v << bs->n_bits;
         extra = b < 32 ? v >> b : 0;
@@ -50,15 +50,15 @@ uint64_t bs_bits(struct bitstream *bs, unsigned want_bits)
 
     bits = bs->bits & mask_bits(want_bits);
 
-    bs->bits = want_bits < BITSTREAM_MAX_BITS ? bs->bits >> want_bits : 0;
+    bs->bits = want_bits < RANDBS_MAX_BITS ? bs->bits >> want_bits : 0;
     if (extra)
-        bs->bits |= (uint64_t) extra << (BITSTREAM_MAX_BITS - want_bits);
+        bs->bits |= (uint64_t) extra << (RANDBS_MAX_BITS - want_bits);
     bs->n_bits -= want_bits;
 
     return bits;
 }
 
-unsigned bs_zeroes(struct bitstream *bs, unsigned limit)
+unsigned randbs_zeroes(struct randbs *bs, unsigned limit)
 {
     unsigned zeroes = 0, z;
 
