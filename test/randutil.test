@@ -91,8 +91,7 @@ static void fn_randbs_bits(NO_STATE)
         {  2, 0b11 },
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
-    struct rng rng = { .func = mock_rng32, .state = rng_state };
-    struct randbs bs = RANDBS_INITIALIZER(rng);
+    struct randbs bs = {{ .func = mock_rng32, .state = rng_state }, 0, 0 };
     unsigned i;
 
     for (i = 0; i < n_tests; i++) {
@@ -147,8 +146,7 @@ static void fn_randbs_zeroes(NO_STATE)
         { 32, 27, 9 },
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
-    struct rng rng = { .func = mock_rng32, .state = rng_state };
-    struct randbs bs = RANDBS_INITIALIZER(rng);
+    struct randbs bs = {{ .func = mock_rng32, .state = rng_state }, 0, 0 };
     unsigned i;
 
     for (i = 0; i < n_tests; i++) {
@@ -182,11 +180,11 @@ static void randi32v_range(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = N_VALUES;
-    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
     int32_t *values;
     unsigned i;
 
-    memcpy(rng.state, seed128, sizeof(seed128));
+    memcpy(bs.rng.state, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -199,7 +197,7 @@ static void randi32v_range(NO_STATE)
 
         if (expect_min > expect_max) expect_min = expect_max;
 
-        randi32v(&rng, values, n_values, tests[i].min, tests[i].max);
+        randi32v(&bs, values, n_values, tests[i].min, tests[i].max);
 
         for (j = 0; j < n_values; j++) {
             if (values[j] > largest) largest = values[j];
@@ -238,7 +236,7 @@ static void randi32v_call_count(NO_STATE)
         { 10, INT32_MIN, INT32_MAX },
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
-    struct rng rng = { .func = mock_rng32, .state = rng_state };
+    struct randbs bs = {{ .func = mock_rng32, .state = rng_state }, 0, 0 };
     int32_t *values;
     unsigned i;
 
@@ -249,7 +247,7 @@ static void randi32v_call_count(NO_STATE)
         values = calloc(tests[i].n_values, sizeof(values[0]));
 
         rng_state[1] = 0; /* reset call count */
-        randi32v(&rng, values, tests[i].n_values, tests[i].min, tests[i].max);
+        randi32v(&bs, values, tests[i].n_values, tests[i].min, tests[i].max);
 
         assert_in_range(rng_state[1],
                         min_call_count,
@@ -275,11 +273,11 @@ static void randu32v_range(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = N_VALUES;
-    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
     uint32_t *values;
     unsigned i;
 
-    memcpy(rng.state, seed128, sizeof(seed128));
+    memcpy(bs.rng.state, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -292,7 +290,7 @@ static void randu32v_range(NO_STATE)
 
         if (expect_min > expect_max) expect_min = expect_max;
 
-        randu32v(&rng, values, n_values, tests[i].min, tests[i].max);
+        randu32v(&bs, values, n_values, tests[i].min, tests[i].max);
 
         for (j = 0; j < n_values; j++) {
             if (values[j] > largest) largest = values[j];
@@ -331,7 +329,7 @@ static void randu32v_call_count(NO_STATE)
         { 10, 0, UINT32_MAX },
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
-    struct rng rng = { .func = mock_rng32, .state = rng_state };
+    struct randbs bs = {{ .func = mock_rng32, .state = rng_state }, 0, 0 };
     uint32_t *values;
     unsigned i;
 
@@ -342,7 +340,7 @@ static void randu32v_call_count(NO_STATE)
         values = calloc(tests[i].n_values, sizeof(values[0]));
 
         rng_state[1] = 0; /* reset call count */
-        randu32v(&rng, values, tests[i].n_values, tests[i].min, tests[i].max);
+        randu32v(&bs, values, tests[i].n_values, tests[i].min, tests[i].max);
 
         assert_in_range(rng_state[1],
                         min_call_count,
@@ -369,11 +367,11 @@ static void randf32v_range(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = N_VALUES;
-    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
     float *values;
     unsigned i;
 
-    memcpy(rng.state, seed128, sizeof(seed128));
+    memcpy(bs.rng.state, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -386,7 +384,7 @@ static void randf32v_range(NO_STATE)
 
         if (expect_min > expect_max) expect_min = expect_max;
 
-        randf32v(&rng, values, n_values, tests[i].min, tests[i].max);
+        randf32v(&bs, values, n_values, tests[i].min, tests[i].max);
 
         for (j = 0; j < n_values; j++) {
             if (values[j] > largest) largest = values[j];
@@ -422,13 +420,13 @@ static void randf32v_chi2(NO_STATE)
     const double bucket_p = 1.0 / n_buckets;
     /* from table: 15 dof at p=0.995, p=0.005 */
     const double critical_value[] = { 4.601, 32.801 };
-    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
     unsigned *bucket;
     double *bucket_t, *deviation;
     float *values;
     unsigned i;
 
-    memcpy(rng.state, seed128, sizeof(seed128));
+    memcpy(bs.rng.state, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     bucket = calloc(n_buckets, sizeof(bucket[0]));
@@ -442,7 +440,7 @@ static void randf32v_chi2(NO_STATE)
         double chi2;
         unsigned j;
 
-        randf32v(&rng, values, n_values, tests[i].min, tests[i].max);
+        randf32v(&bs, values, n_values, tests[i].min, tests[i].max);
 
         memset(bucket_t, 0, n_buckets * sizeof(bucket_t[0]));
         for (j = 0; j < n_buckets; j++) {
@@ -508,11 +506,11 @@ static void randi64v_range(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = N_VALUES;
-    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
     int64_t *values;
     unsigned i;
 
-    memcpy(rng.state, seed128, sizeof(seed128));
+    memcpy(bs.rng.state, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -525,7 +523,7 @@ static void randi64v_range(NO_STATE)
 
         if (expect_min > expect_max) expect_min = expect_max;
 
-        randi64v(&rng, values, n_values, tests[i].min, tests[i].max);
+        randi64v(&bs, values, n_values, tests[i].min, tests[i].max);
 
         for (j = 0; j < n_values; j++) {
             if (values[j] > largest) largest = values[j];
@@ -564,7 +562,7 @@ static void randi64v_call_count(NO_STATE)
         { 10, INT64_MIN, INT64_MAX },
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
-    struct rng rng = { .func = mock_rng32, .state = rng_state };
+    struct randbs bs = {{ .func = mock_rng32, .state = rng_state }, 0, 0 };
     int64_t *values;
     unsigned i;
 
@@ -575,7 +573,7 @@ static void randi64v_call_count(NO_STATE)
         values = calloc(tests[i].n_values, sizeof(values[0]));
 
         rng_state[1] = 0; /* reset call count */
-        randi64v(&rng, values, tests[i].n_values, tests[i].min, tests[i].max);
+        randi64v(&bs, values, tests[i].n_values, tests[i].min, tests[i].max);
 
         assert_in_range(rng_state[1],
                         min_call_count,
@@ -603,11 +601,11 @@ static void randu64v_range(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = N_VALUES;
-    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
     uint64_t *values;
     unsigned i;
 
-    memcpy(rng.state, seed128, sizeof(seed128));
+    memcpy(bs.rng.state, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -620,7 +618,7 @@ static void randu64v_range(NO_STATE)
 
         if (expect_min > expect_max) expect_min = expect_max;
 
-        randu64v(&rng, values, n_values, tests[i].min, tests[i].max);
+        randu64v(&bs, values, n_values, tests[i].min, tests[i].max);
 
         for (j = 0; j < n_values; j++) {
             if (values[j] > largest) largest = values[j];
@@ -659,7 +657,7 @@ static void randu64v_call_count(NO_STATE)
         { 10, 0, UINT64_MAX },
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
-    struct rng rng = { .func = mock_rng32, .state = rng_state };
+    struct randbs bs = {{ .func = mock_rng32, .state = rng_state }, 0, 0 };
     uint64_t *values;
     unsigned i;
 
@@ -670,7 +668,7 @@ static void randu64v_call_count(NO_STATE)
         values = calloc(tests[i].n_values, sizeof(values[0]));
 
         rng_state[1] = 0; /* reset call count */
-        randu64v(&rng, values, tests[i].n_values, tests[i].min, tests[i].max);
+        randu64v(&bs, values, tests[i].n_values, tests[i].min, tests[i].max);
 
         assert_in_range(rng_state[1],
                         min_call_count,
@@ -697,11 +695,11 @@ static void randf64v_range(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = N_VALUES;
-    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
     double *values;
     unsigned i;
 
-    memcpy(rng.state, seed128, sizeof(seed128));
+    memcpy(bs.rng.state, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -714,7 +712,7 @@ static void randf64v_range(NO_STATE)
 
         if (expect_min > expect_max) expect_min = expect_max;
 
-        randf64v(&rng, values, n_values, tests[i].min, tests[i].max);
+        randf64v(&bs, values, n_values, tests[i].min, tests[i].max);
 
         for (j = 0; j < n_values; j++) {
             if (values[j] > largest) largest = values[j];
@@ -753,13 +751,13 @@ static void randf64v_chi2(NO_STATE)
     const double bucket_p = 1.0 / n_buckets;
     /* from table: 15 dof at p=0.995, p=0.005 */
     const double critical_value[] = { 4.601, 32.801 };
-    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
     unsigned *bucket;
     double *bucket_t, *deviation;
     double *values;
     unsigned i;
 
-    memcpy(rng.state, seed128, sizeof(seed128));
+    memcpy(bs.rng.state, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     bucket = calloc(n_buckets, sizeof(bucket[0]));
@@ -773,7 +771,7 @@ static void randf64v_chi2(NO_STATE)
         double chi2;
         unsigned j;
 
-        randf64v(&rng, values, n_values, tests[i].min, tests[i].max);
+        randf64v(&bs, values, n_values, tests[i].min, tests[i].max);
 
         memset(bucket_t, 0, n_buckets * sizeof(bucket_t[0]));
         for (j = 0; j < n_buckets; j++) {
@@ -822,7 +820,7 @@ static void gaussf32v_gaussf32_same_seq(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = N_VALUES;
-    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
     float *values;
     unsigned i;
 
@@ -832,12 +830,14 @@ static void gaussf32v_gaussf32_same_seq(NO_STATE)
     for (i = 0; i < n_tests; i++) {
         unsigned j;
 
-        memcpy(rng.state, seed128, sizeof(seed128));
-        gaussf32v(&rng, values, n_values, tests[i].mean, tests[i].stddev);
+        bs.bits = bs.n_bits = 0;
+        memcpy(bs.rng.state, seed128, sizeof(seed128));
+        gaussf32v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
 
-        memcpy(rng.state, seed128, sizeof(seed128));
+        bs.bits = bs.n_bits = 0;
+        memcpy(bs.rng.state, seed128, sizeof(seed128));
         for (j = 0; j < n_values; j++) {
-            float v = gaussf32(&rng, tests[i].mean, tests[i].stddev);
+            float v = gaussf32(&bs, tests[i].mean, tests[i].stddev);
 
             assert_float_equal(v, values[j], FLT_EPSILON);
         }
@@ -859,11 +859,11 @@ static void gaussf32v_mean(NO_STATE)
     const size_t n_values = 1 << 20; /* about a million, as a power of two */
     const double recip_n_values = 1.0 / n_values;
     const double recip_sqrt_n_values = 1.0 / sqrt(n_values);
-    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
     float *values;
     unsigned i;
 
-    xoshiro128plusplus_seed64(rng.state, time(NULL));
+    xoshiro128plusplus_seed64(bs.rng.state, time(NULL));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -871,7 +871,7 @@ static void gaussf32v_mean(NO_STATE)
     for (i = 0; i < n_tests; i++) {
         double mean, mean_stddev;
 
-        gaussf32v(&rng, values, n_values, tests[i].mean, tests[i].stddev);
+        gaussf32v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
         mean = kbn_sumf32v(values, n_values) * recip_n_values;
 
         /* the standard deviation of the mean is smaller than the standard
@@ -902,11 +902,11 @@ static void gaussf32v_variance(NO_STATE)
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = 1 << 20; /* about a million, as a power of two */
     const double recip_n_values = 1.0 / n_values;
-    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
     float *values;
     unsigned i;
 
-    xoshiro128plusplus_seed64(rng.state, time(NULL));
+    xoshiro128plusplus_seed64(bs.rng.state, time(NULL));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -916,7 +916,7 @@ static void gaussf32v_variance(NO_STATE)
         double mean, variance = 0.0, variance_stddev;
         unsigned j;
 
-        gaussf32v(&rng, values, n_values, tests[i].mean, tests[i].stddev);
+        gaussf32v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
         mean = kbn_sumf32v(values, n_values) *recip_n_values;
 
         for (j = 0; j < n_values; j++) {
@@ -955,11 +955,11 @@ static void gaussf32v_chi2(NO_STATE)
     const size_t n_buckets = 8;
     const double bucket_p[8] = { 0.00135, 0.0214, 0.1359, 0.34135,
                                  0.34135, 0.1359, 0.0214, 0.00135 };
-    struct rng rng = RNG_INIT_XOSHIRO128_PLUSPLUS;
+    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
     float *values;
     unsigned i;
 
-    xoshiro128plusplus_seed64(rng.state, time(NULL));
+    xoshiro128plusplus_seed64(bs.rng.state, time(NULL));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -969,7 +969,7 @@ static void gaussf32v_chi2(NO_STATE)
         unsigned bucket[8] = { 0 };
         unsigned j;
 
-        gaussf32v(&rng, values, n_values, tests[i].mean, tests[i].stddev);
+        gaussf32v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
 
         for (j = 0; j < n_values; j++) {
             if (values[j] < tests[i].mean - 3.0 * tests[i].stddev) {
