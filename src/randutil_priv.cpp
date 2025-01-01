@@ -1,3 +1,46 @@
+#include <limits>
+#include <type_traits>
+
+template<typename R, typename T>
+void randiv(const R *rng, T *out, std::size_t count, T min, T max)
+{
+    using UT = std::make_unsigned_t<T>;
+    UT range;
+    std::size_t i;
+
+    if (min > max) min = max;
+
+    range = max - min + 1; /* wraps to zero at max_range */
+
+    if (range != 1) {
+        UT div = 1, limit = 0;
+
+        if (range) {
+            /* max_range should be UINT32_MAX + 1, but would need a wider type.
+             * get around that with: a / b == 1 + (a - b) / b
+             */
+            UT max_range = std::numeric_limits<UT>::max() - range + 1;
+            div = range > 1 ? 1 + max_range / range : 1;
+            limit = range * div;
+        }
+
+        for (i = 0; i < count; i++) {
+            UT v;
+
+            do {
+                v = rng->func(rng->state);
+            } while (limit && v >= limit);
+
+            out[i] = v / div + min;
+        }
+    }
+    else {
+        for (i = 0; i < count; i++) {
+            out[i] = min;
+        }
+    }
+}
+
 extern "C" {
 
 #include "flrl/randutil.h"
@@ -12,40 +55,7 @@ void randi32v(const struct rng *rng,
               int32_t min,
               int32_t max)
 {
-    uint32_t range;
-    size_t i;
-
-    if (min > max) min = max;
-
-    range = max - min + 1; /* wraps to zero at max_range */
-
-    if (range != 1) {
-        uint32_t div = 1, limit = 0;
-
-        if (range) {
-            /* max_range should be UINT32_MAX + 1, but would need a wider type.
-             * get around that with: a / b == 1 + (a - b) / b
-             */
-            uint32_t max_range = UINT32_MAX - range + 1;
-            div = range > 1 ? 1 + max_range / range : 1;
-            limit = range * div;
-        }
-
-        for (i = 0; i < count; i++) {
-            uint32_t v;
-
-            do {
-                v = rng->func(rng->state);
-            } while (limit && v >= limit);
-
-            out[i] = v / div + min;
-        }
-    }
-    else {
-        for (i = 0; i < count; i++) {
-            out[i] = min;
-        }
-    }
+    randiv<struct rng, int32_t>(rng, out, count, min, max);
 }
 
 void randu32v(const struct rng *rng,
