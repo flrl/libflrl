@@ -50,14 +50,19 @@ static void fn_bs_bits(NO_STATE)
     uint32_t rng_state[] = {
         0,
         0,
-        3,
+        8,
         0b01010101101010100011001111001100,
         0b00001111111100000000000011111111,
         0b01010101101010100011001111001100,
+        0b11110000111100001111000011110000,
+        0b11110000111100001111000011110000,
+        0b11110000111100001111000011110000,
+        0b11111111000000001111111100000000,
+        0b11111111000000001111111100000000,
     };
     const struct {
         unsigned want_bits;
-        uint32_t expect_bits;
+        uint64_t expect_bits;
     } tests[] = {
         {  0, 0b0 },
         {  1, 0b0 },
@@ -73,6 +78,12 @@ static void fn_bs_bits(NO_STATE)
         { 11, 0b00000011111 },
         { 12, 0b110011110011 },
         { 13, 0b1011010101000 },
+        {  5, 0b01010 },
+        { 33, 0b011110000111100001111000011110000 },
+        { 47, 0b11110000111100001111000011110000111100001111000 },
+        { 64, 0b1111111100000000111111110000000011111111000000001111000011110000 },
+        { 14, 0b11111100000000 },
+        {  2, 0b11 },
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     struct rng rng = { .func = mock_rng32, .state = rng_state };
@@ -80,7 +91,7 @@ static void fn_bs_bits(NO_STATE)
     unsigned i;
 
     for (i = 0; i < n_tests; i++) {
-        uint32_t v = bs_bits(&bs, tests[i].want_bits);
+        uint64_t v = bs_bits(&bs, tests[i].want_bits);
         assert_int_equal(tests[i].expect_bits, v);
     }
 

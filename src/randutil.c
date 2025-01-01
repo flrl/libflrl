@@ -30,32 +30,42 @@ struct bitstream {
     uint64_t bits;
     unsigned n_bits;
 };
-#define BITSTREAM_INITIALIZER(g) (struct bitstream){ .rng = (g) }
+#define BITSTREAM_INITIALIZER(g) (struct bitstream){ (g), 0, 0 }
+#define BITSTREAM_MAX_BITS (64U)
 
-static inline uint32_t mask_bits(unsigned bits)
+static inline uint64_t mask_bits(unsigned bits)
 {
-    return bits < 32
-           ? (UINT32_C(1) << bits) - 1
-           : UINT32_C(0) - 1;
+    return bits < 64
+           ? (UINT64_C(1) << bits) - 1
+           : UINT64_C(0) - 1;
 }
 
-static uint32_t bs_bits(struct bitstream *bs, unsigned want_bits)
+static uint64_t bs_bits(struct bitstream *bs, unsigned want_bits)
 {
-    uint32_t bits;
+    uint64_t bits;
+    uint32_t extra = 0;
 
-    assert(want_bits > 0 && want_bits <= 32);
+    assert(want_bits > 0 && want_bits <= BITSTREAM_MAX_BITS);
     if (!want_bits) return 0;
-    if (want_bits > 32) abort();
+    if (want_bits > BITSTREAM_MAX_BITS) abort();
 
-    if (bs->n_bits < want_bits) {
-        uint64_t v = bs->rng->func(bs->rng->state);
+    while (bs->n_bits < want_bits) {
+        uint64_t v;
+        unsigned b;
 
-        bs->bits |= (v << bs->n_bits);
+        v = bs->rng->func(bs->rng->state);
+        b = BITSTREAM_MAX_BITS - bs->n_bits;
+
+        bs->bits |= v << bs->n_bits;
+        extra = b < 32 ? v >> b : 0;
         bs->n_bits += 32;
     }
 
     bits = bs->bits & mask_bits(want_bits);
-    bs->bits >>= want_bits;
+
+    bs->bits = want_bits < BITSTREAM_MAX_BITS ? bs->bits >> want_bits : 0;
+    if (extra)
+        bs->bits |= (uint64_t) extra << (BITSTREAM_MAX_BITS - want_bits);
     bs->n_bits -= want_bits;
 
     return bits;
