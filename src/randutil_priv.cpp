@@ -6,8 +6,8 @@ extern "C" {
 #include <limits>
 #include <type_traits>
 
-template<typename R, typename T>
-void randiv(const R *rng, T *out, std::size_t count, T min, T max)
+template<typename BS, typename T>
+void randiv(BS *bs, T *out, std::size_t count, T min, T max)
 {
     using UT = std::make_unsigned_t<T>;
     UT range;
@@ -23,7 +23,6 @@ void randiv(const R *rng, T *out, std::size_t count, T min, T max)
         }
     }
     else {
-        struct randbs bs = RANDBS_INITIALIZER(*rng);
         unsigned want_bits = std::bit_width(range);
 
         /* XXX adjust want_bits for perverse cases? */
@@ -32,7 +31,7 @@ void randiv(const R *rng, T *out, std::size_t count, T min, T max)
             uint64_t v;
 
             do {
-                v = randbs_bits(&bs, want_bits);
+                v = randbs_bits(bs, want_bits);
             } while (v > range);
 
             out[i] = min + v;
@@ -46,32 +45,31 @@ extern "C" {
 #include <float.h>
 #include <math.h>
 
-void randi32v(const struct rng *rng,
+void randi32v(struct randbs *bs,
               int32_t *out,
               size_t count,
               int32_t min,
               int32_t max)
 {
-    randiv<struct rng, int32_t>(rng, out, count, min, max);
+    randiv<struct randbs, int32_t>(bs, out, count, min, max);
 }
 
-void randu32v(const struct rng *rng,
+void randu32v(struct randbs *bs,
               uint32_t *out,
               size_t count,
               uint32_t min,
               uint32_t max)
 {
-    randiv<struct rng, uint32_t>(rng, out, count, min, max);
+    randiv<struct randbs, uint32_t>(bs, out, count, min, max);
 }
 
 /* based on https://allendowney.com/research/rand/downey07randfloat.pdf */
-void randf32v(const struct rng *rng,
+void randf32v(struct randbs *bs,
               float *out,
               size_t count,
               double min,
               double max)
 {
-    struct randbs bs = RANDBS_INITIALIZER(*rng);
     union overlay { float f; uint32_t i; };
     size_t i;
 
@@ -92,14 +90,14 @@ void randf32v(const struct rng *rng,
 
         /* choose random bits and decrement exponent until a 1 appears.
          * start at high_exp - 1 to leave room to maybe +1 later. */
-        exponent = high_exp - randbs_zeroes(&bs, high_exp - low_exp);
+        exponent = high_exp - randbs_zeroes(bs, high_exp - low_exp);
 
         /* choose a random 23-bit mantissa */
-        mantissa = randbs_bits(&bs, 23);
+        mantissa = randbs_bits(bs, 23);
 
         /* if the mantissa is zero, half the time we should move to the next
          * exponent range */
-        if (mantissa == 0 && randbs_bits(&bs, 1))
+        if (mantissa == 0 && randbs_bits(bs, 1))
             exponent ++;
 
         /* combine the exponent and the mantissa */
@@ -109,32 +107,31 @@ void randf32v(const struct rng *rng,
     }
 }
 
-void randi64v(const struct rng *rng,
+void randi64v(struct randbs *bs,
               int64_t *out,
               size_t count,
               int64_t min,
               int64_t max)
 {
-    randiv<struct rng, int64_t>(rng, out, count, min, max);
+    randiv<struct randbs, int64_t>(bs, out, count, min, max);
 }
 
-void randu64v(const struct rng *rng,
+void randu64v(struct randbs *bs,
               uint64_t *out,
               size_t count,
               uint64_t min,
               uint64_t max)
 {
-    randiv<struct rng, uint64_t>(rng, out, count, min, max);
+    randiv<struct randbs, uint64_t>(bs, out, count, min, max);
 }
 
 /* based on https://allendowney.com/research/rand/downey07randfloat.pdf */
-void randf64v(const struct rng *rng,
+void randf64v(struct randbs *bs,
               double *out,
               size_t count,
               double min,
               double max)
 {
-    struct randbs bs = RANDBS_INITIALIZER(*rng);
     union overlay { double f; uint64_t i; };
     size_t i;
 
@@ -155,14 +152,14 @@ void randf64v(const struct rng *rng,
 
         /* choose random bits and decrement exponent until a 1 appears.
          * start at high_exp - 1 to leave room to maybe +1 later. */
-        exponent = high_exp - randbs_zeroes(&bs, high_exp - low_exp);
+        exponent = high_exp - randbs_zeroes(bs, high_exp - low_exp);
 
         /* choose a random 52-bit mantissa */
-        mantissa = (uint64_t) randbs_bits(&bs, 20) << 32 | randbs_bits(&bs, 32);
+        mantissa = (uint64_t) randbs_bits(bs, 20) << 32 | randbs_bits(bs, 32);
 
         /* if the mantissa is zero, half the time we should move to the next
          * exponent range */
-        if (mantissa == 0 && randbs_bits(&bs, 1))
+        if (mantissa == 0 && randbs_bits(bs, 1))
             exponent ++;
 
         /* combine the exponent and the mantissa */
@@ -172,7 +169,7 @@ void randf64v(const struct rng *rng,
     }
 }
 
-void gaussf32v(const struct rng *rng,
+void gaussf32v(struct randbs *bs,
                float *out,
                size_t count,
                double mean,
@@ -186,7 +183,7 @@ void gaussf32v(const struct rng *rng,
         do {
             float u[2];
 
-            randf32v(rng, u, 2, 0.0, 1.0);
+            randf32v(bs, u, 2, 0.0, 1.0);
 
             v[0] = fma(2.0, u[0], -1.0);
             v[1] = fma(2.0, u[1], -1.0);
@@ -201,7 +198,7 @@ void gaussf32v(const struct rng *rng,
     }
 }
 
-float gaussf32(const struct rng *rng, double mean, double stddev)
+float gaussf32(struct randbs *bs, double mean, double stddev)
 {
     static double v[2], t;
     static int phase = 0;
@@ -213,7 +210,7 @@ float gaussf32(const struct rng *rng, double mean, double stddev)
         do {
             float u[2];
 
-            randf32v(rng, u, 2, 0.0, 1.0);
+            randf32v(bs, u, 2, 0.0, 1.0);
 
             v[0] = fma(2.0, u[0], -1.0);
             v[1] = fma(2.0, u[1], -1.0);
@@ -232,7 +229,7 @@ float gaussf32(const struct rng *rng, double mean, double stddev)
     return fma(stddev, x, mean);
 }
 
-void gaussf64v(const struct rng *rng,
+void gaussf64v(struct randbs *bs,
                double *out,
                size_t count,
                double mean,
@@ -246,7 +243,7 @@ void gaussf64v(const struct rng *rng,
         do {
             double u[2];
 
-            randf64v(rng, u, 2, 0.0, 1.0);
+            randf64v(bs, u, 2, 0.0, 1.0);
 
             v[0] = fma(2.0, u[0], -1.0);
             v[1] = fma(2.0, u[1], -1.0);
@@ -261,7 +258,7 @@ void gaussf64v(const struct rng *rng,
     }
 }
 
-double gaussf64(const struct rng *rng, double mean, double stddev)
+double gaussf64(struct randbs *bs, double mean, double stddev)
 {
     static double v[2], t;
     static int phase = 0;
@@ -273,7 +270,7 @@ double gaussf64(const struct rng *rng, double mean, double stddev)
         do {
             double u[2];
 
-            randf64v(rng, u, 2, 0.0, 1.0);
+            randf64v(bs, u, 2, 0.0, 1.0);
 
             v[0] = fma(2.0, u[0], -1.0);
             v[1] = fma(2.0, u[1], -1.0);

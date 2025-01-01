@@ -103,19 +103,19 @@ unsigned randbs_zeroes(struct randbs *bs, unsigned limit)
     return zeroes;
 }
 
-extern inline int32_t randi32(const struct rng *rng, int32_t min, int32_t max);
-extern inline int64_t randi64(const struct rng *rng, int64_t min, int64_t max);
-extern inline uint32_t randu32(const struct rng *rng, uint32_t min, uint32_t max);
-extern inline uint64_t randu64(const struct rng *rng, uint64_t min, uint64_t max);
-extern inline float randf32(const struct rng *rng, double min, double max);
-extern inline double randf64(const struct rng *rng, double min, double max);
-extern inline bool coin(const struct rng *rng, float p_true);
+extern inline int32_t randi32(struct randbs *bs, int32_t min, int32_t max);
+extern inline int64_t randi64(struct randbs *bs, int64_t min, int64_t max);
+extern inline uint32_t randu32(struct randbs *bs, uint32_t min, uint32_t max);
+extern inline uint64_t randu64(struct randbs *bs, uint64_t min, uint64_t max);
+extern inline float randf32(struct randbs *bs, double min, double max);
+extern inline double randf64(struct randbs *bs, double min, double max);
+extern inline bool coin(struct randbs *bs, float p_true);
 
 /* XXX wrandx functions for struct wrng */
 
 /* XXX legacy */
 
-unsigned sample32(const struct rng *rng,
+unsigned sample32(struct randbs *bs,
                   const unsigned weights[], size_t n_weights)
 {
     unsigned *cdf = NULL;
@@ -138,7 +138,7 @@ unsigned sample32(const struct rng *rng,
     assert(sum > 0);
     if (sum == 0) return 0;
 
-    rand = randu32(rng, 0, sum - 1);
+    rand = randu32(bs, 0, sum - 1);
     for (i = 0; i < n_weights && rand >= cdf[i]; i++)
         ;
 
@@ -146,7 +146,7 @@ unsigned sample32(const struct rng *rng,
     return i;
 }
 
-unsigned sample32v(const struct rng *rng,
+unsigned sample32v(struct randbs *bs,
                    size_t n_pairs, ...)
 {
     unsigned *values = NULL;
@@ -182,7 +182,7 @@ unsigned sample32v(const struct rng *rng,
     assert(sum > 0);
     if (sum == 0) return 0;
 
-    rand = randu32(rng, 0, sum - 1);
+    rand = randu32(bs, 0, sum - 1);
     for (i = 0; i < n_pairs && rand >= cdf[i]; i++)
         ;
 
@@ -194,7 +194,7 @@ unsigned sample32v(const struct rng *rng,
 }
 
 /* n elems of size z with struct weight at offset t, save cdf, return index */
-unsigned sample32p(const struct rng *rng,
+unsigned sample32p(struct randbs *bs,
                    void *data, size_t rows, size_t rowsize,
                    size_t weight_offset)
 {
@@ -226,7 +226,7 @@ unsigned sample32p(const struct rng *rng,
     assert(sum > 0);
     if (sum == 0) return 0;
 
-    rand = randu32(rng, 0, sum - 1);
+    rand = randu32(bs, 0, sum - 1);
 
     i = 0;
     do {
@@ -239,16 +239,3 @@ unsigned sample32p(const struct rng *rng,
 
     return i;
 }
-
-/* n weights, build temp cdf, return index */
-extern unsigned sample64(const struct wrng *rng,
-                         const unsigned weights[], size_t n_weights);
-
-/* n weight|value pairs, build temp cdf, return value */
-extern unsigned sample64v(const struct wrng *rng,
-                          size_t n_pairs, ...);
-
-/* n elems of size z with struct weight at offset t, save cdf, return index */
-extern unsigned sample64p(const struct wrng *rng,
-                          void *data, size_t rows, size_t rowsize,
-                          size_t weight_offset);
