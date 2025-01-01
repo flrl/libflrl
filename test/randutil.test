@@ -8,7 +8,6 @@
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
-#include <string.h>
 #include <time.h>
 
 /* testing the interfaces/distributions, not the underlying randomness */
@@ -184,7 +183,7 @@ static void randi32v_range(NO_STATE)
     int32_t *values;
     unsigned i;
 
-    memcpy(bs.rng.state, seed128, sizeof(seed128));
+    randbs_seed(&bs, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -277,7 +276,7 @@ static void randu32v_range(NO_STATE)
     uint32_t *values;
     unsigned i;
 
-    memcpy(bs.rng.state, seed128, sizeof(seed128));
+    randbs_seed(&bs, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -371,7 +370,7 @@ static void randf32v_range(NO_STATE)
     float *values;
     unsigned i;
 
-    memcpy(bs.rng.state, seed128, sizeof(seed128));
+    randbs_seed(&bs, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -426,7 +425,7 @@ static void randf32v_chi2(NO_STATE)
     float *values;
     unsigned i;
 
-    memcpy(bs.rng.state, seed128, sizeof(seed128));
+    randbs_seed(&bs, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     bucket = calloc(n_buckets, sizeof(bucket[0]));
@@ -510,7 +509,7 @@ static void randi64v_range(NO_STATE)
     int64_t *values;
     unsigned i;
 
-    memcpy(bs.rng.state, seed128, sizeof(seed128));
+    randbs_seed(&bs, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -605,7 +604,7 @@ static void randu64v_range(NO_STATE)
     uint64_t *values;
     unsigned i;
 
-    memcpy(bs.rng.state, seed128, sizeof(seed128));
+    randbs_seed(&bs, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -699,7 +698,7 @@ static void randf64v_range(NO_STATE)
     double *values;
     unsigned i;
 
-    memcpy(bs.rng.state, seed128, sizeof(seed128));
+    randbs_seed(&bs, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -757,7 +756,7 @@ static void randf64v_chi2(NO_STATE)
     double *values;
     unsigned i;
 
-    memcpy(bs.rng.state, seed128, sizeof(seed128));
+    randbs_seed(&bs, seed128, sizeof(seed128));
 
     values = calloc(n_values, sizeof(values[0]));
     bucket = calloc(n_buckets, sizeof(bucket[0]));
@@ -830,12 +829,10 @@ static void gaussf32v_gaussf32_same_seq(NO_STATE)
     for (i = 0; i < n_tests; i++) {
         unsigned j;
 
-        bs.bits = bs.n_bits = 0;
-        memcpy(bs.rng.state, seed128, sizeof(seed128));
+        randbs_seed(&bs, seed128, sizeof(seed128));
         gaussf32v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
 
-        bs.bits = bs.n_bits = 0;
-        memcpy(bs.rng.state, seed128, sizeof(seed128));
+        randbs_seed(&bs, seed128, sizeof(seed128));
         for (j = 0; j < n_values; j++) {
             float v = gaussf32(&bs, tests[i].mean, tests[i].stddev);
 
@@ -863,7 +860,7 @@ static void gaussf32v_mean(NO_STATE)
     float *values;
     unsigned i;
 
-    xoshiro128plusplus_seed64(bs.rng.state, time(NULL));
+    randbs_seed64(&bs, time(NULL));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -906,7 +903,7 @@ static void gaussf32v_variance(NO_STATE)
     float *values;
     unsigned i;
 
-    xoshiro128plusplus_seed64(bs.rng.state, time(NULL));
+    randbs_seed64(&bs, time(NULL));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -959,7 +956,7 @@ static void gaussf32v_chi2(NO_STATE)
     float *values;
     unsigned i;
 
-    xoshiro128plusplus_seed64(bs.rng.state, time(NULL));
+    randbs_seed64(&bs, time(NULL));
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);

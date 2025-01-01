@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <stdarg.h>
+#include <string.h>
 
 #ifdef UNIT_TESTING
 #undef assert
@@ -19,6 +20,14 @@
     __auto_type _b = (b);   \
     _a < _b ? _a : _b;      \
 })
+
+void randbs_seed(struct randbs *bs, const void *seed, size_t seed_size)
+{
+    memmove(bs->rng.state, seed, MIN(seed_size, bs->rng.state_size));
+    bs->bits = bs->n_bits = 0;
+}
+
+extern inline void randbs_seed64(struct randbs *bs, uint64_t seed);
 
 static inline uint64_t mask_bits(unsigned bits)
 {
