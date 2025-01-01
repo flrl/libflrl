@@ -1,6 +1,8 @@
 CC := gcc
 AR := ar
-CFLAGS := -O0 -ggdb3 -Wall -Wextra -Werror -Wsuggest-attribute=format $(CFLAGS)
+WARNINGS := -Wall -Wextra -Werror -Wsuggest-attribute=format
+CFLAGS := -O0 -ggdb3 $(WARNINGS) $(CFLAGS)
+CXXFLAGS := -O0 -ggdb3 -std=c++2b $(WARNINGS) $(CXXFLAGS)
 LDFLAGS := $(LDFLAGS)
 UTMUX := $(shell which utmux 2>/dev/null)
 
@@ -16,20 +18,19 @@ TESTDIR := test
 BUILDDIR := build
 MISCDIR := misc
 
-LIBOBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(wildcard $(SRCDIR)/*.c))
+LIBCOBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(wildcard $(SRCDIR)/*.c))
+LIBCXXOBJS := $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(wildcard $(SRCDIR)/*.cpp))
+
 TESTOBJS := $(patsubst $(TESTDIR)/%.test,$(BUILDDIR)/test-%.o,$(wildcard $(TESTDIR)/*.test))
-TESTS := $(patsubst $(TESTDIR)/%.test,%,$(wildcard $(TESTDIR)/*.test))
-TESTTARGETOBJS := $(patsubst $(TESTDIR)/%.c,$(BUILDDIR)/%.o,$(wildcard $(TESTDIR)/*.c))
-TESTTARGETS := $(patsubst $(TESTDIR)/%.test,$(TESTDIR)/%,$(wildcard $(TESTDIR)/*.test))
+TESTTARGETS := $(patsubst $(BUILDDIR)/test-%.o,$(TESTDIR)/%,$(TESTOBJS))
+TESTS := $(patsubst $(TESTDIR)/%,%,$(TESTTARGETS))
+TESTCOMMONOBJS := $(patsubst $(TESTDIR)/%.c,$(BUILDDIR)/%.o,$(wildcard $(TESTDIR)/*.c))
+
 MISCTARGETOBJS := $(patsubst $(MISCDIR)/%.c,$(BUILDDIR)/misc-%.o,$(wildcard $(MISCDIR)/*.c))
 MISCTARGETS := $(patsubst $(MISCDIR)/%.c,$(MISCDIR)/%,$(wildcard $(MISCDIR)/*.c))
 
-OBJS := $(LIBOBJS) $(TESTOBJS) $(TESTTARGETOBJS) $(MISCTARGETOBJS)
-
-DEPS := $(patsubst %.o,%.d,$(LIBOBJS))
-DEPS += $(patsubst %.o,%.d,$(TESTOBJS))
-DEPS += $(patsubst %.o,%.d,$(TESTTARGETOBJS))
-DEPS += $(patsubst %.o,%.d,$(MISCTARGETOBJS))
+OBJS := $(LIBCOBJS) $(LIBCXXOBJS) $(TESTOBJS) $(TESTCOMMONOBJS) $(MISCTARGETOBJS)
+DEPS := $(patsubst %.o,%.d,$(OBJS))
 
 TARGET = libflrl.a
 
@@ -60,8 +61,8 @@ vcheck: $(foreach t,$(TESTS),vcheck-$(t))
 endif
 
 clean:
-	$(RM) $(TARGET) $(LIBOBJS)
-	$(RM) $(TESTOBJS) $(TESTTARGETOBJS) $(TESTTARGETS)
+	$(RM) $(TARGET) $(LIBCOBJS) $(LIBCXXOBJS)
+	$(RM) $(TESTOBJS) $(TESTTARGETS) $(TESTCOMMONOBJS)
 	$(RM) $(MISCTARGETOBJS) $(MISCTARGETS)
 	$(RM) $(DEPS)
 
@@ -75,14 +76,14 @@ ifeq ($(OS),Windows_NT)
 	@touch $@
 endif
 
-$(TARGET): $(LIBOBJS)
+$(TARGET): $(LIBCOBJS) $(LIBCXXOBJS)
 	$(AR) -rcsD $@ $^
 
 $(TESTOBJS): CPPFLAGS += -DUNIT_TESTING
 
 filt_flrl = $(filter-out $(BUILDDIR)/$(1).o, $(2))
 
-$(TESTTARGETS): $(TESTDIR)/%: $(BUILDDIR)/test-%.o $(TESTTARGETOBJS) $(LIBOBJS)
+$(TESTTARGETS): $(TESTDIR)/%: $(BUILDDIR)/test-%.o $(TESTCOMMONOBJS) $(LIBCOBJS) $(LIBCXXOBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(call filt_flrl,$*,$^) $(LDLIBS)
 
 $(MISCTARGETS): $(MISCDIR)/%: $(BUILDDIR)/misc-%.o $(TARGET)
@@ -94,6 +95,9 @@ $(OBJS): CPPFLAGS += -I.
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(BUILDDIR)/%.d
 	$(CC) $(CFLAGS) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/$*.d -o $@ -c $<
+
+$(BUILDDIR)/%.o: $(SRCDIR)/%.cpp $(BUILDDIR)/%.d
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/$*.d -o $@ -c $<
 
 $(BUILDDIR)/%.o: $(TESTDIR)/%.c $(BUILDDIR)/%.d
 	$(CC) $(CFLAGS) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/$*.d -o $@ -c $<
