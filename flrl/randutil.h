@@ -1,6 +1,8 @@
 #ifndef LIBFLRL_RANDUTIL_H
 #define LIBFLRL_RANDUTIL_H
 
+#include "flrl/xoshiro.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -8,41 +10,49 @@
 struct rng {
     uint32_t (*func)(void *);
     void *state;
+    size_t state_size;
 };
 
 struct wrng {
     uint64_t (*func)(void *);
     void *state;
+    size_t state_size;
 };
 
 #define RNG_INIT_XOSHIRO128_PLUS (struct rng){      \
     &xoshiro128plus_next,                           \
     &(struct xoshiro128plus_state){{0}},            \
+    sizeof(struct xoshiro128plus_state),            \
 }
 
 #define RNG_INIT_XOSHIRO128_PLUSPLUS (struct rng){  \
     &xoshiro128plusplus_next,                       \
     &(struct xoshiro128plusplus_state){{0}},        \
+    sizeof(struct xoshiro128plusplus_state),        \
 }
 
 #define RNG_INIT_XOSHIRO128_STAR (struct rng){      \
     &xoshiro128star_next,                           \
     &(struct xoshiro128star_state){{0}},            \
+    sizeof(struct xoshiro128star_state),            \
 }
 
 #define WRNG_INIT_XOSHIRO256_PLUS (struct rng){     \
     &xoshiro256plus_next,                           \
     &(struct xoshiro256plus_state){{0}},            \
+    sizeof(struct xoshiro256plus_state),            \
 }
 
 #define WRNG_INIT_XOSHIRO256_PLUSPLUS (struct rng){ \
     &xoshiro256plusplus_next,                       \
     &(struct xoshiro256plusplus_state){{0}},        \
+    sizeof(struct xoshiro256plusplus_state),        \
 }
 
 #define WRNG_INIT_XOSHIRO256_STAR (struct rng){     \
     &xoshiro256star_next,                           \
     &(struct xoshiro256star_state){{0}},            \
+    sizeof(struct xoshiro256star_state),            \
 }
 
 struct randbs {
@@ -52,6 +62,14 @@ struct randbs {
 };
 #define RANDBS_INITIALIZER(g) (struct randbs){ (g), 0, 0 }
 #define RANDBS_MAX_BITS (64U)
+
+extern void randbs_seed(struct randbs *bs, const void *seed, size_t seed_size);
+
+inline void randbs_seed64(struct randbs *bs, uint64_t seed)
+{
+    xoshiro_seed64(bs->rng.state, bs->rng.state_size, seed);
+    bs->bits = bs->n_bits = 0;
+}
 
 extern uint64_t randbs_bits(struct randbs *bs, unsigned want_bits);
 extern unsigned randbs_zeroes(struct randbs *bs, unsigned limit);
