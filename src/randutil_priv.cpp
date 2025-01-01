@@ -23,7 +23,7 @@ void randiv(const R *rng, T *out, std::size_t count, T min, T max)
         }
     }
     else {
-        struct bitstream bs = BITSTREAM_INITIALIZER(rng);
+        struct randbs bs = RANDBS_INITIALIZER(rng);
         unsigned want_bits = std::bit_width(range);
 
         /* XXX adjust want_bits for perverse cases? */
@@ -32,7 +32,7 @@ void randiv(const R *rng, T *out, std::size_t count, T min, T max)
             uint64_t v;
 
             do {
-                v = bs_bits(&bs, want_bits);
+                v = randbs_bits(&bs, want_bits);
             } while (v > range);
 
             out[i] = min + v;
@@ -71,7 +71,7 @@ void randf32v(const struct rng *rng,
               double min,
               double max)
 {
-    struct bitstream bs = BITSTREAM_INITIALIZER(rng);
+    struct randbs bs = RANDBS_INITIALIZER(rng);
     union overlay { float f; uint32_t i; };
     size_t i;
 
@@ -92,14 +92,14 @@ void randf32v(const struct rng *rng,
 
         /* choose random bits and decrement exponent until a 1 appears.
          * start at high_exp - 1 to leave room to maybe +1 later. */
-        exponent = high_exp - bs_zeroes(&bs, high_exp - low_exp);
+        exponent = high_exp - randbs_zeroes(&bs, high_exp - low_exp);
 
         /* choose a random 23-bit mantissa */
-        mantissa = bs_bits(&bs, 23);
+        mantissa = randbs_bits(&bs, 23);
 
         /* if the mantissa is zero, half the time we should move to the next
          * exponent range */
-        if (mantissa == 0 && bs_bits(&bs, 1))
+        if (mantissa == 0 && randbs_bits(&bs, 1))
             exponent ++;
 
         /* combine the exponent and the mantissa */
@@ -134,7 +134,7 @@ void randf64v(const struct rng *rng,
               double min,
               double max)
 {
-    struct bitstream bs = BITSTREAM_INITIALIZER(rng);
+    struct randbs bs = RANDBS_INITIALIZER(rng);
     union overlay { double f; uint64_t i; };
     size_t i;
 
@@ -155,14 +155,14 @@ void randf64v(const struct rng *rng,
 
         /* choose random bits and decrement exponent until a 1 appears.
          * start at high_exp - 1 to leave room to maybe +1 later. */
-        exponent = high_exp - bs_zeroes(&bs, high_exp - low_exp);
+        exponent = high_exp - randbs_zeroes(&bs, high_exp - low_exp);
 
         /* choose a random 52-bit mantissa */
-        mantissa = (uint64_t) bs_bits(&bs, 20) << 32 | bs_bits(&bs, 32);
+        mantissa = (uint64_t) randbs_bits(&bs, 20) << 32 | randbs_bits(&bs, 32);
 
         /* if the mantissa is zero, half the time we should move to the next
          * exponent range */
-        if (mantissa == 0 && bs_bits(&bs, 1))
+        if (mantissa == 0 && randbs_bits(&bs, 1))
             exponent ++;
 
         /* combine the exponent and the mantissa */
