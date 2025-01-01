@@ -23,7 +23,7 @@ void randiv(const R *rng, T *out, std::size_t count, T min, T max)
         }
     }
     else {
-        struct randbs bs = RANDBS_INITIALIZER(rng);
+        struct randbs bs = RANDBS_INITIALIZER(*rng);
         unsigned want_bits = std::bit_width(range);
 
         /* XXX adjust want_bits for perverse cases? */
@@ -71,7 +71,7 @@ void randf32v(const struct rng *rng,
               double min,
               double max)
 {
-    struct randbs bs = RANDBS_INITIALIZER(rng);
+    struct randbs bs = RANDBS_INITIALIZER(*rng);
     union overlay { float f; uint32_t i; };
     size_t i;
 
@@ -134,7 +134,7 @@ void randf64v(const struct rng *rng,
               double min,
               double max)
 {
-    struct randbs bs = RANDBS_INITIALIZER(rng);
+    struct randbs bs = RANDBS_INITIALIZER(*rng);
     union overlay { double f; uint64_t i; };
     size_t i;
 

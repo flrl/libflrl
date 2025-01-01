@@ -92,7 +92,7 @@ static void fn_randbs_bits(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     struct rng rng = { .func = mock_rng32, .state = rng_state };
-    struct randbs bs = RANDBS_INITIALIZER(&rng);
+    struct randbs bs = RANDBS_INITIALIZER(rng);
     unsigned i;
 
     for (i = 0; i < n_tests; i++) {
@@ -148,7 +148,7 @@ static void fn_randbs_zeroes(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     struct rng rng = { .func = mock_rng32, .state = rng_state };
-    struct randbs bs = RANDBS_INITIALIZER(&rng);
+    struct randbs bs = RANDBS_INITIALIZER(rng);
     unsigned i;
 
     for (i = 0; i < n_tests; i++) {

@@ -46,7 +46,7 @@ struct wrng {
 }
 
 struct randbs {
-    const struct rng *rng;
+    struct rng rng;
     uint64_t bits;
     unsigned n_bits;
 };
