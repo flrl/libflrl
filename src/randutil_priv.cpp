@@ -61,40 +61,7 @@ void randu32v(const struct rng *rng,
               uint32_t min,
               uint32_t max)
 {
-    uint32_t range;
-    size_t i;
-
-    if (min > max) min = max;
-
-    range = max - min + 1; /* wraps to zero at max_range */
-
-    if (range != 1) {
-        uint32_t div = 1, limit = 0;
-
-        if (range) {
-            /* max_range should be UINT32_MAX + 1, but would need a wider type.
-             * get around that with: a / b == 1 + (a - b) / b
-             */
-            uint32_t max_range = UINT32_MAX - range + 1;
-            div = range > 1 ? 1 + max_range / range : 1;
-            limit = range * div;
-        }
-
-        for (i = 0; i < count; i++) {
-            uint32_t v;
-
-            do {
-                v = rng->func(rng->state);
-            } while (limit && v >= limit);
-
-            out[i] = v / div + min;
-        }
-    }
-    else {
-        for (i = 0; i < count; i++) {
-            out[i] = min;
-        }
-    }
+    randiv<struct rng, uint32_t>(rng, out, count, min, max);
 }
 
 /* based on https://allendowney.com/research/rand/downey07randfloat.pdf */
@@ -148,47 +115,7 @@ void randi64v(const struct rng *rng,
               int64_t min,
               int64_t max)
 {
-    uint64_t range;
-    size_t i;
-
-    if (min > max) min = max;
-
-    range = max - min + 1; /* wraps to zero at max_range */
-
-    if (range != 1) {
-        uint64_t div = 1, limit = 0;
-
-        if (range) {
-            /* max_range should be UINT64_MAX + 1, but would need a wider type.
-             * get around that with: a / b == 1 + (a - b) / b
-             */
-            uint64_t max_range = UINT64_MAX - range + 1;
-            div = range > 1 ? 1 + max_range / range : 1;
-            limit = range * div;
-        }
-
-        for (i = 0; i < count; i++) {
-            uint64_t v;
-
-            do {
-                /* to get 64 bits we need two samples from this generator */
-                uint64_t v0, v1;
-
-                /* XXX only sample once if we don't need all that range? */
-                v0 = rng->func(rng->state);
-                v1 = rng->func(rng->state);
-
-                v = v0 << 32 | v1;
-            } while (limit && v >= limit);
-
-            out[i] = v / div + min;
-        }
-    }
-    else {
-        for (i = 0; i < count; i++) {
-            out[i] = min;
-        }
-    }
+    randiv<struct rng, int64_t>(rng, out, count, min, max);
 }
 
 void randu64v(const struct rng *rng,
@@ -197,47 +124,7 @@ void randu64v(const struct rng *rng,
               uint64_t min,
               uint64_t max)
 {
-    uint64_t range;
-    size_t i;
-
-    if (min > max) min = max;
-
-    range = max - min + 1; /* wraps to zero at max_range */
-
-    if (range != 1) {
-        uint64_t div = 1, limit = 0;
-
-        if (range) {
-            /* max_range should be UINT64_MAX + 1, but would need a wider type.
-             * get around that with: a / b == 1 + (a - b) / b
-             */
-            uint64_t max_range = UINT64_MAX - range + 1;
-            div = range > 1 ? 1 + max_range / range : 1;
-            limit = range * div;
-        }
-
-        for (i = 0; i < count; i++) {
-            uint64_t v;
-
-            do {
-                /* to get 64 bits we need two samples from this generator */
-                uint64_t v0, v1;
-
-                /* XXX only sample once if we don't need all that range? */
-                v0 = rng->func(rng->state);
-                v1 = rng->func(rng->state);
-
-                v = v0 << 32 | v1;
-            } while (limit && v >= limit);
-
-            out[i] = v / div + min;
-        }
-    }
-    else {
-        for (i = 0; i < count; i++) {
-            out[i] = min;
-        }
-    }
+    randiv<struct rng, uint64_t>(rng, out, count, min, max);
 }
 
 /* based on https://allendowney.com/research/rand/downey07randfloat.pdf */
