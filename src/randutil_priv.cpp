@@ -1,3 +1,8 @@
+extern "C" {
+#include "flrl/randutil.h"
+}
+
+#include <bit>
 #include <limits>
 #include <type_traits>
 
@@ -10,40 +15,32 @@ void randiv(const R *rng, T *out, std::size_t count, T min, T max)
 
     if (min > max) min = max;
 
-    range = max - min + 1; /* wraps to zero at max_range */
+    range = max - min;
 
-    if (range != 1) {
-        UT div = 1, limit = 0;
-
-        if (range) {
-            /* max_range should be UINT32_MAX + 1, but would need a wider type.
-             * get around that with: a / b == 1 + (a - b) / b
-             */
-            UT max_range = std::numeric_limits<UT>::max() - range + 1;
-            div = range > 1 ? 1 + max_range / range : 1;
-            limit = range * div;
-        }
-
+    if (range == 0) {
         for (i = 0; i < count; i++) {
-            UT v;
-
-            do {
-                v = rng->func(rng->state);
-            } while (limit && v >= limit);
-
-            out[i] = v / div + min;
+            out[i] = min;
         }
     }
     else {
+        struct bitstream bs = BITSTREAM_INITIALIZER(rng);
+        unsigned want_bits = std::bit_width(range);
+
+        /* XXX adjust want_bits for perverse cases? */
+
         for (i = 0; i < count; i++) {
-            out[i] = min;
+            uint64_t v;
+
+            do {
+                v = bs_bits(&bs, want_bits);
+            } while (v > range);
+
+            out[i] = min + v;
         }
     }
 }
 
 extern "C" {
-
-#include "flrl/randutil.h"
 
 #include <assert.h>
 #include <float.h>
