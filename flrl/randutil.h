@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 struct rng {
     uint32_t (*func)(void *);
@@ -43,6 +44,17 @@ struct wrng {
     &xoshiro256star_next,                           \
     &(struct xoshiro256star_state){{0}},            \
 }
+
+struct bitstream {
+    const struct rng *rng;
+    uint64_t bits;
+    unsigned n_bits;
+};
+#define BITSTREAM_INITIALIZER(g) (struct bitstream){ (g), 0, 0 }
+#define BITSTREAM_MAX_BITS (64U)
+
+extern uint64_t bs_bits(struct bitstream *bs, unsigned want_bits);
+extern unsigned bs_zeroes(struct bitstream *bs, unsigned limit);
 
 extern void randi32v(const struct rng *rng,
                      int32_t *out,
