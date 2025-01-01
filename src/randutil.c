@@ -40,7 +40,7 @@ uint64_t randbs_bits(struct randbs *bs, unsigned want_bits)
         uint64_t v;
         unsigned b;
 
-        v = bs->rng->func(bs->rng->state);
+        v = bs->rng.func(bs->rng.state);
         b = RANDBS_MAX_BITS - bs->n_bits;
 
         bs->bits |= v << bs->n_bits;
@@ -67,7 +67,7 @@ unsigned randbs_zeroes(struct randbs *bs, unsigned limit)
 
     while (limit) {
         if (bs->n_bits == 0) {
-            bs->bits |= bs->rng->func(bs->rng->state);
+            bs->bits |= bs->rng.func(bs->rng.state);
             bs->n_bits += 32;
         }
 
