@@ -54,6 +54,7 @@ template<typename T>
 constexpr unsigned mantissa_bits = std::numeric_limits<T>::digits - 1;
 
 template<typename TF, typename TI>
+    requires (sizeof(TF) == sizeof(TI))
 static constexpr unsigned extract_exp(TF f)
 {
     return (std::bit_cast<TI>(f) >> mantissa_bits<TF>) & exp_mask<TF>;
@@ -61,6 +62,7 @@ static constexpr unsigned extract_exp(TF f)
 
 /* based on https://allendowney.com/research/rand/downey07randfloat.pdf */
 template<typename BS, typename TF, typename TI>
+    requires (sizeof(TF) == sizeof(TI))
 static void randfv(BS *bs, TF *out, std::size_t count, double min, double max)
 {
     std::size_t i;
@@ -100,6 +102,7 @@ static void randfv(BS *bs, TF *out, std::size_t count, double min, double max)
 }
 
 template<typename BS, typename TF, typename TI>
+    requires (sizeof(TF) == sizeof(TI))
 static void gaussv(BS *bs,
                    TF *out,
                    std::size_t count,
@@ -130,6 +133,7 @@ static void gaussv(BS *bs,
 }
 
 template<typename BS, typename TF, typename TI>
+    requires (sizeof(TF) == sizeof(TI))
 static TF gauss(BS *bs, double mean, double stddev)
 {
     static double v[2], t;
