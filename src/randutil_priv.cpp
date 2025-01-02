@@ -9,7 +9,7 @@ extern "C" {
 #include <type_traits>
 
 template<typename BS, typename T>
-void randiv(BS *bs, T *out, std::size_t count, T min, T max)
+static void randiv(BS *bs, T *out, std::size_t count, T min, T max)
 {
     using UT = std::make_unsigned_t<T>;
     UT range;
@@ -54,14 +54,14 @@ template<typename T>
 constexpr unsigned mantissa_bits = std::numeric_limits<T>::digits - 1;
 
 template<typename TF, typename TI>
-constexpr unsigned extract_exp(TF f)
+static constexpr unsigned extract_exp(TF f)
 {
     return (std::bit_cast<TI>(f) >> mantissa_bits<TF>) & exp_mask<TF>;
 }
 
 /* based on https://allendowney.com/research/rand/downey07randfloat.pdf */
 template<typename BS, typename TF, typename TI>
-void randfv(BS *bs, TF *out, std::size_t count, double min, double max)
+static void randfv(BS *bs, TF *out, std::size_t count, double min, double max)
 {
     std::size_t i;
 
@@ -100,11 +100,11 @@ void randfv(BS *bs, TF *out, std::size_t count, double min, double max)
 }
 
 template<typename BS, typename TF, typename TI>
-void gaussv(BS *bs,
-            TF *out,
-            std::size_t count,
-            double mean,
-            double stddev)
+static void gaussv(BS *bs,
+                   TF *out,
+                   std::size_t count,
+                   double mean,
+                   double stddev)
 {
     std::size_t i;
 
@@ -130,7 +130,7 @@ void gaussv(BS *bs,
 }
 
 template<typename BS, typename TF, typename TI>
-TF gauss(BS *bs, double mean, double stddev)
+static TF gauss(BS *bs, double mean, double stddev)
 {
     static double v[2], t;
     static int phase = 0;
