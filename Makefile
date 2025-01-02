@@ -43,10 +43,10 @@ check-%: $(TESTDIR)/%
 vcheck-%: $(TESTDIR)/%
 	$(UTMUX) -v $<
 
-check: $(TESTTARGETS)
+check: all $(TESTTARGETS)
 	$(UTMUX) $(TESTTARGETS)
 
-vcheck: $(TESTTARGETS)
+vcheck: all $(TESTTARGETS)
 	$(UTMUX) -v $(TESTTARGETS)
 else
 check-%: $(TESTDIR)/%
@@ -55,9 +55,9 @@ check-%: $(TESTDIR)/%
 vcheck-%: $(TESTDIR)/%
 	$< -v 2>&1
 
-check: $(foreach t,$(TESTS),check-$(t))
+check: all $(foreach t,$(TESTS),check-$(t))
 
-vcheck: $(foreach t,$(TESTS),vcheck-$(t))
+vcheck: all $(foreach t,$(TESTS),vcheck-$(t))
 endif
 
 clean:
