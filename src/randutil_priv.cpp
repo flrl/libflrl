@@ -99,6 +99,68 @@ void randfv(BS *bs, TF *out, std::size_t count, double min, double max)
     }
 }
 
+template<typename BS, typename TF, typename TI>
+void gaussv(BS *bs,
+            TF *out,
+            std::size_t count,
+            double mean,
+            double stddev)
+{
+    std::size_t i;
+
+    for (i = 0; i < count; i += 2) {
+        double v[2], s, t;
+
+        do {
+            TF u[2];
+
+            randfv<BS, TF, TI>(bs, u, 2, 0.0, 1.0);
+
+            v[0] = std::fma(2.0, u[0], -1.0);
+            v[1] = std::fma(2.0, u[1], -1.0);
+            s = v[0] * v[0] + v[1] * v[1];
+        } while (s >= 1.0 || s == 0.0);
+
+        t = std::sqrt(-2.0 * std::log(s) / s);
+
+        out[i] = std::fma(stddev, v[0] * t, mean);
+        if (i + 1 < count)
+            out[i + 1] = std::fma(stddev, v[1] * t, mean);
+    }
+}
+
+template<typename BS, typename TF, typename TI>
+TF gauss(BS *bs, double mean, double stddev)
+{
+    static double v[2], t;
+    static int phase = 0;
+    double x;
+
+    if (0 == phase) {
+        double s;
+
+        do {
+            TF u[2];
+
+            randfv<BS, TF, TI>(bs, u, 2, 0.0, 1.0);
+
+            v[0] = std::fma(2.0, u[0], -1.0);
+            v[1] = std::fma(2.0, u[1], -1.0);
+            s = v[0] * v[0] + v[1] * v[1];
+        } while (s >= 1.0 || s == 0.0);
+
+        t = std::sqrt(-2.0 * std::log(s) / s);
+        x = v[0] * t;
+    }
+    else {
+        x = v[1] * t;
+    }
+
+    phase = 1 - phase;
+
+    return std::fma(stddev, x, mean);
+}
+
 extern "C" {
 
 void randi32v(struct randbs *bs,
@@ -161,58 +223,12 @@ void gaussf32v(struct randbs *bs,
                double mean,
                double stddev)
 {
-    size_t i;
-
-    for (i = 0; i < count; i += 2) {
-        double v[2], s, t;
-
-        do {
-            float u[2];
-
-            randf32v(bs, u, 2, 0.0, 1.0);
-
-            v[0] = fma(2.0, u[0], -1.0);
-            v[1] = fma(2.0, u[1], -1.0);
-            s = v[0] * v[0] + v[1] * v[1];
-        } while (s >= 1.0 || s == 0.0);
-
-        t = sqrt(-2.0 * log(s) / s);
-
-        out[i] = fma(stddev, v[0] * t, mean);
-        if (i + 1 < count)
-            out[i + 1] = fma(stddev, v[1] * t, mean);
-    }
+    gaussv<struct randbs, float, uint32_t>(bs, out, count, mean, stddev);
 }
 
 float gaussf32(struct randbs *bs, double mean, double stddev)
 {
-    static double v[2], t;
-    static int phase = 0;
-    double x;
-
-    if (0 == phase) {
-        double s;
-
-        do {
-            float u[2];
-
-            randf32v(bs, u, 2, 0.0, 1.0);
-
-            v[0] = fma(2.0, u[0], -1.0);
-            v[1] = fma(2.0, u[1], -1.0);
-            s = v[0] * v[0] + v[1] * v[1];
-        } while (s >= 1.0 || s == 0.0);
-
-        t = sqrt(-2.0 * log(s) / s);
-        x = v[0] * t;
-    }
-    else {
-        x = v[1] * t;
-    }
-
-    phase = 1 - phase;
-
-    return fma(stddev, x, mean);
+    return gauss<struct randbs, float, uint32_t>(bs, mean, stddev);
 }
 
 } /* extern "C" */
