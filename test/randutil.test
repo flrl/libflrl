@@ -21,10 +21,15 @@ static const uint32_t seed128[4] = {
 };
 
 struct mock_rng32_state {
-    uint32_t next_index;
-    uint32_t call_count;
-    uint32_t n_outputs;
-    uint32_t outputs[];
+    union {
+        struct {
+            uint32_t *outputs;
+            uint16_t next_index;
+            uint16_t call_count;
+            uint16_t n_outputs;
+        } m;
+        struct state128 s;
+    };
 };
 
 static uint32_t mock_rng32(void *state__)
@@ -32,14 +37,14 @@ static uint32_t mock_rng32(void *state__)
     struct mock_rng32_state *state = state__;
     uint32_t val;
 
-    if (!state->n_outputs) abort();
+    if (!state->m.n_outputs) abort();
 
-    state->call_count ++;
+    state->m.call_count ++;
 
-    val = state->outputs[state->next_index ++];
+    val = state->m.outputs[state->m.next_index ++];
 
-    if (state->next_index >= state->n_outputs)
-        state->next_index = 0;
+    if (state->m.next_index >= state->m.n_outputs)
+        state->m.next_index = 0;
 
     return val;
 }
@@ -51,18 +56,18 @@ static unsigned bit_width(uint64_t i)
 
 static void fn_randbs_bits(NO_STATE)
 {
-    uint32_t rng_state[] = {
-        0,
-        0,
-        8,
-        0b01010101101010100011001111001100,
-        0b00001111111100000000000011111111,
-        0b01010101101010100011001111001100,
-        0b11110000111100001111000011110000,
-        0b11110000111100001111000011110000,
-        0b11110000111100001111000011110000,
-        0b11111111000000001111111100000000,
-        0b11111111000000001111111100000000,
+    struct mock_rng32_state rng_state = {
+        .m.outputs = (uint32_t[]) {
+            0b01010101101010100011001111001100,
+            0b00001111111100000000000011111111,
+            0b01010101101010100011001111001100,
+            0b11110000111100001111000011110000,
+            0b11110000111100001111000011110000,
+            0b11110000111100001111000011110000,
+            0b11111111000000001111111100000000,
+            0b11111111000000001111111100000000,
+        },
+        .m.n_outputs = 8,
     };
     const struct {
         unsigned want_bits;
@@ -90,7 +95,7 @@ static void fn_randbs_bits(NO_STATE)
         {  2, 0b11 },
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
-    struct randbs bs = {{ .func = mock_rng32, .state = rng_state }, 0, 0 };
+    struct randbs bs = {{ .func = mock_rng32, .state = &rng_state.s }, 0, 0 };
     unsigned i;
 
     for (i = 0; i < n_tests; i++) {
@@ -98,24 +103,24 @@ static void fn_randbs_bits(NO_STATE)
         assert_int_equal(tests[i].expect_bits, v);
     }
 
-    assert_int_equal(rng_state[1], rng_state[2]);
+    assert_int_equal(rng_state.m.call_count, rng_state.m.n_outputs);
 }
 
 static void fn_randbs_zeroes(NO_STATE)
 {
-    uint32_t rng_state[] = {
-        0,
-        0,
-        9,
-        0b00000110000000010000000100000010,
-        0b11000000000000000000000000000010,
-        0b00000000000000000000000000000001,
-        0b10000000000000000110000000000000,
-        0b00000000000000000000000000000000,
-        0b00000000000000000000000000000000,
-        0b00000000000000000000000000001000,
-        0b00000000000000000000000000000000,
-        0b10000000000000000000000000000000,
+    struct mock_rng32_state rng_state = {
+        .m.outputs = (uint32_t[]) {
+            0b00000110000000010000000100000010,
+            0b11000000000000000000000000000010,
+            0b00000000000000000000000000000001,
+            0b10000000000000000110000000000000,
+            0b00000000000000000000000000000000,
+            0b00000000000000000000000000000000,
+            0b00000000000000000000000000001000,
+            0b00000000000000000000000000000000,
+            0b10000000000000000000000000000000,
+        },
+        .m.n_outputs = 9,
     };
     const struct {
         unsigned limit;
@@ -145,14 +150,14 @@ static void fn_randbs_zeroes(NO_STATE)
         { 32, 27, 9 },
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
-    struct randbs bs = {{ .func = mock_rng32, .state = rng_state }, 0, 0 };
+    struct randbs bs = {{ .func = mock_rng32, .state = &rng_state.s }, 0, 0 };
     unsigned i;
 
     for (i = 0; i < n_tests; i++) {
         unsigned zeroes = randbs_zeroes(&bs, tests[i].limit);
 
         assert_int_equal(tests[i].expect_zeroes, zeroes);
-        assert_int_equal(tests[i].expect_call_count, rng_state[1]);
+        assert_int_equal(tests[i].expect_call_count, rng_state.m.call_count);
     }
 }
 
@@ -213,14 +218,14 @@ static void randi32v_range(NO_STATE)
 
 static void randi32v_call_count(NO_STATE)
 {
-    uint32_t rng_state[] = {
-        0,
-        0,
-        4,
-        0b00000100000100000100001000100101,
-        0b00010000000001000000001000000010,
-        0b00000000000010000000000010000000,
-        0b00100000000000000100000000000001,
+    struct mock_rng32_state rng_state = {
+        .m.outputs = (uint32_t[]) {
+            0b00000100000100000100001000100101,
+            0b00010000000001000000001000000010,
+            0b00000000000010000000000010000000,
+            0b00100000000000000100000000000001,
+        },
+        .m.n_outputs = 4,
     };
     const struct {
         size_t n_values;
@@ -235,7 +240,7 @@ static void randi32v_call_count(NO_STATE)
         { 10, INT32_MIN, INT32_MAX },
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
-    struct randbs bs = {{ .func = mock_rng32, .state = rng_state }, 0, 0 };
+    struct randbs bs = {{ .func = mock_rng32, .state = &rng_state.s }, 0, 0 };
     int32_t *values;
     unsigned i;
 
@@ -245,10 +250,10 @@ static void randi32v_call_count(NO_STATE)
 
         values = calloc(tests[i].n_values, sizeof(values[0]));
 
-        rng_state[1] = 0; /* reset call count */
+        rng_state.m.call_count = 0;
         randi32v(&bs, values, tests[i].n_values, tests[i].min, tests[i].max);
 
-        assert_in_range(rng_state[1],
+        assert_in_range(rng_state.m.call_count,
                         min_call_count,
                         tests[i].n_values);
 
@@ -306,14 +311,14 @@ static void randu32v_range(NO_STATE)
 
 static void randu32v_call_count(NO_STATE)
 {
-    uint32_t rng_state[] = {
-        0,
-        0,
-        4,
-        0b00000100000100000100001000100101,
-        0b00010000000001000000001000000010,
-        0b00000000000010000000000010000000,
-        0b00100000000000000100000000000001,
+    struct mock_rng32_state rng_state = {
+        .m.outputs = (uint32_t[]) {
+            0b00000100000100000100001000100101,
+            0b00010000000001000000001000000010,
+            0b00000000000010000000000010000000,
+            0b00100000000000000100000000000001,
+        },
+        .m.n_outputs = 4,
     };
     const struct {
         size_t n_values;
@@ -328,7 +333,7 @@ static void randu32v_call_count(NO_STATE)
         { 10, 0, UINT32_MAX },
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
-    struct randbs bs = {{ .func = mock_rng32, .state = rng_state }, 0, 0 };
+    struct randbs bs = {{ .func = mock_rng32, .state = &rng_state.s }, 0, 0 };
     uint32_t *values;
     unsigned i;
 
@@ -338,10 +343,10 @@ static void randu32v_call_count(NO_STATE)
 
         values = calloc(tests[i].n_values, sizeof(values[0]));
 
-        rng_state[1] = 0; /* reset call count */
+        rng_state.m.call_count = 0;
         randu32v(&bs, values, tests[i].n_values, tests[i].min, tests[i].max);
 
-        assert_in_range(rng_state[1],
+        assert_in_range(rng_state.m.call_count,
                         min_call_count,
                         tests[i].n_values);
 
@@ -539,14 +544,14 @@ static void randi64v_range(NO_STATE)
 
 static void randi64v_call_count(NO_STATE)
 {
-    uint32_t rng_state[] = {
-        0,
-        0,
-        4,
-        0b00000100000100000100001000100101,
-        0b00010000000001000000001000000010,
-        0b00000000000010000000000010000000,
-        0b00100000000000000100000000000001,
+    struct mock_rng32_state rng_state = {
+        .m.outputs = (uint32_t[]) {
+            0b00000100000100000100001000100101,
+            0b00010000000001000000001000000010,
+            0b00000000000010000000000010000000,
+            0b00100000000000000100000000000001,
+        },
+        .m.n_outputs = 4,
     };
     const struct {
         size_t n_values;
@@ -561,7 +566,7 @@ static void randi64v_call_count(NO_STATE)
         { 10, INT64_MIN, INT64_MAX },
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
-    struct randbs bs = {{ .func = mock_rng32, .state = rng_state }, 0, 0 };
+    struct randbs bs = {{ .func = mock_rng32, .state = &rng_state.s }, 0, 0 };
     int64_t *values;
     unsigned i;
 
@@ -571,10 +576,10 @@ static void randi64v_call_count(NO_STATE)
 
         values = calloc(tests[i].n_values, sizeof(values[0]));
 
-        rng_state[1] = 0; /* reset call count */
+        rng_state.m.call_count = 0;
         randi64v(&bs, values, tests[i].n_values, tests[i].min, tests[i].max);
 
-        assert_in_range(rng_state[1],
+        assert_in_range(rng_state.m.call_count,
                         min_call_count,
                         2 * tests[i].n_values);
 
@@ -634,14 +639,14 @@ static void randu64v_range(NO_STATE)
 
 static void randu64v_call_count(NO_STATE)
 {
-    uint32_t rng_state[] = {
-        0,
-        0,
-        4,
-        0b00000100000100000100001000100101,
-        0b00010000000001000000001000000010,
-        0b00000000000010000000000010000000,
-        0b00100000000000000100000000000001,
+    struct mock_rng32_state rng_state = {
+        .m.outputs = (uint32_t[]) {
+            0b00000100000100000100001000100101,
+            0b00010000000001000000001000000010,
+            0b00000000000010000000000010000000,
+            0b00100000000000000100000000000001,
+        },
+        .m.n_outputs = 4,
     };
     const struct {
         size_t n_values;
@@ -656,7 +661,7 @@ static void randu64v_call_count(NO_STATE)
         { 10, 0, UINT64_MAX },
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
-    struct randbs bs = {{ .func = mock_rng32, .state = rng_state }, 0, 0 };
+    struct randbs bs = {{ .func = mock_rng32, .state = &rng_state.s }, 0, 0 };
     uint64_t *values;
     unsigned i;
 
@@ -666,10 +671,10 @@ static void randu64v_call_count(NO_STATE)
 
         values = calloc(tests[i].n_values, sizeof(values[0]));
 
-        rng_state[1] = 0; /* reset call count */
+        rng_state.m.call_count = 0;
         randu64v(&bs, values, tests[i].n_values, tests[i].min, tests[i].max);
 
-        assert_in_range(rng_state[1],
+        assert_in_range(rng_state.m.call_count,
                         min_call_count,
                         2 * tests[i].n_values);
 
