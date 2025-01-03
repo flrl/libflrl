@@ -16,33 +16,24 @@ struct state256 {
 extern void state128_seed(struct state128 *s, const void *seed, size_t len);
 extern void state128_seed64(struct state128 *s, uint64_t seed);
 
-struct rng {
+struct randbs {
     struct state128 state;
     uint32_t (*func)(struct state128 *);
-};
-
-struct wrng {
-    struct state256 state;
-    uint64_t (*func)(struct state256 *);
-};
-
-struct randbs {
-    struct rng rng;
     uint64_t bits;
     unsigned n_bits;
 } __attribute__((aligned(64)));
-#define RANDBS_INITIALIZER(f) (struct randbs){ .rng.func = f }
+#define RANDBS_INITIALIZER(f) (struct randbs){ .func = f }
 #define RANDBS_MAX_BITS (64U)
 
 inline void randbs_seed(struct randbs *bs, const void *seed, size_t len)
 {
-    state128_seed(&bs->rng.state, seed, len);
+    state128_seed(&bs->state, seed, len);
     bs->bits = bs->n_bits = 0;
 }
 
 inline void randbs_seed64(struct randbs *bs, uint64_t seed)
 {
-    state128_seed64(&bs->rng.state, seed);
+    state128_seed64(&bs->state, seed);
     bs->bits = bs->n_bits = 0;
 }
 
@@ -164,16 +155,4 @@ extern unsigned sample32p(struct randbs *bs,
                           void *data, size_t rows, size_t rowsize,
                           size_t weight_offset);
 
-/* n weights, build temp cdf, return index */
-extern unsigned sample64(const struct wrng *r,
-                         const unsigned weights[], size_t n_weights);
-
-/* n weight|value pairs, build temp cdf, return value */
-extern unsigned sample64v(const struct wrng *r,
-                          size_t n_pairs, ...);
-
-/* n elems of size z with struct weight at offset t, save cdf, return index */
-extern unsigned sample64p(const struct wrng *r,
-                          void *data, size_t rows, size_t rowsize,
-                          size_t weight_offset);
 #endif
