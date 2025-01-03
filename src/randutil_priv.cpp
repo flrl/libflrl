@@ -8,6 +8,36 @@ extern "C" {
 #include <limits>
 #include <type_traits>
 
+template<typename BS>
+static inline uint64_t bs_bits(BS *bs, unsigned want_bits);
+
+template<>
+inline uint64_t bs_bits(struct randbs *bs, unsigned want_bits)
+{
+    return randbs_bits(bs, want_bits);
+}
+
+template<>
+inline uint64_t bs_bits(struct wrandbs *bs, unsigned want_bits)
+{
+    return wrandbs_bits(bs, want_bits);
+}
+
+template<typename BS>
+static inline unsigned bs_zeroes(BS *bs, unsigned limit);
+
+template<>
+inline unsigned bs_zeroes(struct randbs *bs, unsigned limit)
+{
+    return randbs_zeroes(bs, limit);
+}
+
+template<>
+inline unsigned bs_zeroes(struct wrandbs *bs, unsigned limit)
+{
+    return wrandbs_zeroes(bs, limit);
+}
+
 template<typename BS, typename T>
 static void randiv(BS *bs, T *out, std::size_t count, T min, T max)
 {
@@ -33,7 +63,7 @@ static void randiv(BS *bs, T *out, std::size_t count, T min, T max)
             uint64_t v;
 
             do {
-                v = randbs_bits(bs, want_bits);
+                v = bs_bits(bs, want_bits);
             } while (v > range);
 
             out[i] = min + v;
@@ -84,14 +114,14 @@ static void randfv(BS *bs, TF *out, std::size_t count, double min, double max)
         TF val;
 
         /* choose random bits and decrement exponent until a 1 appears */
-        exponent = high_exp - randbs_zeroes(bs, high_exp - low_exp);
+        exponent = high_exp - bs_zeroes(bs, high_exp - low_exp);
 
         /* choose a random mantissa */
-        mantissa = randbs_bits(bs, mantissa_bits<TF>);
+        mantissa = bs_bits(bs, mantissa_bits<TF>);
 
         /* if the mantissa is zero, half the time we should move to the next
          * exponent range */
-        if (mantissa == 0 && randbs_bits(bs, 1))
+        if (mantissa == 0 && bs_bits(bs, 1))
             exponent ++;
 
         /* combine the exponent and the mantissa */
@@ -248,5 +278,25 @@ double gaussf64(struct randbs *bs, double mean, double stddev)
 {
     return gauss<struct randbs, double, uint64_t>(bs, mean, stddev);
 }
+
+#if 0
+void wrandi32v(struct wrandbs *bs,
+               int32_t *out,
+               size_t count,
+               int32_t min,
+               int32_t max)
+{
+    randiv<struct wrandbs, int32_t>(bs, out, count, min, max);
+}
+
+void wrandf32v(struct wrandbs *bs,
+               float *out,
+               size_t count,
+               double min,
+               double max)
+{
+    randfv<struct wrandbs, float, uint32_t>(bs, out, count, min, max);
+}
+#endif
 
 } /* extern "C" */

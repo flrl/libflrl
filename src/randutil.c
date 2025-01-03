@@ -136,7 +136,18 @@ extern inline float randf32(struct randbs *bs, double min, double max);
 extern inline double randf64(struct randbs *bs, double min, double max);
 extern inline bool coin(struct randbs *bs, float p_true);
 
-/* XXX wrandx functions for struct wrng */
+#if 0
+extern inline void wrandbs_seed(struct wrandbs *bs, const void *seed, size_t len);
+extern inline void wrandbs_seed64(struct wrandbs *bs, uint64_t seed);
+
+extern inline int32_t wrandi32(struct wrandbs *bs, int32_t min, int32_t max);
+extern inline int64_t wrandi64(struct wrandbs *bs, int64_t min, int64_t max);
+extern inline uint32_t wrandu32(struct wrandbs *bs, uint32_t min, uint32_t max);
+extern inline uint64_t wrandu64(struct wrandbs *bs, uint64_t min, uint64_t max);
+extern inline float wrandf32(struct wrandbs *bs, double min, double max);
+extern inline double wrandf64(struct wrandbs *bs, double min, double max);
+extern inline bool wcoin(struct wrandbs *bs, float p_true);
+#endif
 
 /* XXX legacy */
 
