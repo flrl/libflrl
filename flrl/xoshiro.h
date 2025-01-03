@@ -17,7 +17,7 @@
    right shifts to extract subsets of bits.
 
    The state must be seeded so that it is not everywhere zero. */
-extern uint32_t xoshiro128plus_next(void *state);
+extern uint32_t xoshiro128plus_next(struct state128 *state);
 extern void xoshiro128plus_jump(struct state128 *state);
 extern void xoshiro128plus_long_jump(struct state128 *state);
 #define RNG_INIT_XOSHIRO128_PLUS \
@@ -33,7 +33,7 @@ extern void xoshiro128plus_long_jump(struct state128 *state);
    numbers, xoshiro128+ is even faster.
 
    The state must be seeded so that it is not everywhere zero. */
-extern uint32_t xoshiro128plusplus_next(void *state);
+extern uint32_t xoshiro128plusplus_next(struct state128 *state);
 extern void xoshiro128plusplus_jump(struct state128 *state);
 extern void xoshiro128plusplus_long_jump(struct state128 *state);
 #define RNG_INIT_XOSHIRO128_PLUSPLUS \
@@ -52,7 +52,7 @@ extern void xoshiro128plusplus_long_jump(struct state128 *state);
    numbers, xoshiro128+ is even faster.
 
    The state must be seeded so that it is not everywhere zero. */
-extern uint32_t xoshiro128starstar_next(void *state);
+extern uint32_t xoshiro128starstar_next(struct state128 *state);
 extern void xoshiro128starstar_jump(struct state128 *state);
 extern void xoshiro128starstar_long_jump(struct state128 *state);
 #define RNG_INIT_XOSHIRO128_STARSTAR \
@@ -73,7 +73,7 @@ extern void xoshiro128starstar_long_jump(struct state128 *state);
    The state must be seeded so that it is not everywhere zero. If you have
    a 64-bit seed, we suggest to seed a splitmix64 generator and use its
    output to fill s. */
-extern uint64_t xoshiro256plus_next(void *state);
+extern uint64_t xoshiro256plus_next(struct state256 *state);
 extern void xoshiro256plus_jump(struct state256 *state);
 extern void xoshiro256plus_long_jump(struct state256 *state);
 #define WRNG_INIT_XOSHIRO256_PLUS \
@@ -90,7 +90,7 @@ extern void xoshiro256plus_long_jump(struct state256 *state);
    The state must be seeded so that it is not everywhere zero. If you have
    a 64-bit seed, we suggest to seed a splitmix64 generator and use its
    output to fill s. */
-extern uint64_t xoshiro256plusplus_next(void *state);
+extern uint64_t xoshiro256plusplus_next(struct state256 *state);
 extern void xoshiro256plusplus_jump(struct state256 *state);
 extern void xoshiro256plusplus_long_jump(struct state256 *state);
 #define WRNG_INIT_XOSHIRO256_PLUSPLUS \
@@ -107,7 +107,7 @@ extern void xoshiro256plusplus_long_jump(struct state256 *state);
    The state must be seeded so that it is not everywhere zero. If you have
    a 64-bit seed, we suggest to seed a splitmix64 generator and use its
    output to fill s. */
-extern uint64_t xoshiro256starstar_next(void *state);
+extern uint64_t xoshiro256starstar_next(struct state256 *state);
 extern void xoshiro256starstar_jump(struct state256 *state);
 extern void xoshiro256starstar_long_jump(struct state256 *state);
 #define WRNG_INIT_XOSHIRO256_STARSTAR \

@@ -26,8 +26,7 @@ static inline uint64_t rotl(const uint64_t x, int k) {
 }
 
 
-uint64_t xoshiro256starstar_next(void *statep) {
-    struct state256 *state = (struct state256 *) statep;
+uint64_t xoshiro256starstar_next(struct state256 *state) {
     const uint64_t result = rotl(state->s[1] * 5, 7) * 9;
 
     const uint64_t t = state->s[1] << 17;
