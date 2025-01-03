@@ -1,4 +1,5 @@
 #include "flrl/randutil.h"
+#include "flrl/xoshiro.h"
 
 #include <assert.h>
 #include <stdarg.h>
@@ -21,12 +22,18 @@
     _a < _b ? _a : _b;      \
 })
 
-void randbs_seed(struct randbs *bs, const void *seed, size_t seed_size)
+void state128_seed(struct state128 *s, const void *seed, size_t len)
 {
-    memmove(bs->rng.state, seed, MIN(seed_size, bs->rng.state_size));
-    bs->bits = bs->n_bits = 0;
+    /* XXX repeat pattern if len is short? */
+    memmove(s, seed, MIN(len, sizeof(*s)));
 }
 
+void state128_seed64(struct state128 *s, uint64_t seed)
+{
+    xoshiro_seed64(s, sizeof(*s), seed);
+}
+
+extern inline void randbs_seed(struct randbs *bs, const void *seed, size_t len);
 extern inline void randbs_seed64(struct randbs *bs, uint64_t seed);
 
 static inline uint64_t mask_bits(unsigned bits)

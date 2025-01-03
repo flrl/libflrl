@@ -27,7 +27,7 @@ static inline uint64_t rotl(const uint64_t x, int k) {
 
 
 uint64_t xoshiro256starstar_next(void *statep) {
-    struct xoshiro256starstar_state *state = (struct xoshiro256starstar_state *) statep;
+    struct state256 *state = (struct state256 *) statep;
     const uint64_t result = rotl(state->s[1] * 5, 7) * 9;
 
     const uint64_t t = state->s[1] << 17;
@@ -49,7 +49,7 @@ uint64_t xoshiro256starstar_next(void *statep) {
    to 2^128 calls to next(); it can be used to generate 2^128
    non-overlapping subsequences for parallel computations. */
 
-void xoshiro256starstar_jump(struct xoshiro256starstar_state *state) {
+void xoshiro256starstar_jump(struct state256 *state) {
     static const uint64_t JUMP[] = { 0x180ec6d33cfd0aba, 0xd5a61266f0c9392c, 0xa9582618e03fc9aa, 0x39abdc4529b1661c };
 
     uint64_t s0 = 0;
@@ -80,7 +80,7 @@ void xoshiro256starstar_jump(struct xoshiro256starstar_state *state) {
    from each of which jump() will generate 2^64 non-overlapping
    subsequences for parallel distributed computations. */
 
-void xoshiro256starstar_long_jump(struct xoshiro256starstar_state *state) {
+void xoshiro256starstar_long_jump(struct state256 *state) {
     static const uint64_t LONG_JUMP[] = { 0x76e15d3efefdcbbf, 0xc5004e441c522fb3, 0x77710069854ee241, 0x39109bb02acbe635 };
 
     uint64_t s0 = 0;

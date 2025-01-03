@@ -1,11 +1,20 @@
 #ifndef LIBFLRL_RANDUTIL_H
 #define LIBFLRL_RANDUTIL_H
 
-#include "flrl/xoshiro.h"
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+
+struct state128 {
+    uint32_t s[4];
+};
+
+struct state256 {
+    uint64_t s[4];
+};
+
+extern void state128_seed(struct state128 *s, const void *seed, size_t len);
+extern void state128_seed64(struct state128 *s, uint64_t seed);
 
 struct rng {
     uint32_t (*func)(void *);
@@ -19,42 +28,6 @@ struct wrng {
     size_t state_size;
 };
 
-#define RNG_INIT_XOSHIRO128_PLUS (struct rng){      \
-    &xoshiro128plus_next,                           \
-    &(struct xoshiro128plus_state){{0}},            \
-    sizeof(struct xoshiro128plus_state),            \
-}
-
-#define RNG_INIT_XOSHIRO128_PLUSPLUS (struct rng){  \
-    &xoshiro128plusplus_next,                       \
-    &(struct xoshiro128plusplus_state){{0}},        \
-    sizeof(struct xoshiro128plusplus_state),        \
-}
-
-#define RNG_INIT_XOSHIRO128_STAR (struct rng){      \
-    &xoshiro128star_next,                           \
-    &(struct xoshiro128star_state){{0}},            \
-    sizeof(struct xoshiro128star_state),            \
-}
-
-#define WRNG_INIT_XOSHIRO256_PLUS (struct rng){     \
-    &xoshiro256plus_next,                           \
-    &(struct xoshiro256plus_state){{0}},            \
-    sizeof(struct xoshiro256plus_state),            \
-}
-
-#define WRNG_INIT_XOSHIRO256_PLUSPLUS (struct rng){ \
-    &xoshiro256plusplus_next,                       \
-    &(struct xoshiro256plusplus_state){{0}},        \
-    sizeof(struct xoshiro256plusplus_state),        \
-}
-
-#define WRNG_INIT_XOSHIRO256_STAR (struct rng){     \
-    &xoshiro256star_next,                           \
-    &(struct xoshiro256star_state){{0}},            \
-    sizeof(struct xoshiro256star_state),            \
-}
-
 struct randbs {
     struct rng rng;
     uint64_t bits;
@@ -63,11 +36,15 @@ struct randbs {
 #define RANDBS_INITIALIZER(g) (struct randbs){ (g), 0, 0 }
 #define RANDBS_MAX_BITS (64U)
 
-extern void randbs_seed(struct randbs *bs, const void *seed, size_t seed_size);
+inline void randbs_seed(struct randbs *bs, const void *seed, size_t len)
+{
+    state128_seed((struct state128 *) bs->rng.state, seed, len);
+    bs->bits = bs->n_bits = 0;
+}
 
 inline void randbs_seed64(struct randbs *bs, uint64_t seed)
 {
-    xoshiro_seed64(bs->rng.state, bs->rng.state_size, seed);
+    state128_seed64((struct state128 *) bs->rng.state, seed);
     bs->bits = bs->n_bits = 0;
 }
 
