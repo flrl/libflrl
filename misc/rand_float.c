@@ -106,7 +106,7 @@ int main(int argc, char **argv)
 
 
     if (do_randutil) {
-        struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+        struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
         size_t n_values = 1 * 1000 * 1000;
         float *values;
         unsigned i;
