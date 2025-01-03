@@ -31,7 +31,7 @@ struct randbs {
     uint64_t bits;
     unsigned n_bits;
 } __attribute__((aligned(64)));
-#define RANDBS_INITIALIZER(g) (struct randbs){ (g), 0, 0 }
+#define RANDBS_INITIALIZER(f) (struct randbs){ .rng.func = f }
 #define RANDBS_MAX_BITS (64U)
 
 inline void randbs_seed(struct randbs *bs, const void *seed, size_t len)

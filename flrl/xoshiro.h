@@ -36,8 +36,6 @@ extern void xoshiro128plus_long_jump(struct state128 *state);
 extern uint32_t xoshiro128plusplus_next(struct state128 *state);
 extern void xoshiro128plusplus_jump(struct state128 *state);
 extern void xoshiro128plusplus_long_jump(struct state128 *state);
-#define RNG_INIT_XOSHIRO128_PLUSPLUS \
-    (struct rng){ {{0}}, &xoshiro128plusplus_next }
 
 
 /* This is xoshiro128** 1.1, one of our 32-bit all-purpose, rock-solid
@@ -55,8 +53,6 @@ extern void xoshiro128plusplus_long_jump(struct state128 *state);
 extern uint32_t xoshiro128starstar_next(struct state128 *state);
 extern void xoshiro128starstar_jump(struct state128 *state);
 extern void xoshiro128starstar_long_jump(struct state128 *state);
-#define RNG_INIT_XOSHIRO128_STARSTAR \
-    (struct rng){ {{0}}, &xoshiro128starstar_next }
 
 
 /* This is xoshiro256+ 1.0, our best and fastest generator for floating-point
@@ -76,8 +72,6 @@ extern void xoshiro128starstar_long_jump(struct state128 *state);
 extern uint64_t xoshiro256plus_next(struct state256 *state);
 extern void xoshiro256plus_jump(struct state256 *state);
 extern void xoshiro256plus_long_jump(struct state256 *state);
-#define WRNG_INIT_XOSHIRO256_PLUS \
-    (struct rng){ {{0}}, &xoshiro256plus_next }
 
 
 /* This is xoshiro256++ 1.0, one of our all-purpose, rock-solid generators.
@@ -93,8 +87,6 @@ extern void xoshiro256plus_long_jump(struct state256 *state);
 extern uint64_t xoshiro256plusplus_next(struct state256 *state);
 extern void xoshiro256plusplus_jump(struct state256 *state);
 extern void xoshiro256plusplus_long_jump(struct state256 *state);
-#define WRNG_INIT_XOSHIRO256_PLUSPLUS \
-    (struct rng){ {{0}}, &xoshiro256plusplus_next }
 
 
 /* This is xoshiro256** 1.0, one of our all-purpose, rock-solid
@@ -110,7 +102,5 @@ extern void xoshiro256plusplus_long_jump(struct state256 *state);
 extern uint64_t xoshiro256starstar_next(struct state256 *state);
 extern void xoshiro256starstar_jump(struct state256 *state);
 extern void xoshiro256starstar_long_jump(struct state256 *state);
-#define WRNG_INIT_XOSHIRO256_STARSTAR \
-    (struct rng){ {{0}}, &xoshiro256starstar_next }
 
 #endif

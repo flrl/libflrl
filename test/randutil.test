@@ -201,7 +201,7 @@ static void randi32v_range(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = N_VALUES;
-    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     int32_t *values;
     unsigned i;
 
@@ -297,7 +297,7 @@ static void randu32v_range(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = N_VALUES;
-    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     uint32_t *values;
     unsigned i;
 
@@ -394,7 +394,7 @@ static void randf32v_range(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = N_VALUES;
-    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     float *values;
     unsigned i;
 
@@ -447,7 +447,7 @@ static void randf32v_chi2(NO_STATE)
     const double bucket_p = 1.0 / n_buckets;
     /* from table: 15 dof at p=0.995, p=0.005 */
     const double critical_value[] = { 4.601, 32.801 };
-    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     unsigned *bucket;
     double *bucket_t, *deviation;
     float *values;
@@ -533,7 +533,7 @@ static void randi64v_range(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = N_VALUES;
-    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     int64_t *values;
     unsigned i;
 
@@ -631,7 +631,7 @@ static void randu64v_range(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = N_VALUES;
-    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     uint64_t *values;
     unsigned i;
 
@@ -728,7 +728,7 @@ static void randf64v_range(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = N_VALUES;
-    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     double *values;
     unsigned i;
 
@@ -784,7 +784,7 @@ static void randf64v_chi2(NO_STATE)
     const double bucket_p = 1.0 / n_buckets;
     /* from table: 15 dof at p=0.995, p=0.005 */
     const double critical_value[] = { 4.601, 32.801 };
-    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     unsigned *bucket;
     double *bucket_t, *deviation;
     double *values;
@@ -853,7 +853,7 @@ static void gaussf32v_gaussf32_same_seq(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = N_VALUES;
-    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     float *values;
     unsigned i;
 
@@ -892,7 +892,7 @@ static void gaussf32v_mean(NO_STATE)
     const size_t n_values = 1 << 20; /* about a million, as a power of two */
     const double recip_n_values = 1.0 / n_values;
     const double recip_sqrt_n_values = 1.0 / sqrt(n_values);
-    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     float *values;
     unsigned i;
 
@@ -935,7 +935,7 @@ static void gaussf32v_variance(NO_STATE)
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = 1 << 20; /* about a million, as a power of two */
     const double recip_n_values = 1.0 / n_values;
-    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     float *values;
     unsigned i;
 
@@ -988,7 +988,7 @@ static void gaussf32v_chi2(NO_STATE)
     const size_t n_buckets = 8;
     const double bucket_p[8] = { 0.00135, 0.0214, 0.1359, 0.34135,
                                  0.34135, 0.1359, 0.0214, 0.00135 };
-    struct randbs bs = RANDBS_INITIALIZER(RNG_INIT_XOSHIRO128_PLUSPLUS);
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     float *values;
     unsigned i;
 
