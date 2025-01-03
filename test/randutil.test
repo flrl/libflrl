@@ -55,9 +55,9 @@ static void setup_mock_bs(struct randbs *bs,
                           const struct mock_rng32_state *init)
 {
     memset(bs, 0, sizeof(*bs));
-    memcpy(&bs->rng.state, init, sizeof(*init));
-    bs->rng.func = mock_rng32;
-    *state = (struct mock_rng32_state *) &bs->rng.state;
+    memcpy(&bs->state, init, sizeof(*init));
+    bs->func = mock_rng32;
+    *state = (struct mock_rng32_state *) &bs->state;
 }
 
 static unsigned bit_width(uint64_t i)
