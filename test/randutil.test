@@ -33,9 +33,9 @@ struct mock_rng32_state {
 };
 static_assert(sizeof(struct mock_rng32_state) == sizeof(struct state128));
 
-static uint32_t mock_rng32(void *state__)
+static uint32_t mock_rng32(struct state128 *statep)
 {
-    struct mock_rng32_state *state = state__;
+    struct mock_rng32_state *state = (struct mock_rng32_state *) statep;
     uint32_t val;
 
     if (!state->m.n_outputs) abort();

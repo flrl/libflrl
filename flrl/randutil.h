@@ -18,12 +18,12 @@ extern void state128_seed64(struct state128 *s, uint64_t seed);
 
 struct rng {
     struct state128 state;
-    uint32_t (*func)(void *);
+    uint32_t (*func)(struct state128 *);
 };
 
 struct wrng {
     struct state256 state;
-    uint64_t (*func)(void *);
+    uint64_t (*func)(struct state256 *);
 };
 
 struct randbs {
