@@ -5,8 +5,6 @@
 
 #include <stdint.h>
 
-extern void xoshiro_seed64(void *statep, size_t size, uint64_t seed);
-
 /* This is xoshiro128+ 1.0, our best and fastest 32-bit generator for 32-bit
    floating-point numbers. We suggest to use its upper bits for
    floating-point generation, as it is slightly faster than xoshiro128**.
@@ -22,8 +20,6 @@ extern void xoshiro_seed64(void *statep, size_t size, uint64_t seed);
 extern uint32_t xoshiro128plus_next(void *state);
 extern void xoshiro128plus_jump(struct state128 *state);
 extern void xoshiro128plus_long_jump(struct state128 *state);
-#define xoshiro128plus_seed64(statep, seed) \
-    xoshiro_seed64((statep), sizeof(struct state128), (seed))
 #define RNG_INIT_XOSHIRO128_PLUS (struct rng){      \
     &xoshiro128plus_next,                           \
     &(struct state128){{0}},                        \
@@ -43,8 +39,6 @@ extern void xoshiro128plus_long_jump(struct state128 *state);
 extern uint32_t xoshiro128plusplus_next(void *state);
 extern void xoshiro128plusplus_jump(struct state128 *state);
 extern void xoshiro128plusplus_long_jump(struct state128 *state);
-#define xoshiro128plusplus_seed64(statep, seed) \
-    xoshiro_seed64((statep), sizeof(struct state128), (seed))
 #define RNG_INIT_XOSHIRO128_PLUSPLUS (struct rng){  \
     &xoshiro128plusplus_next,                       \
     &(struct state128){{0}},                        \
@@ -67,8 +61,6 @@ extern void xoshiro128plusplus_long_jump(struct state128 *state);
 extern uint32_t xoshiro128starstar_next(void *state);
 extern void xoshiro128starstar_jump(struct state128 *state);
 extern void xoshiro128starstar_long_jump(struct state128 *state);
-#define xoshiro128starstar_seed64(statep, seed) \
-    xoshiro_seed64((statep), sizeof(struct state128), (seed))
 #define RNG_INIT_XOSHIRO128_STARSTAR (struct rng){  \
     &xoshiro128starstar_next,                       \
     &(struct state128){{0}},                        \
@@ -93,8 +85,6 @@ extern void xoshiro128starstar_long_jump(struct state128 *state);
 extern uint64_t xoshiro256plus_next(void *state);
 extern void xoshiro256plus_jump(struct state256 *state);
 extern void xoshiro256plus_long_jump(struct state256 *state);
-#define xoshiro256plus_seed64(statep, seed) \
-    xoshiro_seed64((statep), sizeof(struct state256), (seed))
 #define WRNG_INIT_XOSHIRO256_PLUS (struct rng){     \
     &xoshiro256plus_next,                           \
     &(struct state256){{0}},                        \
@@ -115,8 +105,6 @@ extern void xoshiro256plus_long_jump(struct state256 *state);
 extern uint64_t xoshiro256plusplus_next(void *state);
 extern void xoshiro256plusplus_jump(struct state256 *state);
 extern void xoshiro256plusplus_long_jump(struct state256 *state);
-#define xoshiro256plusplus_seed64(statep, seed) \
-    xoshiro_seed64((statep), sizeof(struct state256), (seed))
 #define WRNG_INIT_XOSHIRO256_PLUSPLUS (struct rng){ \
     &xoshiro256plusplus_next,                       \
     &(struct state256){{0}},                        \
@@ -137,8 +125,6 @@ extern void xoshiro256plusplus_long_jump(struct state256 *state);
 extern uint64_t xoshiro256starstar_next(void *state);
 extern void xoshiro256starstar_jump(struct state256 *state);
 extern void xoshiro256starstar_long_jump(struct state256 *state);
-#define xoshiro256starstar_seed64(statep, seed) \
-    xoshiro_seed64((statep), sizeof(struct state256), (seed))
 #define WRNG_INIT_XOSHIRO256_STARSTAR (struct rng){ \
     &xoshiro256starstar_next,                       \
     &(struct state256){{0}},                        \

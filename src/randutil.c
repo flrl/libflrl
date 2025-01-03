@@ -1,5 +1,5 @@
 #include "flrl/randutil.h"
-#include "flrl/xoshiro.h"
+#include "flrl/splitmix64.h"
 
 #include <assert.h>
 #include <stdarg.h>
@@ -30,7 +30,16 @@ void state128_seed(struct state128 *s, const void *seed, size_t len)
 
 void state128_seed64(struct state128 *s, uint64_t seed)
 {
-    xoshiro_seed64(s, sizeof(*s), seed);
+    struct splitmix64_state sm64;
+    uint64_t buf[2];
+
+    static_assert(sizeof(*s) == sizeof(buf));
+
+    sm64.x = seed;
+    buf[0] = splitmix64_next(&sm64);
+    buf[1] = splitmix64_next(&sm64);
+
+    memcpy(s, buf, sizeof(*s));
 }
 
 extern inline void randbs_seed(struct randbs *bs, const void *seed, size_t len);
