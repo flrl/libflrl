@@ -28,7 +28,7 @@ static inline uint32_t rotl(const uint32_t x, int k) {
 }
 
 uint32_t xoshiro128plus_next(void *statep) {
-    struct xoshiro128plus_state *state = (struct xoshiro128plus_state *) statep;
+    struct state128 *state = (struct state128 *) statep;
     const uint32_t result = state->s[0] + state->s[3];
 
     const uint32_t t = state->s[1] << 9;
@@ -50,7 +50,7 @@ uint32_t xoshiro128plus_next(void *statep) {
    to 2^64 calls to next(); it can be used to generate 2^64
    non-overlapping subsequences for parallel computations. */
 
-void xoshiro128plus_jump(struct xoshiro128plus_state *state) {
+void xoshiro128plus_jump(struct state128 *state) {
     static const uint32_t JUMP[] = { 0x8764000b, 0xf542d2d3, 0x6fa035c3, 0x77f2db5b };
 
     uint32_t s0 = 0;
@@ -80,7 +80,7 @@ void xoshiro128plus_jump(struct xoshiro128plus_state *state) {
    from each of which jump() will generate 2^32 non-overlapping
    subsequences for parallel distributed computations. */
 
-void xoshiro128plus_long_jump(struct xoshiro128plus_state *state) {
+void xoshiro128plus_long_jump(struct state128 *state) {
     static const uint32_t LONG_JUMP[] = { 0xb523952e, 0x0b6f099f, 0xccf5a0ef, 0x1c580662 };
 
     uint32_t s0 = 0;
