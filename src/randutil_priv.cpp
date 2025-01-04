@@ -275,29 +275,11 @@ void randi8v(struct randbs *bs,
     randiv(bs, out, count, min, max);
 }
 
-void randu8v(struct randbs *bs,
-             uint8_t *out,
-             size_t count,
-             uint8_t min,
-             uint8_t max)
-{
-    randiv(bs, out, count, min, max);
-}
-
 void randi16v(struct randbs *bs,
               int16_t *out,
               size_t count,
               int16_t min,
               int16_t max)
-{
-    randiv(bs, out, count, min, max);
-}
-
-void randu16v(struct randbs *bs,
-              uint16_t *out,
-              size_t count,
-              uint16_t min,
-              uint16_t max)
 {
     randiv(bs, out, count, min, max);
 }
@@ -311,29 +293,38 @@ void randi32v(struct randbs *bs,
     randiv(bs, out, count, min, max);
 }
 
-void randu32v(struct randbs *bs,
-              uint32_t *out,
-              size_t count,
-              uint32_t min,
-              uint32_t max)
-{
-    randiv(bs, out, count, min, max);
-}
-
-void randf32v(struct randbs *bs,
-              float *out,
-              size_t count,
-              double min,
-              double max)
-{
-    randfv(bs, out, count, min, max);
-}
-
 void randi64v(struct randbs *bs,
               int64_t *out,
               size_t count,
               int64_t min,
               int64_t max)
+{
+    randiv(bs, out, count, min, max);
+}
+
+void randu8v(struct randbs *bs,
+             uint8_t *out,
+             size_t count,
+             uint8_t min,
+             uint8_t max)
+{
+    randiv(bs, out, count, min, max);
+}
+
+void randu16v(struct randbs *bs,
+              uint16_t *out,
+              size_t count,
+              uint16_t min,
+              uint16_t max)
+{
+    randiv(bs, out, count, min, max);
+}
+
+void randu32v(struct randbs *bs,
+              uint32_t *out,
+              size_t count,
+              uint32_t min,
+              uint32_t max)
 {
     randiv(bs, out, count, min, max);
 }
@@ -345,6 +336,15 @@ void randu64v(struct randbs *bs,
               uint64_t max)
 {
     randiv(bs, out, count, min, max);
+}
+
+void randf32v(struct randbs *bs,
+              float *out,
+              size_t count,
+              double min,
+              double max)
+{
+    randfv(bs, out, count, min, max);
 }
 
 void randf64v(struct randbs *bs,
