@@ -65,6 +65,16 @@ inline void wrandbs_seed64(struct wrandbs *bs, uint64_t seed)
 extern uint64_t wrandbs_bits(struct wrandbs *bs, unsigned want_bits);
 extern unsigned wrandbs_zeroes(struct wrandbs *bs, unsigned limit);
 
+extern void randi8v(struct randbs *bs,
+                    int8_t *out,
+                    size_t count,
+                    int8_t min,
+                    int8_t max);
+extern void randi16v(struct randbs *bs,
+                     int16_t *out,
+                     size_t count,
+                     int16_t min,
+                     int16_t max);
 extern void randi32v(struct randbs *bs,
                      int32_t *out,
                      size_t count,
@@ -75,6 +85,17 @@ extern void randi64v(struct randbs *bs,
                      size_t count,
                      int64_t min,
                      int64_t max);
+
+extern void randu8v(struct randbs *bs,
+                    uint8_t *out,
+                    size_t count,
+                    uint8_t min,
+                    uint8_t max);
+extern void randu16v(struct randbs *bs,
+                     uint16_t *out,
+                     size_t count,
+                     uint16_t min,
+                     uint16_t max);
 extern void randu32v(struct randbs *bs,
                      uint32_t *out,
                      size_t count,
@@ -85,6 +106,7 @@ extern void randu64v(struct randbs *bs,
                      size_t count,
                      uint64_t min,
                      uint64_t max);
+
 extern void randf32v(struct randbs *bs,
                      float *out,
                      size_t count,
@@ -95,6 +117,20 @@ extern void randf64v(struct randbs *bs,
                      size_t count,
                      double min,
                      double max);
+
+inline int8_t randi8(struct randbs *bs, int8_t min, int8_t max)
+{
+    int8_t v;
+    randi8v(bs, &v, 1, min, max);
+    return v;
+}
+
+inline int16_t randi16(struct randbs *bs, int16_t min, int16_t max)
+{
+    int16_t v;
+    randi16v(bs, &v, 1, min, max);
+    return v;
+}
 
 inline int32_t randi32(struct randbs *bs, int32_t min, int32_t max)
 {
@@ -107,6 +143,20 @@ inline int64_t randi64(struct randbs *bs, int64_t min, int64_t max)
 {
     int64_t v;
     randi64v(bs, &v, 1, min, max);
+    return v;
+}
+
+inline uint8_t randu8(struct randbs *bs, uint8_t min, uint8_t max)
+{
+    uint8_t v;
+    randu8v(bs, &v, 1, min, max);
+    return v;
+}
+
+inline uint16_t randu16(struct randbs *bs, uint16_t min, uint16_t max)
+{
+    uint16_t v;
+    randu16v(bs, &v, 1, min, max);
     return v;
 }
 

@@ -178,6 +178,207 @@ static void fn_randbs_zeroes(NO_STATE)
     }
 }
 
+static void randi8v_range(NO_STATE)
+{
+    const struct {
+        int8_t min;
+        int8_t max;
+    } tests[] = {
+        {        0,        0 },
+        {        0,        1 },
+        {        1,        0 },
+        {       -1,        1 },
+        {      -10,        0 },
+        {     -100,      -10 },
+        {        1,       10 },
+        {       10,      100 },
+        {     -100,      100 },
+        { INT8_MIN, INT8_MAX },
+        { INT8_MIN,        0 },
+        {        0, INT8_MAX },
+        { INT8_MIN, INT8_MIN },
+        { INT8_MAX, INT8_MAX },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    const size_t n_values = N_VALUES;
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
+    int8_t *values;
+    unsigned i;
+
+    randbs_seed(&bs, seed128, sizeof(seed128));
+
+    values = calloc(n_values, sizeof(values[0]));
+    assert_non_null(values);
+
+    for (i = 0; i < n_tests; i++) {
+        int8_t expect_min = tests[i].min;
+        int8_t expect_max = tests[i].max;
+        int8_t largest = INT8_MIN, smallest = INT8_MAX;
+        unsigned j;
+
+        if (expect_min > expect_max) expect_min = expect_max;
+
+        randi8v(&bs, values, n_values, tests[i].min, tests[i].max);
+
+        for (j = 0; j < n_values; j++) {
+            if (values[j] > largest) largest = values[j];
+            if (values[j] < smallest) smallest = values[j];
+            assert_int_in_range(values[j], expect_min, expect_max);
+        }
+
+        if (expect_min != expect_max && n_values > 10)
+            assert_int_not_equal(smallest, largest);
+    }
+
+    free(values);
+}
+
+static void randi8v_call_count(NO_STATE)
+{
+    const struct mock_rng32_state rng_init = {
+        .m.outputs = (uint32_t[]) {
+            0b00000100000100000100001000100101,
+            0b00010000000001000000001000000010,
+            0b00000000000010000000000010000000,
+            0b00100000000000000100000000000001,
+        },
+        .m.n_outputs = 4,
+    };
+    const struct {
+        size_t n_values;
+        int8_t min;
+        int8_t max;
+    } tests[] = {
+        { 10,        0,        1 },
+        { 10,        0,       20 },
+        { 10, INT8_MIN, INT8_MAX },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    struct randbs bs;
+    struct mock_rng32_state *rng_state;
+    int8_t *values;
+    unsigned i;
+
+    setup_mock_bs(&bs, &rng_state, &rng_init);
+
+    for (i = 0; i < n_tests; i++) {
+        uint8_t range = tests[i].max - tests[i].min;
+        unsigned min_call_count = bit_width(range) * tests[i].n_values / 32;
+
+        values = calloc(tests[i].n_values, sizeof(values[0]));
+
+        rng_state->m.call_count = 0;
+        randi8v(&bs, values, tests[i].n_values, tests[i].min, tests[i].max);
+
+        assert_in_range(rng_state->m.call_count,
+                        min_call_count,
+                        tests[i].n_values);
+
+        free(values);
+    }
+}
+
+static void randi16v_range(NO_STATE)
+{
+    const struct {
+        int16_t min;
+        int16_t max;
+    } tests[] = {
+        {         0,         0 },
+        {         0,         1 },
+        {         1,         0 },
+        {        -1,         1 },
+        {       -10,         0 },
+        {      -100,       -10 },
+        {         1,        10 },
+        {        10,       100 },
+        {      -100,       100 },
+        { INT16_MIN, INT16_MAX },
+        { INT16_MIN,         0 },
+        {         0, INT16_MAX },
+        { INT16_MIN, INT16_MIN },
+        { INT16_MAX, INT16_MAX },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    const size_t n_values = N_VALUES;
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
+    int16_t *values;
+    unsigned i;
+
+    randbs_seed(&bs, seed128, sizeof(seed128));
+
+    values = calloc(n_values, sizeof(values[0]));
+    assert_non_null(values);
+
+    for (i = 0; i < n_tests; i++) {
+        int16_t expect_min = tests[i].min;
+        int16_t expect_max = tests[i].max;
+        int16_t largest = INT16_MIN, smallest = INT16_MAX;
+        unsigned j;
+
+        if (expect_min > expect_max) expect_min = expect_max;
+
+        randi16v(&bs, values, n_values, tests[i].min, tests[i].max);
+
+        for (j = 0; j < n_values; j++) {
+            if (values[j] > largest) largest = values[j];
+            if (values[j] < smallest) smallest = values[j];
+            assert_int_in_range(values[j], expect_min, expect_max);
+        }
+
+        if (expect_min != expect_max && n_values > 10)
+            assert_int_not_equal(smallest, largest);
+    }
+
+    free(values);
+}
+
+static void randi16v_call_count(NO_STATE)
+{
+    const struct mock_rng32_state rng_init = {
+        .m.outputs = (uint32_t[]) {
+            0b00000100000100000100001000100101,
+            0b00010000000001000000001000000010,
+            0b00000000000010000000000010000000,
+            0b00100000000000000100000000000001,
+        },
+        .m.n_outputs = 4,
+    };
+    const struct {
+        size_t n_values;
+        int16_t min;
+        int16_t max;
+    } tests[] = {
+        { 10,         0,         1 },
+        { 10,         0,        20 },
+        { 10,         0,     32767 },
+        { 10, INT16_MIN, INT16_MAX },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    struct randbs bs;
+    struct mock_rng32_state *rng_state;
+    int16_t *values;
+    unsigned i;
+
+    setup_mock_bs(&bs, &rng_state, &rng_init);
+
+    for (i = 0; i < n_tests; i++) {
+        uint16_t range = tests[i].max - tests[i].min;
+        unsigned min_call_count = bit_width(range) * tests[i].n_values / 32;
+
+        values = calloc(tests[i].n_values, sizeof(values[0]));
+
+        rng_state->m.call_count = 0;
+        randi16v(&bs, values, tests[i].n_values, tests[i].min, tests[i].max);
+
+        assert_in_range(rng_state->m.call_count,
+                        min_call_count,
+                        tests[i].n_values);
+
+        free(values);
+    }
+}
+
 static void randi32v_range(NO_STATE)
 {
     const struct {
@@ -272,6 +473,193 @@ static void randi32v_call_count(NO_STATE)
 
         rng_state->m.call_count = 0;
         randi32v(&bs, values, tests[i].n_values, tests[i].min, tests[i].max);
+
+        assert_in_range(rng_state->m.call_count,
+                        min_call_count,
+                        tests[i].n_values);
+
+        free(values);
+    }
+}
+
+static void randu8v_range(NO_STATE)
+{
+    const struct {
+        uint8_t min;
+        uint8_t max;
+    } tests[] = {
+        {         0,         0 },
+        {         0,         1 },
+        {         1,         0 },
+        {         1,        10 },
+        {        10,       100 },
+        {         0, UINT8_MAX },
+        { UINT8_MAX,         0 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    const size_t n_values = N_VALUES;
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
+    uint8_t *values;
+    unsigned i;
+
+    randbs_seed(&bs, seed128, sizeof(seed128));
+
+    values = calloc(n_values, sizeof(values[0]));
+    assert_non_null(values);
+
+    for (i = 0; i < n_tests; i++) {
+        uint8_t expect_min = tests[i].min;
+        uint8_t expect_max = tests[i].max;
+        uint8_t largest = 0, smallest = UINT8_MAX;
+        unsigned j;
+
+        if (expect_min > expect_max) expect_min = expect_max;
+
+        randu8v(&bs, values, n_values, tests[i].min, tests[i].max);
+
+        for (j = 0; j < n_values; j++) {
+            if (values[j] > largest) largest = values[j];
+            if (values[j] < smallest) smallest = values[j];
+            assert_int_in_range(values[j], expect_min, expect_max);
+        }
+
+        if (expect_min != expect_max && n_values > 10)
+            assert_int_not_equal(smallest, largest);
+    }
+
+    free(values);
+}
+
+static void randu8v_call_count(NO_STATE)
+{
+    const struct mock_rng32_state rng_init = {
+        .m.outputs = (uint32_t[]) {
+            0b00000100000100000100001000100101,
+            0b00010000000001000000001000000010,
+            0b00000000000010000000000010000000,
+            0b00100000000000000100000000000001,
+        },
+        .m.n_outputs = 4,
+    };
+    const struct {
+        size_t n_values;
+        uint8_t min;
+        uint8_t max;
+    } tests[] = {
+        { 10, 0,         1 },
+        { 10, 0,        20 },
+        { 10, 0, UINT8_MAX },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    struct randbs bs;
+    struct mock_rng32_state *rng_state;
+    uint8_t *values;
+    unsigned i;
+
+    setup_mock_bs(&bs, &rng_state, &rng_init);
+
+    for (i = 0; i < n_tests; i++) {
+        uint8_t range = tests[i].max - tests[i].min;
+        unsigned min_call_count = bit_width(range) * tests[i].n_values / 32;
+
+        values = calloc(tests[i].n_values, sizeof(values[0]));
+
+        rng_state->m.call_count = 0;
+        randu8v(&bs, values, tests[i].n_values, tests[i].min, tests[i].max);
+
+        assert_in_range(rng_state->m.call_count,
+                        min_call_count,
+                        tests[i].n_values);
+
+        free(values);
+    }
+}
+
+static void randu16v_range(NO_STATE)
+{
+    const struct {
+        uint16_t min;
+        uint16_t max;
+    } tests[] = {
+        {          0,          0 },
+        {          0,          1 },
+        {          1,          0 },
+        {          1,         10 },
+        {         10,        100 },
+        {          0, UINT16_MAX },
+        { UINT16_MAX,          0 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    const size_t n_values = N_VALUES;
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
+    uint16_t *values;
+    unsigned i;
+
+    randbs_seed(&bs, seed128, sizeof(seed128));
+
+    values = calloc(n_values, sizeof(values[0]));
+    assert_non_null(values);
+
+    for (i = 0; i < n_tests; i++) {
+        uint16_t expect_min = tests[i].min;
+        uint16_t expect_max = tests[i].max;
+        uint16_t largest = 0, smallest = UINT16_MAX;
+        unsigned j;
+
+        if (expect_min > expect_max) expect_min = expect_max;
+
+        randu16v(&bs, values, n_values, tests[i].min, tests[i].max);
+
+        for (j = 0; j < n_values; j++) {
+            if (values[j] > largest) largest = values[j];
+            if (values[j] < smallest) smallest = values[j];
+            assert_int_in_range(values[j], expect_min, expect_max);
+        }
+
+        if (expect_min != expect_max && n_values > 10)
+            assert_int_not_equal(smallest, largest);
+    }
+
+    free(values);
+}
+
+static void randu16v_call_count(NO_STATE)
+{
+    const struct mock_rng32_state rng_init = {
+        .m.outputs = (uint32_t[]) {
+            0b00000100000100000100001000100101,
+            0b00010000000001000000001000000010,
+            0b00000000000010000000000010000000,
+            0b00100000000000000100000000000001,
+        },
+        .m.n_outputs = 4,
+    };
+    const struct {
+        size_t n_values;
+        uint16_t min;
+        uint16_t max;
+    } tests[] = {
+        { 10, 0,          1 },
+        { 10, 0,         20 },
+        { 10, 0,      65535 },
+        { 10, 0, UINT16_MAX },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    struct randbs bs;
+    struct mock_rng32_state *rng_state;
+    uint16_t *values;
+    unsigned i;
+
+    setup_mock_bs(&bs, &rng_state, &rng_init);
+
+    for (i = 0; i < n_tests; i++) {
+        uint16_t range = tests[i].max - tests[i].min;
+        unsigned min_call_count = bit_width(range) * tests[i].n_values / 32;
+
+        values = calloc(tests[i].n_values, sizeof(values[0]));
+
+        rng_state->m.call_count = 0;
+        randu16v(&bs, values, tests[i].n_values, tests[i].min, tests[i].max);
 
         assert_in_range(rng_state->m.call_count,
                         min_call_count,
@@ -1255,8 +1643,16 @@ const struct CMUnitTest um_group_tests[] =
 {
     cmocka_unit_test(fn_randbs_bits),
     cmocka_unit_test(fn_randbs_zeroes),
+    cmocka_unit_test(randi8v_range),
+    cmocka_unit_test(randi8v_call_count),
+    cmocka_unit_test(randi16v_range),
+    cmocka_unit_test(randi16v_call_count),
     cmocka_unit_test(randi32v_range),
     cmocka_unit_test(randi32v_call_count),
+    cmocka_unit_test(randu8v_range),
+    cmocka_unit_test(randu8v_call_count),
+    cmocka_unit_test(randu16v_range),
+    cmocka_unit_test(randu16v_call_count),
     cmocka_unit_test(randu32v_range),
     cmocka_unit_test(randu32v_call_count),
     cmocka_unit_test(randf32v_range),

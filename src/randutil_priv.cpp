@@ -266,6 +266,42 @@ unsigned randbs_zeroes(struct randbs *bs, unsigned limit)
     return bs_zeroes(bs, limit);
 }
 
+void randi8v(struct randbs *bs,
+             int8_t *out,
+             size_t count,
+             int8_t min,
+             int8_t max)
+{
+    randiv(bs, out, count, min, max);
+}
+
+void randu8v(struct randbs *bs,
+             uint8_t *out,
+             size_t count,
+             uint8_t min,
+             uint8_t max)
+{
+    randiv(bs, out, count, min, max);
+}
+
+void randi16v(struct randbs *bs,
+              int16_t *out,
+              size_t count,
+              int16_t min,
+              int16_t max)
+{
+    randiv(bs, out, count, min, max);
+}
+
+void randu16v(struct randbs *bs,
+              uint16_t *out,
+              size_t count,
+              uint16_t min,
+              uint16_t max)
+{
+    randiv(bs, out, count, min, max);
+}
+
 void randi32v(struct randbs *bs,
               int32_t *out,
               size_t count,

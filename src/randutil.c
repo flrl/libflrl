@@ -45,12 +45,19 @@ void state128_seed64(struct state128 *s, uint64_t seed)
 extern inline void randbs_seed(struct randbs *bs, const void *seed, size_t len);
 extern inline void randbs_seed64(struct randbs *bs, uint64_t seed);
 
+extern inline int8_t randi8(struct randbs *bs, int8_t min, int8_t max);
+extern inline int16_t randi16(struct randbs *bs, int16_t min, int16_t max);
 extern inline int32_t randi32(struct randbs *bs, int32_t min, int32_t max);
 extern inline int64_t randi64(struct randbs *bs, int64_t min, int64_t max);
+
+extern inline uint8_t randu8(struct randbs *bs, uint8_t min, uint8_t max);
+extern inline uint16_t randu16(struct randbs *bs, uint16_t min, uint16_t max);
 extern inline uint32_t randu32(struct randbs *bs, uint32_t min, uint32_t max);
 extern inline uint64_t randu64(struct randbs *bs, uint64_t min, uint64_t max);
+
 extern inline float randf32(struct randbs *bs, double min, double max);
 extern inline double randf64(struct randbs *bs, double min, double max);
+
 extern inline bool coin(struct randbs *bs, float p_true);
 
 #if 0
