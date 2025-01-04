@@ -2,40 +2,94 @@ extern "C" {
 #include "flrl/randutil.h"
 }
 
+#include <algorithm>
 #include <bit>
 #include <cassert>
 #include <cmath>
 #include <limits>
 #include <type_traits>
 
-template<typename BS>
-static inline uint64_t bs_bits(BS *bs, unsigned want_bits);
-
-template<>
-inline uint64_t bs_bits(struct randbs *bs, unsigned want_bits)
+static inline uint64_t mask_bits(unsigned bits)
 {
-    return randbs_bits(bs, want_bits);
-}
-
-template<>
-inline uint64_t bs_bits(struct wrandbs *bs, unsigned want_bits)
-{
-    return wrandbs_bits(bs, want_bits);
+    return bits < 64
+           ? (UINT64_C(1) << bits) - 1
+           : UINT64_C(0) - 1;
 }
 
 template<typename BS>
-static inline unsigned bs_zeroes(BS *bs, unsigned limit);
+constexpr unsigned rng_bits;
 
 template<>
-inline unsigned bs_zeroes(struct randbs *bs, unsigned limit)
+constexpr unsigned rng_bits<struct randbs> = 32;
+
+template<>
+constexpr unsigned rng_bits<struct wrandbs> = 64;
+
+template<typename BS>
+static uint64_t bs_bits(BS *bs, unsigned want_bits)
 {
-    return randbs_zeroes(bs, limit);
+    uint64_t bits, extra = 0;
+
+    if (!want_bits) return 0;
+    if (want_bits > RANDBS_MAX_BITS) abort();
+
+    while (bs->n_bits < want_bits) {
+        uint64_t v;
+        unsigned b;
+
+        v = bs->func(&bs->state);
+        b = RANDBS_MAX_BITS - bs->n_bits;
+
+        bs->bits |= v << bs->n_bits;
+        extra = b < rng_bits<BS> ? v >> b : 0;
+        bs->n_bits += rng_bits<BS>;
+    }
+
+    bits = bs->bits & mask_bits(want_bits);
+
+    bs->bits = want_bits < RANDBS_MAX_BITS ? bs->bits >> want_bits : 0;
+    if (extra)
+        bs->bits |= extra << (RANDBS_MAX_BITS - want_bits);
+    bs->n_bits -= want_bits;
+
+    return bits;
 }
 
-template<>
-inline unsigned bs_zeroes(struct wrandbs *bs, unsigned limit)
+template<typename BS>
+static unsigned bs_zeroes(BS *bs, unsigned limit)
 {
-    return wrandbs_zeroes(bs, limit);
+    unsigned zeroes = 0;
+    bool saw_one = false;
+
+    limit = std::clamp(limit, 0U, (unsigned) INT_MAX);
+
+    while (limit && !saw_one) {
+        unsigned z, x;
+
+        if (bs->n_bits == 0) {
+            bs->bits = bs->func(&bs->state);
+            bs->n_bits = rng_bits<BS>;
+        }
+
+        /* if the string of zeroes was stopped by a one, need to consume it
+         * otherwise next bit is guaranteed to be one.  especially in the
+         * case where there were no zeroes, in which case the state of the
+         * rng won't advance if we don't consume at least one bit
+         */
+        x = std::min(limit, bs->n_bits);
+        z = std::countr_zero(bs->bits);
+        if (z >= x)
+            z = x;
+        else
+            saw_one = true;
+
+        zeroes += z;
+        limit -= z;
+        bs->bits >>= z + saw_one;
+        bs->n_bits -= z + saw_one;
+    }
+
+    return zeroes;
 }
 
 template<typename BS, typename T>
@@ -196,6 +250,16 @@ static TF gauss(BS *bs, double mean, double stddev)
 }
 
 extern "C" {
+
+uint64_t randbs_bits(struct randbs *bs, unsigned want_bits)
+{
+    return bs_bits(bs, want_bits);
+}
+
+unsigned randbs_zeroes(struct randbs *bs, unsigned limit)
+{
+    return bs_zeroes(bs, limit);
+}
 
 void randi32v(struct randbs *bs,
               int32_t *out,
