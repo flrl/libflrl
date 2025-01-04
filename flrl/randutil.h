@@ -5,17 +5,43 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#ifdef __cplusplus
+#define restrict
+#endif
+
 struct state128 {
     uint32_t s[4];
 };
-extern void state128_seed(struct state128 *s, const void *seed, size_t len);
-extern void state128_seed64(struct state128 *s, uint64_t seed);
 
 struct state256 {
     uint64_t s[4];
 };
-extern void state256_seed(struct state256 *s, const void *seed, size_t len);
-extern void state256_seed64(struct state256 *s, uint64_t seed);
+
+extern void state_seed(void *restrict state, size_t state_len,
+                       const void *restrict seed, size_t seed_len);
+extern void state_seed_sm64(void *state, size_t state_len, uint64_t seed);
+
+inline void state128_seed(struct state128 *restrict state,
+                          const struct state128 *restrict seed)
+{
+    state_seed(state, sizeof(*state), seed, sizeof(*seed));
+}
+
+inline void state128_seed64(struct state128 *state, uint64_t seed)
+{
+    state_seed_sm64(state, sizeof(*state), seed);
+}
+
+inline void state256_seed(struct state256 *restrict state,
+                          const struct state256 *restrict seed)
+{
+    state_seed(state, sizeof(*state), seed, sizeof(*seed));
+}
+
+inline void state256_seed64(struct state256 *state, uint64_t seed)
+{
+    state_seed_sm64(state, sizeof(*state), seed);
+}
 
 struct randbs {
     struct state128 state;
@@ -26,9 +52,9 @@ struct randbs {
 #define RANDBS_INITIALIZER(f) (struct randbs){ .func = f }
 #define RANDBS_MAX_BITS (64U)
 
-inline void randbs_seed(struct randbs *bs, const void *seed, size_t len)
+inline void randbs_seed(struct randbs *bs, const struct state128 *seed)
 {
-    state128_seed(&bs->state, seed, len);
+    state128_seed(&bs->state, seed);
     bs->bits = bs->n_bits = 0;
 }
 
@@ -50,9 +76,9 @@ struct wrandbs {
 #define WRANDBS_INITIALIZER(f) (struct wrandbs){ .func = f }
 #define WRANDBS_MAX_BITS (64U)
 
-inline void wrandbs_seed(struct wrandbs *bs, const void *seed, size_t len)
+inline void wrandbs_seed(struct wrandbs *bs, const struct state256 *seed)
 {
-    state256_seed(&bs->state, seed, len);
+    state256_seed(&bs->state, seed);
     bs->bits = bs->n_bits = 0;
 }
 

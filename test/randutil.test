@@ -13,12 +13,12 @@
 /* testing the interfaces/distributions, not the underlying randomness */
 #define N_VALUES (10000)
 
-static const uint32_t seed128[4] = {
+static const struct state128 seed128 = {{
     0x26457b9d,
     0x9c2fdf6b,
     0xd9cdfc7b,
     0x6dc7cdbd,
-};
+}};
 
 struct mock_rng32_state {
     union {
@@ -205,7 +205,7 @@ static void randi8v_range(NO_STATE)
     int8_t *values;
     unsigned i;
 
-    randbs_seed(&bs, seed128, sizeof(seed128));
+    randbs_seed(&bs, &seed128);
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -305,7 +305,7 @@ static void randi16v_range(NO_STATE)
     int16_t *values;
     unsigned i;
 
-    randbs_seed(&bs, seed128, sizeof(seed128));
+    randbs_seed(&bs, &seed128);
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -406,7 +406,7 @@ static void randi32v_range(NO_STATE)
     int32_t *values;
     unsigned i;
 
-    randbs_seed(&bs, seed128, sizeof(seed128));
+    randbs_seed(&bs, &seed128);
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -502,7 +502,7 @@ static void randu8v_range(NO_STATE)
     uint8_t *values;
     unsigned i;
 
-    randbs_seed(&bs, seed128, sizeof(seed128));
+    randbs_seed(&bs, &seed128);
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -595,7 +595,7 @@ static void randu16v_range(NO_STATE)
     uint16_t *values;
     unsigned i;
 
-    randbs_seed(&bs, seed128, sizeof(seed128));
+    randbs_seed(&bs, &seed128);
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -689,7 +689,7 @@ static void randu32v_range(NO_STATE)
     uint32_t *values;
     unsigned i;
 
-    randbs_seed(&bs, seed128, sizeof(seed128));
+    randbs_seed(&bs, &seed128);
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -786,7 +786,7 @@ static void randf32v_range(NO_STATE)
     float *values;
     unsigned i;
 
-    randbs_seed(&bs, seed128, sizeof(seed128));
+    randbs_seed(&bs, &seed128);
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -841,7 +841,7 @@ static void randf32v_chi2(NO_STATE)
     float *values;
     unsigned i;
 
-    randbs_seed(&bs, seed128, sizeof(seed128));
+    randbs_seed(&bs, &seed128);
 
     values = calloc(n_values, sizeof(values[0]));
     bucket = calloc(n_buckets, sizeof(bucket[0]));
@@ -925,7 +925,7 @@ static void randi64v_range(NO_STATE)
     int64_t *values;
     unsigned i;
 
-    randbs_seed(&bs, seed128, sizeof(seed128));
+    randbs_seed(&bs, &seed128);
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -1023,7 +1023,7 @@ static void randu64v_range(NO_STATE)
     uint64_t *values;
     unsigned i;
 
-    randbs_seed(&bs, seed128, sizeof(seed128));
+    randbs_seed(&bs, &seed128);
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -1120,7 +1120,7 @@ static void randf64v_range(NO_STATE)
     double *values;
     unsigned i;
 
-    randbs_seed(&bs, seed128, sizeof(seed128));
+    randbs_seed(&bs, &seed128);
 
     values = calloc(n_values, sizeof(values[0]));
     assert_non_null(values);
@@ -1178,7 +1178,7 @@ static void randf64v_chi2(NO_STATE)
     double *values;
     unsigned i;
 
-    randbs_seed(&bs, seed128, sizeof(seed128));
+    randbs_seed(&bs, &seed128);
 
     values = calloc(n_values, sizeof(values[0]));
     bucket = calloc(n_buckets, sizeof(bucket[0]));
@@ -1250,10 +1250,10 @@ static void gaussf32v_gaussf32_same_seq(NO_STATE)
     for (i = 0; i < n_tests; i++) {
         unsigned j;
 
-        randbs_seed(&bs, seed128, sizeof(seed128));
+        randbs_seed(&bs, &seed128);
         gaussf32v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
 
-        randbs_seed(&bs, seed128, sizeof(seed128));
+        randbs_seed(&bs, &seed128);
         for (j = 0; j < n_values; j++) {
             float v = gaussf32(&bs, tests[i].mean, tests[i].stddev);
 
@@ -1454,10 +1454,10 @@ static void gaussf64v_gaussf64_same_seq(NO_STATE)
     for (i = 0; i < n_tests; i++) {
         unsigned j;
 
-        randbs_seed(&bs, seed128, sizeof(seed128));
+        randbs_seed(&bs, &seed128);
         gaussf64v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
 
-        randbs_seed(&bs, seed128, sizeof(seed128));
+        randbs_seed(&bs, &seed128);
         for (j = 0; j < n_values; j++) {
             double v = gaussf64(&bs, tests[i].mean, tests[i].stddev);
 

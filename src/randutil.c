@@ -22,27 +22,33 @@
     _a < _b ? _a : _b;      \
 })
 
-void state128_seed(struct state128 *s, const void *seed, size_t len)
+void state_seed(void *state, size_t state_len,
+                const void *seed, size_t seed_len)
 {
     /* XXX repeat pattern if len is short? */
-    memmove(s, seed, MIN(len, sizeof(*s)));
+    memmove(state, seed, MIN(state_len, seed_len));
 }
 
-void state128_seed64(struct state128 *s, uint64_t seed)
+void state_seed_sm64(void *state, size_t state_len, uint64_t seed)
 {
+    const size_t n = (state_len + sizeof(uint64_t) - 1) / sizeof(uint64_t);
+    uint64_t buf[n];
     struct splitmix64_state sm64;
-    uint64_t buf[2];
-
-    static_assert(sizeof(*s) == sizeof(buf));
+    size_t i;
 
     sm64.x = seed;
-    buf[0] = splitmix64_next(&sm64);
-    buf[1] = splitmix64_next(&sm64);
+    for (i = 0; i < n; i++) {
+        buf[i] = splitmix64_next(&sm64);
+    }
 
-    memcpy(s, buf, sizeof(*s));
+    memcpy(state, buf, state_len);
 }
 
-extern inline void randbs_seed(struct randbs *bs, const void *seed, size_t len);
+extern inline void state128_seed(struct state128 *restrict state,
+                                 const struct state128 *seed);
+extern inline void state128_seed64(struct state128 *state, uint64_t seed);
+
+extern inline void randbs_seed(struct randbs *bs, const struct state128 *seed);
 extern inline void randbs_seed64(struct randbs *bs, uint64_t seed);
 
 extern inline int8_t randi8(struct randbs *bs, int8_t min, int8_t max);
