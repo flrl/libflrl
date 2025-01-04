@@ -267,7 +267,7 @@ void randi32v(struct randbs *bs,
               int32_t min,
               int32_t max)
 {
-    randiv<struct randbs, int32_t>(bs, out, count, min, max);
+    randiv(bs, out, count, min, max);
 }
 
 void randu32v(struct randbs *bs,
@@ -276,7 +276,7 @@ void randu32v(struct randbs *bs,
               uint32_t min,
               uint32_t max)
 {
-    randiv<struct randbs, uint32_t>(bs, out, count, min, max);
+    randiv(bs, out, count, min, max);
 }
 
 void randf32v(struct randbs *bs,
@@ -294,7 +294,7 @@ void randi64v(struct randbs *bs,
               int64_t min,
               int64_t max)
 {
-    randiv<struct randbs, int64_t>(bs, out, count, min, max);
+    randiv(bs, out, count, min, max);
 }
 
 void randu64v(struct randbs *bs,
@@ -303,7 +303,7 @@ void randu64v(struct randbs *bs,
               uint64_t min,
               uint64_t max)
 {
-    randiv<struct randbs, uint64_t>(bs, out, count, min, max);
+    randiv(bs, out, count, min, max);
 }
 
 void randf64v(struct randbs *bs,
@@ -350,7 +350,7 @@ void wrandi32v(struct wrandbs *bs,
                int32_t min,
                int32_t max)
 {
-    randiv<struct wrandbs, int32_t>(bs, out, count, min, max);
+    randiv(bs, out, count, min, max);
 }
 
 void wrandf32v(struct wrandbs *bs,
