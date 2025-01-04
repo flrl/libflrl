@@ -1,8 +1,9 @@
 CC := gcc
 AR := ar
-WARNINGS := -Wall -Wextra -Werror -Wsuggest-attribute=format
-CFLAGS := -O0 -ggdb3 $(WARNINGS) $(CFLAGS)
-CXXFLAGS := -O0 -ggdb3 -std=c++2b $(WARNINGS) $(CXXFLAGS)
+WARNINGS := -Wall -Wextra -Werror -Wsuggest-attribute=format -Wwrite-strings
+FEATURES := -fstrict-aliasing
+CFLAGS := -O0 -ggdb3 $(WARNINGS) $(FEATURES) $(CFLAGS)
+CXXFLAGS := -O0 -ggdb3 -std=c++2b $(WARNINGS) $(FEATURES) $(CXXFLAGS)
 LDFLAGS := $(LDFLAGS)
 UTMUX := $(shell which utmux 2>/dev/null)
 
