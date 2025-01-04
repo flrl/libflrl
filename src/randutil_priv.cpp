@@ -137,41 +137,47 @@ constexpr unsigned exp_mask<double> = 0x7ff;
 template<typename T>
 constexpr unsigned mantissa_bits = std::numeric_limits<T>::digits - 1;
 
-template<typename TF, typename TI>
-    requires (sizeof(TF) == sizeof(TI))
-static constexpr unsigned extract_exp(TF f)
+template<typename T>
+    requires (std::is_floating_point<T>::value
+              && (sizeof(T) == sizeof(uint32_t)
+                  || sizeof(T) == sizeof(uint64_t)))
+using uintf = typename std::conditional<sizeof(T) == sizeof(uint32_t),
+                                        uint32_t,
+                                        uint64_t>::type;
+
+template<typename T>
+static constexpr unsigned extract_exp(T f)
 {
-    return (std::bit_cast<TI>(f) >> mantissa_bits<TF>) & exp_mask<TF>;
+    return (std::bit_cast<uintf<T>>(f) >> mantissa_bits<T>) & exp_mask<T>;
 }
 
 /* based on https://allendowney.com/research/rand/downey07randfloat.pdf */
-template<typename BS, typename TF, typename TI>
-    requires (sizeof(TF) == sizeof(TI))
-static void randfv(BS *bs, TF *out, std::size_t count, double min, double max)
+template<typename BS, typename T>
+static void randfv(BS *bs, T *out, std::size_t count, double min, double max)
 {
     std::size_t i;
 
     if (min > max) min = max;
     const double range = max - min;
-    if (range > std::numeric_limits<TF>::max()) abort();
+    if (range > std::numeric_limits<T>::max()) abort();
 
     /* we'll generate values in [0, 1], then scale and translate to [min,max]
      * we start with one less than the highest exponent because we may need
      * to add one later
      */
-    constexpr unsigned low_exp = extract_exp<TF, TI>(0.0);
-    constexpr unsigned high_exp = extract_exp<TF, TI>(1.0) - 1;
+    constexpr unsigned low_exp = extract_exp<T>(0.0);
+    constexpr unsigned high_exp = extract_exp<T>(1.0) - 1;
     static_assert(high_exp > low_exp);
 
     for (i = 0; i < count; i++) {
-        TI mantissa, exponent;
-        TF val;
+        uintf<T> mantissa, exponent;
+        T val;
 
         /* choose random bits and decrement exponent until a 1 appears */
         exponent = high_exp - bs_zeroes(bs, high_exp - low_exp);
 
         /* choose a random mantissa */
-        mantissa = bs_bits(bs, mantissa_bits<TF>);
+        mantissa = bs_bits(bs, mantissa_bits<T>);
 
         /* if the mantissa is zero, half the time we should move to the next
          * exponent range */
@@ -179,16 +185,16 @@ static void randfv(BS *bs, TF *out, std::size_t count, double min, double max)
             exponent ++;
 
         /* combine the exponent and the mantissa */
-        val = std::bit_cast<TF, TI>((exponent << mantissa_bits<TF>) | mantissa);
+        val = std::bit_cast<T, uintf<T>>((exponent << mantissa_bits<T>)
+                                         | mantissa);
 
         out[i] = std::fma(range, val, min);
     }
 }
 
-template<typename BS, typename TF, typename TI>
-    requires (sizeof(TF) == sizeof(TI))
+template<typename BS, typename T>
 static void gaussv(BS *bs,
-                   TF *out,
+                   T *out,
                    std::size_t count,
                    double mean,
                    double stddev)
@@ -199,9 +205,9 @@ static void gaussv(BS *bs,
         double v[2], s, t;
 
         do {
-            TF u[2];
+            T u[2];
 
-            randfv<BS, TF, TI>(bs, u, 2, 0.0, 1.0);
+            randfv(bs, u, 2, 0.0, 1.0);
 
             v[0] = std::fma(2.0, u[0], -1.0);
             v[1] = std::fma(2.0, u[1], -1.0);
@@ -216,9 +222,8 @@ static void gaussv(BS *bs,
     }
 }
 
-template<typename BS, typename TF, typename TI>
-    requires (sizeof(TF) == sizeof(TI))
-static TF gauss(BS *bs, double mean, double stddev)
+template<typename BS, typename T>
+static T gauss(BS *bs, double mean, double stddev)
 {
     static double v[2], t;
     static int phase = 0;
@@ -228,9 +233,9 @@ static TF gauss(BS *bs, double mean, double stddev)
         double s;
 
         do {
-            TF u[2];
+            T u[2];
 
-            randfv<BS, TF, TI>(bs, u, 2, 0.0, 1.0);
+            randfv(bs, u, 2, 0.0, 1.0);
 
             v[0] = std::fma(2.0, u[0], -1.0);
             v[1] = std::fma(2.0, u[1], -1.0);
@@ -285,7 +290,7 @@ void randf32v(struct randbs *bs,
               double min,
               double max)
 {
-    randfv<struct randbs, float, uint32_t>(bs, out, count, min, max);
+    randfv(bs, out, count, min, max);
 }
 
 void randi64v(struct randbs *bs,
@@ -312,7 +317,7 @@ void randf64v(struct randbs *bs,
               double min,
               double max)
 {
-    randfv<struct randbs, double, uint64_t>(bs, out, count, min, max);
+    randfv(bs, out, count, min, max);
 }
 
 void gaussf32v(struct randbs *bs,
@@ -321,12 +326,12 @@ void gaussf32v(struct randbs *bs,
                double mean,
                double stddev)
 {
-    gaussv<struct randbs, float, uint32_t>(bs, out, count, mean, stddev);
+    gaussv(bs, out, count, mean, stddev);
 }
 
 float gaussf32(struct randbs *bs, double mean, double stddev)
 {
-    return gauss<struct randbs, float, uint32_t>(bs, mean, stddev);
+    return gauss<struct randbs, float>(bs, mean, stddev);
 }
 
 void gaussf64v(struct randbs *bs,
@@ -335,12 +340,12 @@ void gaussf64v(struct randbs *bs,
                double mean,
                double stddev)
 {
-    gaussv<struct randbs, double, uint64_t>(bs, out, count, mean, stddev);
+    gaussv(bs, out, count, mean, stddev);
 }
 
 double gaussf64(struct randbs *bs, double mean, double stddev)
 {
-    return gauss<struct randbs, double, uint64_t>(bs, mean, stddev);
+    return gauss<struct randbs, double>(bs, mean, stddev);
 }
 
 #if 0
@@ -359,7 +364,7 @@ void wrandf32v(struct wrandbs *bs,
                double min,
                double max)
 {
-    randfv<struct wrandbs, float, uint32_t>(bs, out, count, min, max);
+    randfv(bs, out, count, min, max);
 }
 #endif
 
