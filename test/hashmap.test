@@ -1,0 +1,42 @@
+#include "test/unitmain.h"
+
+#include "src/hashmap.c"
+
+static void assert_key_invariants(const struct hm_key *key)
+{
+    uint8_t *copy;
+
+    if (key == HM_KEY_NULL || key == HM_KEY_DELETED)
+        return;
+
+    assert_in_range(key->len, 1, HASHMAP_MAX_KEYLEN);
+
+    copy = malloc(key->len * sizeof(*copy));
+    if (copy)
+        memcpy(copy, key->bytes, key->len);
+    free(copy);
+}
+
+static void assert_kv_invariants(const struct hm_kv *kv)
+{
+    assert_key_invariants(kv->key);
+
+    if (!hm_key_valid(kv->key))
+        assert_null(kv->value);
+}
+
+static void assert_hashmap_invariants(const HashMap *hm)
+{
+
+}
+
+const char *const um_group_name = "hashmap";
+const struct CMUnitTest um_group_tests[] =
+{
+};
+const size_t um_group_n_tests = sizeof(um_group_tests)
+                                / sizeof(um_group_tests[0]);
+CMFixtureFunction um_group_setup = NULL;
+CMFixtureFunction um_group_teardown = NULL;
+
+/* vim: set ft=c :*/
