@@ -22,6 +22,19 @@ typedef struct __attribute__((aligned(64))) {
     uint32_t gc_threshold;
 } HashMap;
 
+enum {
+    HASHMAP_E_NOKEY = INT_MIN,
+    HASHMAP_E_KEYTOOBIG,
+    HASHMAP_E_REHASH,
+    HASHMAP_E_NOMEM,
+    HASHMAP_E_INVALID,
+    HASHMAP_E_UNKNOWN,
+    HASHMAP_END_ERRORS,
+    HASHMAP_OK = 0,
+};
+
+extern const char *hashmap_strerr(int e);
+
 extern int hashmap_init(HashMap *hm, uint32_t size);
 extern void hashmap_fini(HashMap *hm, void (*value_destructor)(void *));
 
