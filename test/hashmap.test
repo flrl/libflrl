@@ -2,32 +2,48 @@
 
 #include "src/hashmap.c"
 
-static void assert_key_invariants(const struct hm_key *key)
-{
-    uint8_t *copy;
-
-    if (key == HM_KEY_NULL || key == HM_KEY_DELETED)
-        return;
-
-    assert_in_range(key->len, 1, HASHMAP_MAX_KEYLEN);
-
-    copy = malloc(key->len * sizeof(*copy));
-    if (copy)
-        memcpy(copy, key->bytes, key->len);
-    free(copy);
-}
-
-static void assert_kv_invariants(const struct hm_kv *kv)
-{
-    assert_key_invariants(kv->key);
-
-    if (!hm_key_valid(kv->key))
-        assert_null(kv->value);
-}
-
 static void assert_hashmap_invariants(const HashMap *hm)
 {
+    uint32_t i;
+    uint32_t count, deleted;
 
+    assert_ptr_equal(0, (uintptr_t) hm & 63u);
+
+    if (!hm->alloc) {
+        assert_null(hm->klen);
+        assert_null(hm->key);
+        assert_null(hm->value);
+        return;
+    }
+
+    assert_non_null(hm->klen);
+    assert_non_null(hm->key);
+    assert_non_null(hm->value);
+
+    assert_int_equal(hm->alloc, nextpow2(hm->alloc));
+    assert_int_equal(hm->mask, hm->alloc - 1);
+    assert_in_range(hm->count + hm->deleted, 0, hm->alloc);
+
+    // XXX thresholds
+
+    count = deleted = 0;
+    for (i = 0; i < hm->alloc; i++) {
+        switch (hm->klen[i]) {
+        case HASHMAP_KEY_DELETED:
+            deleted ++;
+            /* fall through */
+        case HASHMAP_KEY_NULL:
+            assert_null(hm->key[i]);
+            assert_null(hm->value[i]);
+            break;
+        default:
+            count ++;
+            assert_non_null(hm->key[i]);
+            break;
+        }
+    }
+    assert_int_equal(count, hm->count);
+    assert_int_equal(deleted, hm->deleted);
 }
 
 const char *const um_group_name = "hashmap";

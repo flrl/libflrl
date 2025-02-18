@@ -9,18 +9,6 @@
 #define HASHMAP_SHRINK_THRESHOLD    (0.30)
 #define HASHMAP_GC_THRESHOLD        (0.80)
 
-struct hm_key {
-    uint16_t len;
-    uint8_t bytes[0];
-};
-#define HM_KEY_NULL     ((const struct hm_key *) 0)
-#define HM_KEY_DELETED  ((const struct hm_key *) 1)
-
-struct hm_kv {
-    const struct hm_key *key;
-    void *value;
-} __attribute__((aligned));
-
 static uint32_t next_seed = 1;
 
 static inline uint32_t nextpow2(uint32_t v)
@@ -58,48 +46,46 @@ static inline uint32_t hash32(const void *key, size_t key_len, uint32_t seed)
     return h;
 }
 
-static inline struct hm_key *make_key(const void *key, size_t key_len)
+static inline void *memndup(const void *a, size_t len)
 {
-    struct hm_key *hm_key;
+    void *p = malloc(len);
+    if (!p) return NULL;
 
-    assert(key && key_len && key_len <= HASHMAP_MAX_KEYLEN);
-    if (!key || !key_len || key_len > HASHMAP_MAX_KEYLEN) return NULL;
-
-    hm_key = malloc(sizeof(*hm_key) + key_len);
-    if (!hm_key) return NULL;
-
-    hm_key->len = key_len;
-    memcpy(hm_key->bytes, key, key_len);
-
-    return hm_key;
+    memcpy(p, a, len);
+    return p;
 }
 
-static inline bool hm_key_valid(const struct hm_key *key)
+static inline bool has_key_at_index(const HashMap *hm, uint32_t index)
 {
-    return key > HM_KEY_DELETED;
+    return hm->klen[index] > HASHMAP_KEY_NULL
+           && hm->klen[index] < HASHMAP_KEY_DELETED;
 }
 
-static struct hm_kv *find(const HashMap *hm, const void *key, size_t key_len)
+static int find(const HashMap *hm,
+                const void *key, size_t key_len,
+                uint32_t *pindex)
 {
-    uint32_t h, i, x;
-    struct hm_kv *found_deleted = NULL;
+    uint32_t d, h, i, x;
+    bool found_deleted = false;
 
     h = hash32(key, key_len, hm->seed);
 
     i = x = h & hm->mask;
     do {
-        struct hm_kv *kv = &hm->kvs[i];
-
-        if (kv->key == HM_KEY_NULL)
-            return found_deleted ? found_deleted : kv;
-
-        if (kv->key == HM_KEY_DELETED) {
-            found_deleted = &hm->kvs[i];
+        if (hm->klen[i] == HASHMAP_KEY_NULL) {
+            *pindex = found_deleted ? d : i;
+            return 0;
         }
-        else if (kv->key->len == key_len
-                 && 0 == memcmp(kv->key->bytes, key, key_len))
+
+        if (hm->klen[i] == HASHMAP_KEY_DELETED && !found_deleted) {
+            found_deleted = true;
+            d = i;
+        }
+        else if (hm->klen[i] == key_len
+                 && 0 == memcmp(hm->key[i], key, key_len))
         {
-            return kv;
+            *pindex = i;
+            return 1;
         }
 
         i = (i + 1) & hm->mask;
@@ -108,7 +94,13 @@ static struct hm_kv *find(const HashMap *hm, const void *key, size_t key_len)
     /* if we get here without having found a deleted kv, then the map is full,
      * and we ought to have rehashed earlier!
      */
-    return found_deleted;
+    if (!found_deleted) {
+        *pindex = UINT32_MAX;
+        return -1;
+    }
+
+    *pindex = d;
+    return 0;
 }
 
 static int rehash(HashMap *hm, uint32_t new_size)
@@ -127,22 +119,25 @@ static int rehash(HashMap *hm, uint32_t new_size)
     if (r) return r;
 
     for (i = 0; i < hm->alloc; i++) {
-        struct hm_kv *kv = &hm->kvs[i];
-        struct hm_kv *new_kv;
+        uint32_t new_i;
 
-        if (!hm_key_valid(kv->key))
+        if (!has_key_at_index(hm, i))
             continue;
 
-        new_kv = find(&new_hm, kv->key->bytes, kv->key->len);
-        assert(new_kv && hm_key_valid(new_kv->key));
+        r = find(&new_hm, hm->key[i], hm->klen[i], &new_i);
+        assert(r == 0); /* not found, but got a spot for it */
+        assert(new_i < new_hm.alloc);
 
         /* steal the internals */
-        new_kv->key = kv->key;
-        new_kv->value = kv->value;
+        new_hm.klen[new_i] = hm->klen[i];
+        new_hm.key[new_i] = hm->key[i];
+        new_hm.value[new_i] = hm->value[i];
         new_hm.count ++;
     }
 
-    free(hm->kvs);
+    free(hm->klen);
+    free(hm->key);
+    free(hm->value);
     memcpy(hm, &new_hm, sizeof(*hm));
     return 0;
 }
@@ -151,18 +146,24 @@ int hashmap_init(HashMap *hm, uint32_t size)
 {
     if (size < HASHMAP_MIN_SIZE)
         size = HASHMAP_MIN_SIZE;
-    else
-        size = nextpow2(size);
+    size = nextpow2(size);
 
-    hm->kvs = calloc(size, sizeof(hm->kvs[0]));
-    if (!hm->kvs) return -1;
+    hm->klen = calloc(size, sizeof(hm->klen[0]));
+    hm->key = calloc(size, sizeof(hm->key[0]));
+    hm->value = calloc(size, sizeof(hm->value[0]));
+
+    if (!hm->klen || !hm->key || !hm->value) {
+        free(hm->klen);
+        free(hm->key);
+        free(hm->value);
+        memset(hm, 0, sizeof(*hm));
+        return -1;
+    }
 
     hm->alloc = size;
-    hm->count = hm->deleted = 0;
-
     hm->mask = size - 1;
+    hm->count = hm->deleted = 0;
     hm->seed = next_seed ++;
-
     hm->grow_threshold = (uint32_t) (size * HASHMAP_GROW_THRESHOLD) - 1;
     hm->shrink_threshold = (uint32_t) (size * HASHMAP_SHRINK_THRESHOLD) - 1;
     hm->gc_threshold = (uint32_t) (size * HASHMAP_GC_THRESHOLD) - 1;
@@ -175,76 +176,97 @@ void hashmap_fini(HashMap *hm, void (*value_destructor)(void *))
     uint32_t i;
 
     for (i = 0; i < hm->alloc; i++) {
-        struct hm_kv *kv = &hm->kvs[i];
-        if (hm_key_valid(kv->key)) {
-            free((struct hm_key *) kv->key);
+        if (has_key_at_index(hm, i)) {
+            free(hm->key[i]);
 
             if (value_destructor)
-                value_destructor(kv->value);
+                value_destructor(hm->value[i]);
         }
     }
-    free(hm->kvs);
+
+    free(hm->klen);
+    free(hm->key);
+    free(hm->value);
+
     memset(hm, 0, sizeof(*hm));
 }
 
 void *hashmap_get(const HashMap *hm, const void *key, size_t key_len)
 {
-    struct hm_kv *kv;
+    uint32_t i;
+    int r;
 
-    kv = find(hm, key, key_len);
-    return kv && hm_key_valid(kv->key) ? kv->value : NULL;
+    r = find(hm, key, key_len, &i);
+
+    return r == 1 ? hm->value[i] : NULL;
 }
 
-void *hashmap_put(HashMap *hm, const void *key, size_t key_len, void *value)
+int hashmap_put(HashMap *hm,
+                const void *key, size_t key_len,
+                void *new_value,
+                void **old_value)
 {
-    void *old_value = NULL;
-    struct hm_kv *kv;
+    uint32_t i;
+    int r;
 
-    kv = find(hm, key, key_len);
+    r = find(hm, key, key_len, &i);
 
-    if (!kv) {
+    if (r < 0) {
         if (rehash(hm, hm->alloc * 2))
-            return NULL;
-        return hashmap_put(hm, key, key_len, value);
+            return -1; // XXX error, didn't save value
+        return hashmap_put(hm, key, key_len, new_value, old_value);
     }
-    else if (hm_key_valid(kv->key)) {
-        if (kv->value != value) {
-            old_value = kv->value;
-            kv->value = value;
+    else if (has_key_at_index(hm, i)) {
+        if (new_value != hm->value[i]) {
+            if (old_value) *old_value = hm->value[i];
+            hm->value[i] = new_value;
+            return 1; // XXX saved new value
         }
-        return old_value;
+        else {
+            if (old_value) *old_value = NULL;
+            return 0; // XXX value didn't change
+        }
     }
-    else if (kv->key == HM_KEY_NULL && hm->count >= hm->grow_threshold) {
+    else if (hm->klen[i] == HASHMAP_KEY_NULL
+             && hm->count >= hm->grow_threshold)
+    {
         rehash(hm, hm->alloc * 2);
-        return hashmap_put(hm, key, key_len, value);
+        return hashmap_put(hm, key, key_len, new_value, old_value);
     }
     else if (hm->count + hm->deleted >= hm->gc_threshold) {
         rehash(hm, hm->alloc);
-        return hashmap_put(hm, key, key_len, value);
+        return hashmap_put(hm, key, key_len, new_value, old_value);
     }
     else {
-        if (kv->key == HM_KEY_DELETED)
-            hm->deleted --;
-        kv->key = make_key(key, key_len);
-        kv->value = value;
+        if (old_value) *old_value = NULL;
+
+        hm->key[i] = memndup(key, key_len);
+        if (!hm->key[i])
+            return -1; // XXX error didn't save value
+
+        hm->deleted -= (hm->klen[i] == HASHMAP_KEY_DELETED);
         hm->count ++;
-        return NULL;
+        hm->klen[i] = key_len;
+        hm->value[i] = new_value;
+        return 1; // XXX saved new value, no old value
     }
 }
 
 void *hashmap_del(HashMap *hm, const void *key, size_t key_len)
 {
     void *old_value = NULL;
-    struct hm_kv *kv;
+    uint32_t i;
+    int r;
 
-    kv = find(hm, key, key_len);
+    r = find(hm, key, key_len, &i);
 
-    if (kv && hm_key_valid(kv->key)) {
-        free((struct hm_key *) kv->key);
-        kv->key = HM_KEY_DELETED;
+    if (r == 1) {
+        old_value = hm->value[i];
 
-        old_value = kv->value;
-        kv->value = NULL;
+        free(hm->key[i]);
+        hm->klen[i] = HASHMAP_KEY_DELETED;
+        hm->key[i] = NULL;
+        hm->value[i] = NULL;
 
         hm->deleted ++;
         hm->count --;
@@ -264,11 +286,9 @@ int hashmap_foreach(HashMap *hm, hashmap_foreach_cb *cb, void *ctx)
     int r;
 
     for (i = 0; i < hm->alloc; i++) {
-        struct hm_kv *kv = &hm->kvs[i];
+        if (!has_key_at_index(hm, i)) continue;
 
-        if (!hm_key_valid(kv->key)) continue;
-
-        r = cb(kv->key->bytes, kv->key->len, kv->value, ctx);
+        r = cb(hm->key[i], hm->klen[i], hm->value[i], ctx);
         if (r) return r;
     }
 
