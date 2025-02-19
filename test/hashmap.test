@@ -10,12 +10,14 @@ static void assert_hashmap_invariants(const HashMap *hm)
     assert_ptr_equal(0, (uintptr_t) hm & 63u);
 
     if (!hm->alloc) {
+        assert_null(hm->hash);
         assert_null(hm->klen);
         assert_null(hm->key);
         assert_null(hm->value);
         return;
     }
 
+    assert_non_null(hm->hash);
     assert_non_null(hm->klen);
     assert_non_null(hm->key);
     assert_non_null(hm->value);

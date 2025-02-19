@@ -42,7 +42,9 @@ static inline bool has_key_at_index(const HashMap *hm, uint32_t index)
 }
 
 static int find(const HashMap *hm,
+                uint32_t known_hash,
                 const void *key, size_t key_len,
+                uint32_t *phash,
                 uint32_t *pindex)
 {
     uint32_t d, h, i, x;
@@ -53,7 +55,8 @@ static int find(const HashMap *hm,
     if (key_len > HASHMAP_KEY_MAXLEN)
         return HASHMAP_E_KEYTOOBIG;
 
-    h = hashmap_hash32(key, key_len, hm->seed);
+    h = known_hash ? known_hash : hashmap_hash32(key, key_len, hm->seed);
+    if (phash) *phash = h;
 
     i = x = h & hm->mask;
     do {
@@ -61,12 +64,12 @@ static int find(const HashMap *hm,
             *pindex = found_deleted ? d : i;
             return HASHMAP_E_NOKEY;
         }
-
-        if (hm->klen[i] == HASHMAP_KEY_DELETED && !found_deleted) {
+        else if (hm->klen[i] == HASHMAP_KEY_DELETED && !found_deleted) {
             found_deleted = true;
             d = i;
         }
         else if (hm->klen[i] == key_len
+                 && hm->hash[i] == h
                  && 0 == memcmp(hm->key[i], key, key_len))
         {
             *pindex = i;
@@ -103,17 +106,22 @@ static int rehash(HashMap *hm, uint32_t new_size)
     r = hashmap_init(&new_hm, new_size);
     if (r) return r;
 
+    /* reuse the existing seed so we don't have to literally rehash */
+    new_hm.seed = hm->seed;
+    next_seed --;
+
     for (i = 0; i < hm->alloc; i++) {
         uint32_t new_i;
 
         if (!has_key_at_index(hm, i))
             continue;
 
-        r = find(&new_hm, hm->key[i], hm->klen[i], &new_i);
+        r = find(&new_hm, hm->hash[i], hm->key[i], hm->klen[i], NULL, &new_i);
         assert(r == HASHMAP_E_NOKEY); /* not found, but got a spot for it */
         assert(new_i < new_hm.alloc);
 
         /* steal the internals */
+        new_hm.hash[new_i] = hm->hash[i];
         new_hm.klen[new_i] = hm->klen[i];
         new_hm.key[new_i] = hm->key[i];
         new_hm.value[new_i] = hm->value[i];
@@ -160,11 +168,13 @@ int hashmap_init(HashMap *hm, uint32_t size)
         size = HASHMAP_MIN_SIZE;
     size = nextpow2(size);
 
+    hm->hash = calloc(size, sizeof(hm->hash[0]));
     hm->klen = calloc(size, sizeof(hm->klen[0]));
     hm->key = calloc(size, sizeof(hm->key[0]));
     hm->value = calloc(size, sizeof(hm->value[0]));
 
-    if (!hm->klen || !hm->key || !hm->value) {
+    if (!hm->hash || !hm->klen || !hm->key || !hm->value) {
+        free(hm->hash);
         free(hm->klen);
         free(hm->key);
         free(hm->value);
@@ -196,6 +206,7 @@ void hashmap_fini(HashMap *hm, void (*value_destructor)(void *))
         }
     }
 
+    free(hm->hash);
     free(hm->klen);
     free(hm->key);
     free(hm->value);
@@ -208,7 +219,7 @@ void *hashmap_get(const HashMap *hm, const void *key, size_t key_len)
     uint32_t i;
     int r;
 
-    r = find(hm, key, key_len, &i);
+    r = find(hm, 0, key, key_len, NULL, &i);
 
     return r == HASHMAP_OK ? hm->value[i] : NULL;
 }
@@ -218,10 +229,10 @@ int hashmap_put(HashMap *hm,
                 void *new_value,
                 void **old_value)
 {
-    uint32_t i;
+    uint32_t h, i;
     int r;
 
-    r = find(hm, key, key_len, &i);
+    r = find(hm, 0, key, key_len, &h, &i);
 
     if (r == HASHMAP_E_REHASH) {
         if ((r = rehash(hm, hm->alloc * 2)))
@@ -261,6 +272,7 @@ int hashmap_put(HashMap *hm,
         if (old_value) *old_value = NULL;
         hm->deleted -= (hm->klen[i] == HASHMAP_KEY_DELETED);
         hm->count ++;
+        hm->hash[i] = h;
         hm->klen[i] = key_len;
         hm->value[i] = new_value;
         return HASHMAP_OK;
@@ -273,12 +285,13 @@ void *hashmap_del(HashMap *hm, const void *key, size_t key_len)
     uint32_t i;
     int r;
 
-    r = find(hm, key, key_len, &i);
+    r = find(hm, 0, key, key_len, NULL, &i);
 
     if (r == HASHMAP_OK) {
         old_value = hm->value[i];
 
         free(hm->key[i]);
+        hm->hash[i] = 0;
         hm->klen[i] = HASHMAP_KEY_DELETED;
         hm->key[i] = NULL;
         hm->value[i] = NULL;

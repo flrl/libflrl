@@ -9,6 +9,7 @@
 #define HASHMAP_KEY_MAXLEN  (UINT16_MAX - 1)
 
 typedef struct __attribute__((aligned(64))) {
+    uint32_t *hash;
     uint16_t *klen;
     uint8_t  **key;
     void     **value;
