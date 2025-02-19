@@ -1677,4 +1677,4 @@ const size_t um_group_n_tests = sizeof(um_group_tests)
 CMFixtureFunction um_group_setup = NULL;
 CMFixtureFunction um_group_teardown = NULL;
 
-/* vim: set ft=c */
+/* vim: set ft=c :*/
