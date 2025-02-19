@@ -2,6 +2,17 @@
 
 #include "src/hashmap.c"
 
+#include <stdlib.h>
+
+#define SENTINEL ((void *) 0xdeadbeef)
+
+static int noop_destructor_called = 0;
+
+static void noop_destructor(void *p __attribute__((unused)))
+{
+    noop_destructor_called ++;
+}
+
 static void assert_hashmap_invariants(const HashMap *hm)
 {
     uint32_t i;
@@ -26,7 +37,9 @@ static void assert_hashmap_invariants(const HashMap *hm)
     assert_int_equal(hm->mask, hm->alloc - 1);
     assert_in_range(hm->count + hm->deleted, 0, hm->alloc);
 
-    // XXX thresholds
+    assert_in_range(hm->grow_threshold, hm->alloc / 2, hm->alloc - 1);
+    assert_in_range(hm->shrink_threshold, 1, (hm->grow_threshold / 2) - 1);
+    assert_in_range(hm->gc_threshold, hm->alloc / 2, hm->alloc - 1);
 
     count = deleted = 0;
     for (i = 0; i < hm->alloc; i++) {
@@ -48,9 +61,140 @@ static void assert_hashmap_invariants(const HashMap *hm)
     assert_int_equal(deleted, hm->deleted);
 }
 
+static int cmp_uint32_t(const void *a, const void *b)
+{
+    const uint32_t *aa = a, *bb = b;
+
+    return (aa > bb) - (aa < bb);
+}
+
+static void fn_hashmap_hash32(NO_STATE)
+{
+    const struct {
+        char key[16];
+        unsigned len;
+    } tests[] = {
+        { "dogaaaaaaaaaaaa", 0 },
+        { "cataaaaaaaaaaaa", 0 },
+        { "foo",             0 },
+        { "foo\0bar",        7 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    uint32_t actual[n_tests];
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        uint32_t diff_seed;
+        unsigned len;
+
+        /* use strlen when len is zero */
+        len = tests[i].len ? tests[i].len : strlen(tests[i].key);
+
+        actual[i] = hashmap_hash32(tests[i].key, len, 0);
+        diff_seed = hashmap_hash32(tests[i].key, len, 23);
+
+        /* different seed -> different hash */
+        assert_int_not_equal(diff_seed, actual[i]);
+    }
+
+    /* no collisions in this set */
+    qsort(actual, n_tests, sizeof(actual[0]), &cmp_uint32_t);
+    for (i = 1; i < n_tests; i++) {
+        assert_int_not_equal(actual[i - 1], actual[i]);
+    }
+}
+
+static void init_fini(NO_STATE)
+{
+    HashMap hm;
+    uint32_t predicted_seed = next_seed;
+
+    hashmap_init(&hm, 0);
+    assert_hashmap_invariants(&hm);
+
+    /* minimum size */
+    assert_int_equal(HASHMAP_MIN_SIZE, hm.alloc);
+
+    /* expected seed */
+    assert_int_equal(predicted_seed, hm.seed);
+
+    noop_destructor_called = 0;
+    hashmap_fini(&hm, &noop_destructor);
+    assert_hashmap_invariants(&hm);
+
+    /* empty hashmap, nothing to destruct */
+    assert_int_equal(0, noop_destructor_called);
+}
+
+static void get_basic(NO_STATE)
+{
+    HashMap hm;
+    const char key[] = "velvet", long_key[] = "extraterrestrial";
+    void *value = SENTINEL;
+    int r;
+
+    hashmap_init(&hm, 0);
+
+    /* get a key that doesn't exist, don't care about value */
+    r = hashmap_get(&hm, key, strlen(key), NULL);
+    assert_int_equal(HASHMAP_E_NOKEY, r);
+
+    /* get a key that doesn't exist */
+    r = hashmap_get(&hm, key, strlen(key), &value);
+    assert_int_equal(HASHMAP_E_NOKEY, r);
+    assert_null(value);
+
+    /* get a key that does exist with null value */
+    r = hashmap_put(&hm, key, strlen(key), NULL, NULL);
+    assert_int_equal(HASHMAP_OK, r);
+    assert_hashmap_invariants(&hm);
+    value = SENTINEL;
+    r = hashmap_get(&hm, key, strlen(key), &value);
+    assert_int_equal(HASHMAP_OK, r);
+    assert_null(value);
+
+    /* get a key that does exist with value */
+    r = hashmap_put(&hm, key, strlen(key), (void *) 12, NULL);
+    assert_int_equal(HASHMAP_OK, r);
+    assert_hashmap_invariants(&hm);
+    r = hashmap_get(&hm, key, strlen(key), &value);
+    assert_int_equal(HASHMAP_OK, r);
+    assert_ptr_equal((void *) 12, value);
+
+    /* get a key that does exist, don't care about value */
+    r = hashmap_get(&hm, key, strlen(key), NULL);
+    assert_int_equal(HASHMAP_OK, r);
+
+    /* get a key that was deleted */
+    r = hashmap_del(&hm, key, strlen(key), &value);
+    assert_int_equal(HASHMAP_OK, r);
+    assert_ptr_equal((void *) 12, value);
+    assert_hashmap_invariants(&hm);
+    r = hashmap_get(&hm, key, strlen(key), &value);
+    assert_int_equal(HASHMAP_E_NOKEY, r);
+    assert_null(value);
+
+    /* get a long key that doesn't exist */
+    r = hashmap_get(&hm, long_key, strlen(long_key), &value);
+    assert_int_equal(HASHMAP_E_NOKEY, r);
+    assert_null(value);
+
+    /* get a long key that does exist */
+    r = hashmap_put(&hm, long_key, strlen(long_key), (void *) 12, NULL);
+    assert_int_equal(HASHMAP_OK, r);
+    r = hashmap_get(&hm, long_key, strlen(long_key), &value);
+    assert_int_equal(HASHMAP_OK, r);
+    assert_ptr_equal((void *) 12, value);
+
+    hashmap_fini(&hm, NULL);
+}
+
 const char *const um_group_name = "hashmap";
 const struct CMUnitTest um_group_tests[] =
 {
+    cmocka_unit_test(fn_hashmap_hash32),
+    cmocka_unit_test(init_fini),
+    cmocka_unit_test(get_basic),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);
