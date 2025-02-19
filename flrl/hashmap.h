@@ -47,6 +47,27 @@ extern void *hashmap_del(HashMap *hm, const void *key, size_t key_len);
 typedef int (hashmap_foreach_cb)(const void *, size_t, void *, void *);
 extern int hashmap_foreach(HashMap *hm, hashmap_foreach_cb *cb, void *ctx);
 
+inline uint32_t hashmap_hash32(const void *key, size_t key_len, uint32_t seed)
+{
+    /* bob jenkins' one-at-a-time hash will do for now, but
+     * XXX consider using lookup3 instead
+     */
+    const uint8_t *k = key;
+    uint32_t h = seed;
+    size_t i;
+
+    for (i = 0; i < key_len; i++) {
+        h += k[i];
+        h += (h << 10);
+        h ^= (h >> 6);
+    }
+    h += (h << 3);
+    h ^= (h >> 11);
+    h += (h << 15);
+
+    return h;
+}
+
 inline double hashmap_load_factor(const HashMap *hm)
 {
     return 1.0 * hm->count / hm->alloc;

@@ -26,27 +26,6 @@ static inline uint32_t nextpow2(uint32_t v)
     return v;
 }
 
-static inline uint32_t hash32(const void *key, size_t key_len, uint32_t seed)
-{
-    /* bob jenkins' one-at-a-time hash will do for now, but
-     * XXX consider using lookup3 instead
-     */
-    const uint8_t *k = key;
-    uint32_t h = seed;
-    size_t i;
-
-    for (i = 0; i < key_len; i++) {
-        h += k[i];
-        h += (h << 10);
-        h ^= (h >> 6);
-    }
-    h += (h << 3);
-    h ^= (h >> 11);
-    h += (h << 15);
-
-    return h;
-}
-
 static inline void *memndup(const void *a, size_t len)
 {
     void *p = malloc(len);
@@ -74,7 +53,7 @@ static int find(const HashMap *hm,
     if (key_len > HASHMAP_KEY_MAXLEN)
         return HASHMAP_E_KEYTOOBIG;
 
-    h = hash32(key, key_len, hm->seed);
+    h = hashmap_hash32(key, key_len, hm->seed);
 
     i = x = h & hm->mask;
     do {
@@ -331,4 +310,6 @@ int hashmap_foreach(HashMap *hm, hashmap_foreach_cb *cb, void *ctx)
     return 0;
 }
 
+extern inline uint32_t hashmap_hash32(const void *key, size_t key_len,
+                                      uint32_t seed);
 extern inline double hashmap_load_factor(const HashMap *hm);
