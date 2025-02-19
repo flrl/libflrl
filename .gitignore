@@ -50,3 +50,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# gcov/lcov coverage files
+*.gcda
+*.gcno
+*.info
+coverage/

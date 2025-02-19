@@ -5,6 +5,7 @@ FEATURES := -fstrict-aliasing
 CFLAGS := -Og -ggdb3 $(WARNINGS) $(FEATURES) $(CFLAGS)
 CXXFLAGS := -Og -ggdb3 -std=c++2b $(WARNINGS) $(FEATURES) $(CXXFLAGS)
 LDFLAGS := $(LDFLAGS)
+LCOVEXCLUDE := misc/* src/xoshiro*.c src/splitmix64.c
 UTMUX := $(shell which utmux 2>/dev/null)
 
 REQUIRES := cmocka
@@ -13,11 +14,13 @@ CPPFLAGS += $(shell pkg-config --cflags $(REQUIRES))
 LDLIBS += $(shell pkg-config --libs $(REQUIRES))
 
 .PHONY: all check clean
+.PHONY: coverage coverage-setup coverage-report
 
 SRCDIR := src
 TESTDIR := test
 BUILDDIR := build
 MISCDIR := misc
+COVERDIR := coverage
 
 LIBCOBJS := $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(wildcard $(SRCDIR)/*.c))
 LIBCXXOBJS := $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(wildcard $(SRCDIR)/*.cpp))
@@ -32,6 +35,10 @@ MISCTARGETS := $(patsubst $(MISCDIR)/%.c,$(MISCDIR)/%,$(wildcard $(MISCDIR)/*.c)
 
 OBJS := $(LIBCOBJS) $(LIBCXXOBJS) $(TESTOBJS) $(TESTCOMMONOBJS) $(MISCTARGETOBJS)
 DEPS := $(patsubst %.o,%.d,$(OBJS))
+
+COVEROBJS := $(OBJS)
+COVERFILES := $(patsubst %.o,%.gcda,$(COVEROBJS))
+COVERFILES += $(patsubst %.o,%.gcno,$(COVEROBJS))
 
 TARGET = libflrl.a
 
@@ -66,6 +73,10 @@ clean:
 	$(RM) $(TESTOBJS) $(TESTTARGETS) $(TESTCOMMONOBJS)
 	$(RM) $(MISCTARGETOBJS) $(MISCTARGETS)
 	$(RM) $(DEPS)
+	$(RM) $(COVERFILES) app_base.info app_test.info
+
+clean-coverage:
+	$(RM) -r $(COVERDIR)
 
 tests: $(TESTTARGETS)
 
@@ -108,6 +119,37 @@ $(BUILDDIR)/test-%.o: $(TESTDIR)/%.test $(BUILDDIR)/test-%.d
 
 $(BUILDDIR)/misc-%.o: $(MISCDIR)/%.c $(BUILDDIR)/misc-%.d
 	$(CC) $(CFLAGS) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/misc-$*.d -o $@ -c $<
+
+ifeq ($(OS),Windows_NT)
+# lcov doesn't handle / paths on windows well, replace / with \.
+LCOVEXCLUDE := $(subst /,\,$(LCOVEXCLUDE))
+LCOVFLAGS := $(patsubst %,--exclude "*\\%",$(LCOVEXCLUDE))
+else
+LCOVFLAGS := $(patsubst %,--exclude "*/%",$(LCOVEXCLUDE))
+endif
+
+app_base.info: all tests
+	lcov --config-file=lcovrc $(LCOVFLAGS) --directory . --capture --initial -o $@
+
+app_test.info:
+	lcov --config-file=lcovrc $(LCOVFLAGS) --directory . --capture -o $@
+
+coverage-setup: export CFLAGS += --coverage
+coverage-setup: export CXXFLAGS += --coverage
+coverage-setup: export LDFLAGS += --coverage
+coverage-setup:
+	$(MAKE) clean clean-coverage
+	env | grep FLAGS
+	$(MAKE) app_base.info
+
+coverage-report:
+	$(MAKE) -B app_test.info
+	genhtml --config-file=lcovrc -o $(COVERDIR) app_base.info app_test.info
+
+coverage:
+	$(MAKE) coverage-setup
+	$(MAKE) vcheck
+	$(MAKE) coverage-report
 
 $(DEPS):
 -include $(DEPS)
