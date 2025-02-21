@@ -11,7 +11,7 @@
 typedef struct __attribute__((aligned(64))) {
     uint32_t *hash;
     uint16_t *klen;
-    uint8_t  **key;
+    struct hm_key *key;
     void     **value;
     uint32_t alloc;
     uint32_t mask;

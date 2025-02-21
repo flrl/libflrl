@@ -35,12 +35,12 @@ static void assert_hashmap_invariants(const HashMap *hm)
             deleted ++;
             /* fall through */
         case HASHMAP_KEY_NULL:
-            assert_null(hm->key[i]);
+            assert_null(hm->key[i].kptr);
             assert_null(hm->value[i]);
             break;
         default:
             count ++;
-            assert_non_null(hm->key[i]);
+            assert_non_null(hm->key[i].kptr);
             break;
         }
     }
