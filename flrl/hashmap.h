@@ -4,15 +4,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define HASHMAP_KEY_NULL    (UINT16_C(0))
-#define HASHMAP_KEY_DELETED (UINT16_MAX)
-#define HASHMAP_KEY_MAXLEN  (UINT16_MAX - 1)
+#define HASHMAP_KEY_MAXLEN  (UINT16_MAX)
 
 typedef struct __attribute__((aligned(64))) {
-    uint32_t *hash;
-    uint16_t *klen;
+    struct hm_kmeta *kmeta;
     struct hm_key *key;
-    void     **value;
+    void **value;
     uint32_t alloc;
     uint32_t mask;
     uint32_t count;
