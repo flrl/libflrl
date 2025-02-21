@@ -43,7 +43,11 @@ extern int hashmap_put(HashMap *hm, const void *key, size_t key_len,
 extern int hashmap_del(HashMap *hm, const void *key, size_t key_len,
                        void **old_value);
 
-typedef int (hashmap_foreach_cb)(const void *, size_t, void *, void *);
+typedef int (hashmap_foreach_cb)(const HashMap *hm,
+                                 const void *key,
+                                 size_t key_len,
+                                 void *value,
+                                 void *ctx);
 extern int hashmap_foreach(HashMap *hm, hashmap_foreach_cb *cb, void *ctx);
 
 inline uint32_t hashmap_hash32(const void *key, size_t key_len, uint32_t seed)

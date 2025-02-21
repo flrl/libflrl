@@ -26,11 +26,14 @@ static void incr(HashMap *hm, const char *word, size_t word_len)
     hashmap_put(hm, word, word_len, (void *) (v + 1), NULL);
 }
 
-static int output(const void *key, size_t key_len, void *value, void *ctx)
+static int output(const HashMap *hm,
+                  const void *key,
+                  size_t key_len,
+                  void *value,
+                  void *ctx __attribute__((unused)))
 {
     const char *k = key;
     uintptr_t v = (uintptr_t) value;
-    const HashMap *hm = ctx;
 
     if (options.print_hash) {
         printf("%" PRIu32 " ",
@@ -76,7 +79,7 @@ static void hashmap_wc(const char *fname, int fd)
     }
 
     printf("%s:\n", fname);
-    hashmap_foreach(&hm, &output, &hm);
+    hashmap_foreach(&hm, &output, NULL);
     hashmap_fini(&hm, NULL);
 }
 

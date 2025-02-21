@@ -353,7 +353,7 @@ int hashmap_foreach(HashMap *hm, hashmap_foreach_cb *cb, void *ctx)
     for (i = 0; i < hm->alloc; i++) {
         if (!has_key_at_index(hm, i)) continue;
 
-        r = cb(HM_KEY(hm, i), hm->kmeta[i].len, hm->value[i], ctx);
+        r = cb(hm, HM_KEY(hm, i), hm->kmeta[i].len, hm->value[i], ctx);
         if (r) return r;
     }
 
