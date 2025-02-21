@@ -13,9 +13,9 @@
 
 static void incr(HashMap *hm, const char *word, size_t word_len)
 {
-    uintptr_t v;
+    uintptr_t v = 0;
 
-    v = (uintptr_t) hashmap_get(hm, word, word_len);
+    hashmap_get(hm, word, word_len, (void **) &v);
     hashmap_put(hm, word, word_len, (void *) (v + 1), NULL);
 }
 

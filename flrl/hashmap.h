@@ -39,11 +39,12 @@ extern const char *hashmap_strerr(int e);
 extern int hashmap_init(HashMap *hm, uint32_t size);
 extern void hashmap_fini(HashMap *hm, void (*value_destructor)(void *));
 
-extern void *hashmap_get(const HashMap *hm, const void *key, size_t key_len);
+extern int hashmap_get(const HashMap *hm, const void *key, size_t key_len,
+                       void **value);
 extern int hashmap_put(HashMap *hm, const void *key, size_t key_len,
                        void *new_value, void **old_value);
-
-extern void *hashmap_del(HashMap *hm, const void *key, size_t key_len);
+extern int hashmap_del(HashMap *hm, const void *key, size_t key_len,
+                       void **old_value);
 
 typedef int (hashmap_foreach_cb)(const void *, size_t, void *, void *);
 extern int hashmap_foreach(HashMap *hm, hashmap_foreach_cb *cb, void *ctx);

@@ -228,14 +228,18 @@ void hashmap_fini(HashMap *hm, void (*value_destructor)(void *))
     memset(hm, 0, sizeof(*hm));
 }
 
-void *hashmap_get(const HashMap *hm, const void *key, size_t key_len)
+int hashmap_get(const HashMap *hm, const void *key, size_t key_len,
+                void **value)
 {
     uint32_t i;
     int r;
 
     r = find(hm, 0, key, key_len, NULL, &i);
 
-    return r == HASHMAP_OK ? hm->value[i] : NULL;
+    if (value)
+        *value = (r == HASHMAP_OK) ? hm->value[i] : NULL;
+
+    return r;
 }
 
 int hashmap_put(HashMap *hm,
@@ -298,16 +302,15 @@ int hashmap_put(HashMap *hm,
     }
 }
 
-void *hashmap_del(HashMap *hm, const void *key, size_t key_len)
+int hashmap_del(HashMap *hm, const void *key, size_t key_len, void **old_value)
 {
-    void *old_value = NULL;
     uint32_t i;
     int r;
 
     r = find(hm, 0, key, key_len, NULL, &i);
 
     if (r == HASHMAP_OK) {
-        old_value = hm->value[i];
+        if (old_value) *old_value = hm->value[i];
 
         if (hm->klen[i] > sizeof(void *))
             free(hm->key[i].kptr);
@@ -319,14 +322,17 @@ void *hashmap_del(HashMap *hm, const void *key, size_t key_len)
 
         hm->deleted ++;
         hm->count --;
+
+        if (hm->count < hm->shrink_threshold)
+            rehash(hm, hm->alloc / 2);
+        else if (hm->count + hm->deleted >= hm->gc_threshold)
+            rehash(hm, hm->alloc);
+    }
+    else {
+        if (old_value) *old_value = NULL;
     }
 
-    if (hm->count < hm->shrink_threshold)
-        rehash(hm, hm->alloc / 2);
-    else if (hm->count + hm->deleted >= hm->gc_threshold)
-        rehash(hm, hm->alloc);
-
-    return old_value;
+    return r;
 }
 
 int hashmap_foreach(HashMap *hm, hashmap_foreach_cb *cb, void *ctx)
