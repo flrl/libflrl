@@ -10,6 +10,13 @@
 #include <stdio.h>
 #include <unistd.h>
 
+static struct {
+    bool print_hash;
+    uint32_t hash_mask;
+} options = {
+    .print_hash = false,
+    .hash_mask = UINT32_C(0),
+};
 
 static void incr(HashMap *hm, const char *word, size_t word_len)
 {
@@ -23,10 +30,11 @@ static int output(const void *key, size_t key_len, void *value, void *ctx)
 {
     const char *k = key;
     uintptr_t v = (uintptr_t) value;
-    bool print_hash = (bool) ctx;
+    const HashMap *hm = ctx;
 
-    if (print_hash) {
-        printf("%" PRIu32 " ", hashmap_hash32(key, key_len, 0) % 32768);
+    if (options.print_hash) {
+        printf("%" PRIu32 " ",
+               hashmap_hash32(key, key_len, hm->seed) & options.hash_mask);
     }
 
     printf("%.*s:\t%" PRIuPTR "\n", (int) key_len, k, v);
@@ -34,7 +42,7 @@ static int output(const void *key, size_t key_len, void *value, void *ctx)
     return 0;
 }
 
-static void hashmap_wc(const char *fname, int fd, bool print_hash)
+static void hashmap_wc(const char *fname, int fd)
 {
     HashMap hm;
     char keybuf[256];
@@ -68,19 +76,23 @@ static void hashmap_wc(const char *fname, int fd, bool print_hash)
     }
 
     printf("%s:\n", fname);
-    hashmap_foreach(&hm, &output, (void *) print_hash);
+    hashmap_foreach(&hm, &output, &hm);
     hashmap_fini(&hm, NULL);
 }
 
 int main(int argc, char **argv)
 {
-    bool print_hash = false;
     int opt;
 
-    while (-1 != (opt = getopt(argc, argv, "p"))) {
+    while (-1 != (opt = getopt(argc, argv, "m:p"))) {
         switch (opt) {
         case 'p':
-            print_hash = true;
+            options.print_hash = true;
+            break;
+        case 'm':
+            errno = 0;
+            options.hash_mask = strtoul(optarg, NULL, 0);
+            if (errno) options.hash_mask = 0;
             break;
         default:
             break;
@@ -88,7 +100,7 @@ int main(int argc, char **argv)
     }
 
     if (argc == optind) {
-        hashmap_wc("[stdin]", STDIN_FILENO, print_hash);
+        hashmap_wc("[stdin]", STDIN_FILENO);
     }
     else {
         int i;
@@ -102,7 +114,7 @@ int main(int argc, char **argv)
                 continue;
             }
 
-            hashmap_wc(argv[i], fd, print_hash);
+            hashmap_wc(argv[i], fd);
             close(fd);
         }
     }
