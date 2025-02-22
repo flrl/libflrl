@@ -638,6 +638,61 @@ static void full(NO_STATE)
     hashmap_fini(&hm, NULL);
 }
 
+static int foreach_cb(const HashMap *hm,
+                      const void *key,
+                      size_t key_len,
+                      void *value,
+                      void *ctx)
+{
+    unsigned *call_count = ctx;
+    int r;
+    void *check_value = SENTINEL;
+
+    (*call_count) ++;
+
+    r = hashmap_get(hm, key, key_len, &check_value);
+    assert_int_equal(HASHMAP_OK, r);
+    assert_ptr_equal(value, check_value);
+
+    return 0;
+}
+
+static void fn_hashmap_foreach(NO_STATE)
+{
+    const struct  {
+        const char *const key;
+        uintptr_t value;
+    } tests[] = {
+        { "wat",               11 },
+        { "Meanwhile",          4 },
+        { "partial",            9 },
+        { "afield",             1 },
+        { "deservings",         6 },
+        { "transformations",    1 },
+        { "ELEANOR",           45 },
+        { "gentlest",           2 },
+        { "Rougemount",         1 },
+        { "crown",            295 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i, cb_call_count = 0;
+    HashMap hm;
+    int r;
+
+    hashmap_init(&hm, 0);
+
+    for (i = 0; i < n_tests; i++) {
+        r = hashmap_put(&hm, tests[i].key, strlen(tests[i].key),
+                        (void *) tests[i].value, NULL);
+    }
+
+    r = hashmap_foreach(&hm, &foreach_cb, &cb_call_count);
+    assert_int_equal(HASHMAP_OK, r);
+    assert_int_equal(n_tests, cb_call_count);
+
+    hashmap_fini(&hm, NULL);
+}
+
 const char *const um_group_name = "hashmap";
 const struct CMUnitTest um_group_tests[] =
 {
@@ -648,6 +703,7 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test(put_del_nocollide),
     cmocka_unit_test(put_del_collide),
     cmocka_unit_test(full),
+    cmocka_unit_test(fn_hashmap_foreach),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);
