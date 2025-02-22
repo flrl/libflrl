@@ -13,9 +13,13 @@
 static struct {
     bool print_hash;
     uint32_t hash_mask;
+    bool set_seed;
+    uint32_t seed;
 } options = {
     .print_hash = false,
-    .hash_mask = UINT32_C(0),
+    .hash_mask = UINT32_MAX,
+    .set_seed = false,
+    .seed = UINT32_C(0),
 };
 
 static void incr(HashMap *hm, const char *word, size_t word_len)
@@ -36,7 +40,7 @@ static int output(const HashMap *hm,
     uintptr_t v = (uintptr_t) value;
 
     if (options.print_hash) {
-        printf("%" PRIu32 " ",
+        printf("%" PRIx32 " ",
                hashmap_hash32(key, key_len, hm->seed) & options.hash_mask);
     }
 
@@ -54,6 +58,8 @@ static void hashmap_wc(const char *fname, int fd)
     ssize_t bytes_read;
 
     hashmap_init(&hm, 0);
+    if (options.set_seed)
+        hm.seed = options.seed;
 
     while (0 < (bytes_read = read(fd, readbuf, sizeof(readbuf)))) {
         ssize_t i;
@@ -87,16 +93,21 @@ int main(int argc, char **argv)
 {
     int opt;
 
-    while (-1 != (opt = getopt(argc, argv, "m:p"))) {
+    while (-1 != (opt = getopt(argc, argv, "m:ps:"))) {
         switch (opt) {
-        case 'p':
-            options.print_hash = true;
-            break;
         case 'm':
             errno = 0;
             options.hash_mask = strtoul(optarg, NULL, 0);
             if (errno) options.hash_mask = 0;
             break;
+        case 'p':
+            options.print_hash = true;
+            break;
+        case 's':
+            errno = 0;
+            options.seed = strtoul(optarg, NULL, 0);
+            if (errno) options.seed = 0;
+            options.set_seed = true;
         default:
             break;
         }
