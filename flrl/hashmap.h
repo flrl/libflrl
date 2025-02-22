@@ -48,7 +48,7 @@ typedef int (hashmap_foreach_cb)(const HashMap *hm,
                                  size_t key_len,
                                  void *value,
                                  void *ctx);
-extern int hashmap_foreach(HashMap *hm, hashmap_foreach_cb *cb, void *ctx);
+extern int hashmap_foreach(const HashMap *hm, hashmap_foreach_cb *cb, void *ctx);
 
 inline uint32_t hashmap_hash32(const void *key, size_t key_len, uint32_t seed)
 {

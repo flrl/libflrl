@@ -413,7 +413,7 @@ int hashmap_del(HashMap *hm, const void *key, size_t key_len, void **old_value)
     return r;
 }
 
-int hashmap_foreach(HashMap *hm, hashmap_foreach_cb *cb, void *ctx)
+int hashmap_foreach(const HashMap *hm, hashmap_foreach_cb *cb, void *ctx)
 {
     uint32_t i;
     int r;
