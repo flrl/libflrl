@@ -24,6 +24,13 @@ static void assert_hashmap_invariants(const HashMap *hm)
         assert_null(hm->kmeta);
         assert_null(hm->key);
         assert_null(hm->value);
+        assert_int_equal(0, hm->mask);
+        assert_int_equal(0, hm->count);
+        assert_int_equal(0, hm->deleted);
+        assert_int_equal(0, hm->seed);
+        assert_int_equal(0, hm->grow_threshold);
+        assert_int_equal(0, hm->shrink_threshold);
+        assert_int_equal(0, hm->gc_threshold);
         return;
     }
 
@@ -116,24 +123,56 @@ static void fn_hashmap_hash32(NO_STATE)
 
 static void init_fini(NO_STATE)
 {
+    const struct {
+        uint32_t init_size;
+        int      expect_r;
+        uint32_t expect_alloc;
+    } tests[] = {
+        {                    0, HASHMAP_OK,     HASHMAP_MIN_SIZE },
+        { HASHMAP_MIN_SIZE - 1, HASHMAP_OK,     HASHMAP_MIN_SIZE },
+        {     HASHMAP_MIN_SIZE, HASHMAP_OK,     HASHMAP_MIN_SIZE },
+        { HASHMAP_MIN_SIZE + 1, HASHMAP_OK, 2 * HASHMAP_MIN_SIZE },
+        {                   42, HASHMAP_OK,                   64 },
+        {                65536, HASHMAP_OK,                65536 },
+        {               100000, HASHMAP_OK,           128 * 1024 },
+        {              1000000, HASHMAP_OK,          1024 * 1024 },
+        {            100000000, HASHMAP_OK,    128 * 1024 * 1024 },
+        { HASHMAP_MAX_SIZE + 1, HASHMAP_E_INVALID,             0 },
+        {           UINT32_MAX, HASHMAP_E_INVALID,             0 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    bool have_prev_seed = false;
+    uint32_t prev_seed = 0;
     HashMap hm;
-    uint32_t predicted_seed = next_seed;
+    unsigned i;
+    int r;
 
-    hashmap_init(&hm, 0);
-    assert_hashmap_invariants(&hm);
+    for (i = 0; i < n_tests; i++) {
+        r = hashmap_init(&hm, tests[i].init_size);
 
-    /* minimum size */
-    assert_int_equal(HASHMAP_MIN_SIZE, hm.alloc);
+        if (r == HASHMAP_E_NOMEM) {
+            assert_int_equal(0, hm.alloc);
+            assert_hashmap_invariants(&hm);
+        }
+        else {
+            assert_int_equal(tests[i].expect_r, r);
+            assert_int_equal(tests[i].expect_alloc, hm.alloc);
+            assert_hashmap_invariants(&hm);
 
-    /* expected seed */
-    assert_int_equal(predicted_seed, hm.seed);
+            if (r == HASHMAP_OK) {
+                if (have_prev_seed)
+                    assert_int_not_equal(prev_seed, hm.seed);
+                prev_seed = hm.seed;
+                have_prev_seed = true;
 
-    noop_destructor_called = 0;
-    hashmap_fini(&hm, &noop_destructor);
-    assert_hashmap_invariants(&hm);
+                noop_destructor_called = 0;
+                hashmap_fini(&hm, &noop_destructor);
+                assert_int_equal(0, noop_destructor_called);
 
-    /* empty hashmap, nothing to destruct */
-    assert_int_equal(0, noop_destructor_called);
+                assert_hashmap_invariants(&hm);
+            }
+        }
+    }
 }
 
 static void get_basic(NO_STATE)

@@ -15,6 +15,9 @@
 #define HASHMAP_NO_GC               UINT32_MAX
 #define HASHMAP_BUCKET_EMPTY        UINT16_C(0)
 
+static_assert(1 == __builtin_popcount(HASHMAP_MIN_SIZE));
+static_assert(1 == __builtin_popcount(HASHMAP_MAX_SIZE));
+
 struct hm_kmeta {
     uint32_t hash;
     uint16_t len;
@@ -232,8 +235,13 @@ const char *hashmap_strerr(int e)
 
 int hashmap_init(HashMap *hm, uint32_t size)
 {
-    if (size < HASHMAP_MIN_SIZE)
+    if (size > HASHMAP_MAX_SIZE) {
+        memset(hm, 0, sizeof(*hm));
+        return HASHMAP_E_INVALID;
+    }
+    else if (size < HASHMAP_MIN_SIZE)
         size = HASHMAP_MIN_SIZE;
+
     size = nextpow2(size);
 
     hm->kmeta = calloc(size, sizeof(hm->kmeta[0]));
