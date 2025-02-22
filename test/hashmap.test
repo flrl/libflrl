@@ -507,6 +507,137 @@ static void put_del_collide(NO_STATE)
     do_put_del(keys, n_keys, seed);
 }
 
+static void full(NO_STATE)
+{
+    const char *const keys[] = {
+        "inalterable",
+        "babu",
+        "overstate",
+        "Asperges",
+        "disendow",
+        "Kishinev",
+        "mesic",
+        "Flamsteed",
+        "lymphangitis",
+        "same",
+        "disulfiram",
+        "overland",
+        "osculate",
+        "broccoli",
+        "compassionate",
+        "decisive",
+        "athwart",
+        "otolith",
+        "diuretic",
+        "quadrature",
+    };
+    const size_t n_keys = sizeof(keys) / sizeof(keys[0]);
+    HashMap hm;
+    uint32_t expect_alloc, expect_count, expect_deleted;
+    uint32_t index;
+    void *value;
+    unsigned i;
+    int r;
+
+    static_assert(n_keys >= 2 * HASHMAP_MIN_SIZE);
+
+    hashmap_init(&hm, 0);
+    hm.grow_threshold = HASHMAP_NO_GROW;
+    expect_alloc = HASHMAP_MIN_SIZE;
+    expect_count = expect_deleted = 0;
+
+    for (i = 0; i < HASHMAP_MIN_SIZE; i++) {
+        expect_count ++;
+
+        r = hashmap_put(&hm, keys[i], strlen(keys[i]),
+                        (void *)(uintptr_t) i, NULL);
+        assert_int_equal(HASHMAP_OK, r);
+
+        assert_int_equal(expect_alloc, hm.alloc);
+        assert_int_equal(expect_count, hm.count);
+        assert_int_equal(expect_deleted, hm.deleted);
+        assert_hashmap_invariants(&hm);
+    }
+
+    for (i = 0; i < HASHMAP_MIN_SIZE; i++) {
+        r = find(&hm, 0, keys[i], strlen(keys[i]), NULL, &index);
+        assert_int_equal(HASHMAP_OK, r);
+        assert_in_range(index, 0, HASHMAP_MIN_SIZE);
+    }
+
+    for (; i < 2 * HASHMAP_MIN_SIZE; i++) {
+        r = find(&hm, 0, keys[i], strlen(keys[i]), NULL, &index);
+        assert_int_equal(HASHMAP_E_REHASH, r);
+        assert_int_equal(UINT32_MAX, index);
+
+        value = SENTINEL;
+        r = hashmap_get(&hm, keys[i], strlen(keys[i]), &value);
+        assert_int_equal(HASHMAP_E_NOKEY, r);
+        assert_null(value);
+
+        value = SENTINEL;
+        r = hashmap_del(&hm, keys[i], strlen(keys[i]), &value);
+        assert_int_equal(HASHMAP_E_NOKEY, r);
+        assert_null(value);
+    }
+
+    /* from full, the first few deletions should gc each time */
+    for (i = 0; i < 4; i++) {
+        expect_count --;
+        expect_deleted = 0;
+
+        value = SENTINEL;
+        r = hashmap_del(&hm, keys[i], strlen(keys[i]), &value);
+        assert_int_equal(HASHMAP_OK, r);
+        assert_ptr_equal(i, value);
+
+        assert_int_equal(expect_alloc, hm.alloc);
+        assert_int_equal(expect_count, hm.count);
+        assert_int_equal(expect_deleted, hm.deleted);
+        assert_hashmap_invariants(&hm);
+    }
+
+    /* the next should leave tombstones */
+    for (; i < HASHMAP_MIN_SIZE; i++) {
+        expect_count --;
+        expect_deleted ++;
+
+        value = SENTINEL;
+        r = hashmap_del(&hm, keys[i], strlen(keys[i]), &value);
+        assert_int_equal(HASHMAP_OK, r);
+        assert_ptr_equal(i, value);
+
+        assert_int_equal(expect_alloc, hm.alloc);
+        assert_int_equal(expect_count, hm.count);
+        assert_int_equal(expect_deleted, hm.deleted);
+        assert_hashmap_invariants(&hm);
+
+        r = find(&hm, 0, keys[i], strlen(keys[i]), NULL, &index);
+        assert_int_equal(HASHMAP_E_NOKEY, r);
+        assert_int_equal(1, hm.kmeta[index].deleted);
+    }
+
+    /* fill it back up */
+    expect_count = HASHMAP_MIN_SIZE;
+    expect_deleted = 0;
+    i = HASHMAP_MIN_SIZE;
+    do {
+        r = hashmap_put(&hm, keys[i], strlen(keys[i]),
+                        (void *)(uintptr_t) i, NULL);
+
+        i++;
+    } while (i < n_keys && r == HASHMAP_OK);
+
+    assert_int_equal(HASHMAP_E_REHASH, r);
+
+    assert_int_equal(expect_alloc, hm.alloc);
+    assert_int_equal(expect_count, hm.count);
+    assert_int_equal(expect_deleted, hm.deleted);
+    assert_hashmap_invariants(&hm);
+
+    hashmap_fini(&hm, NULL);
+}
+
 const char *const um_group_name = "hashmap";
 const struct CMUnitTest um_group_tests[] =
 {
@@ -516,6 +647,7 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test(get_basic),
     cmocka_unit_test(put_del_nocollide),
     cmocka_unit_test(put_del_collide),
+    cmocka_unit_test(full),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);
