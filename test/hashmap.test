@@ -121,6 +121,31 @@ static void fn_hashmap_hash32(NO_STATE)
     }
 }
 
+static void fn_hashmap_strerr(NO_STATE)
+{
+    const struct {
+        int r;
+        const char *expect_s;
+    } tests[] = {
+        { HASHMAP_E_NOKEY,      "key not found" },
+        { HASHMAP_E_KEYTOOBIG,  "key too long" },
+        { HASHMAP_E_REHASH,     "map is full" },
+        { HASHMAP_E_NOMEM,      "memory allocation failed" },
+        { HASHMAP_E_INVALID,    "invalid argument" },
+        { HASHMAP_E_UNKNOWN,    "unknown error" },
+        { HASHMAP_OK,           "ok" },
+        { 69,                   "unrecognised error code 69" },
+        { -1,                   "unrecognised error code -1" },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        const char *s = hashmap_strerr(tests[i].r);
+        assert_string_equal(tests[i].expect_s, s);
+    }
+}
+
 static void init_fini(NO_STATE)
 {
     const struct {
@@ -486,6 +511,7 @@ const char *const um_group_name = "hashmap";
 const struct CMUnitTest um_group_tests[] =
 {
     cmocka_unit_test(fn_hashmap_hash32),
+    cmocka_unit_test(fn_hashmap_strerr),
     cmocka_unit_test(init_fini),
     cmocka_unit_test(get_basic),
     cmocka_unit_test(put_del_nocollide),
