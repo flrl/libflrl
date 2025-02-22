@@ -457,7 +457,7 @@ static void put_del_nocollide(NO_STATE)
         "Lowell",
     };
     const size_t n_keys = sizeof(keys) / sizeof(keys[0]);
-    static_assert(n_keys == 8);
+    static_assert(sizeof(keys) / sizeof(keys[0]) == 8);
     const uint32_t seed = 5;
     const uint32_t mask = 0x00000007;
     uint32_t hash[n_keys];
@@ -491,9 +491,9 @@ static void put_del_collide(NO_STATE)
         "rabbinical",
     };
     const size_t n_keys = sizeof(keys) / sizeof(keys[0]);
+    static_assert(sizeof(keys) / sizeof(keys[0]) == 8);
     const uint32_t seed = 5;
     const uint32_t mask = 0x000000ff;
-    static_assert(n_keys == 8);
     uint32_t h, i, x;
 
     /* validate belief that these keys collide */
@@ -534,14 +534,13 @@ static void full(NO_STATE)
         "quadrature",
     };
     const size_t n_keys = sizeof(keys) / sizeof(keys[0]);
+    static_assert(sizeof(keys) / sizeof(keys[0]) >= 2 * HASHMAP_MIN_SIZE);
     HashMap hm;
     uint32_t expect_alloc, expect_count, expect_deleted;
     uint32_t index;
     void *value;
     unsigned i;
     int r;
-
-    static_assert(n_keys >= 2 * HASHMAP_MIN_SIZE);
 
     hashmap_init(&hm, 0);
     hm.grow_threshold = HASHMAP_NO_GROW;
