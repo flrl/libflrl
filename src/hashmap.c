@@ -301,10 +301,17 @@ int hashmap_get(const HashMap *hm, const void *key, size_t key_len,
 
     r = find(hm, 0, key, key_len, NULL, &i);
 
-    if (value)
-        *value = (r == HASHMAP_OK) ? hm->value[i] : NULL;
-
-    return r;
+    switch (r) {
+    case HASHMAP_OK:
+        if (value) *value = hm->value[i];
+        return HASHMAP_OK;
+    case HASHMAP_E_REHASH:
+        r = HASHMAP_E_NOKEY;
+        /* fall through */
+    default:
+        if (value) *value= NULL;
+        return r;
+    }
 }
 
 int hashmap_put(HashMap *hm,
@@ -400,6 +407,7 @@ int hashmap_del(HashMap *hm, const void *key, size_t key_len, void **old_value)
     }
     else {
         if (old_value) *old_value = NULL;
+        if (r == HASHMAP_E_REHASH) r = HASHMAP_E_NOKEY;
     }
 
     return r;
