@@ -76,6 +76,8 @@ static void assert_hashmap_invariants(const HashMap *hm)
     }
     assert_int_equal(count, hm->count);
     assert_int_equal(deleted, hm->deleted);
+
+    assert_float_in_range(hashmap_load_factor(hm), 0.0, 1.0);
 }
 
 static int cmp_uint32_t(const void *a, const void *b)
