@@ -6,9 +6,13 @@
 #include <string.h>
 
 #define HASHMAP_MIN_SIZE            (8)
+#define HASHMAP_MAX_SIZE            (UINT32_C(1) << 31)
 #define HASHMAP_GROW_THRESHOLD      (0.65)
 #define HASHMAP_SHRINK_THRESHOLD    (0.30)
 #define HASHMAP_GC_THRESHOLD        (0.80)
+#define HASHMAP_NO_GROW             UINT32_MAX
+#define HASHMAP_NO_SHRINK           UINT32_C(0)
+#define HASHMAP_NO_GC               UINT32_MAX
 #define HASHMAP_BUCKET_EMPTY        UINT16_C(0)
 
 struct hm_kmeta {
@@ -60,6 +64,28 @@ static inline bool has_key_at_index(const HashMap *hm, uint32_t index)
 {
     return hm->kmeta[index].len != HASHMAP_BUCKET_EMPTY
            && !hm->kmeta[index].deleted;
+}
+
+static inline bool should_grow(const HashMap *hm, uint32_t count)
+{
+    return hm->alloc < HASHMAP_MAX_SIZE
+           && hm->grow_threshold != HASHMAP_NO_GROW
+           && count >= hm->grow_threshold;
+}
+
+static inline bool should_shrink(const HashMap *hm, uint32_t count)
+{
+    return hm->alloc > HASHMAP_MIN_SIZE
+           && hm->shrink_threshold != HASHMAP_NO_SHRINK
+           && count < hm->shrink_threshold;
+}
+
+static inline bool should_gc(const HashMap *hm,
+                             uint32_t count, uint32_t deleted)
+{
+    return hm->gc_threshold != HASHMAP_NO_GC
+           && deleted > 0
+           && count + deleted >= hm->gc_threshold;
 }
 
 static int find(const HashMap *hm,
@@ -126,8 +152,26 @@ static int rehash(HashMap *hm, uint32_t new_size)
     if (new_size < HASHMAP_MIN_SIZE && hm->alloc == HASHMAP_MIN_SIZE)
         return HASHMAP_OK;
 
+    if (hm->grow_threshold == HASHMAP_NO_GROW && new_size > hm->alloc)
+        return HASHMAP_E_REHASH;
+
+    if (hm->shrink_threshold == HASHMAP_NO_SHRINK && new_size < hm->alloc)
+        return HASHMAP_E_REHASH;
+
+    if (hm->gc_threshold == HASHMAP_NO_GC && new_size == hm->alloc)
+        return HASHMAP_E_REHASH;
+
     r = hashmap_init(&new_hm, new_size);
     if (r) return r;
+
+    if (hm->grow_threshold == HASHMAP_NO_GROW)
+        new_hm.grow_threshold = HASHMAP_NO_GROW;
+
+    if (hm->shrink_threshold == HASHMAP_NO_SHRINK)
+        new_hm.shrink_threshold = HASHMAP_NO_SHRINK;
+
+    if (hm->gc_threshold == HASHMAP_NO_GC)
+        new_hm.gc_threshold = HASHMAP_NO_GC;
 
     /* reuse the existing seed so we don't have to literally rehash */
     new_hm.seed = hm->seed;
@@ -208,8 +252,13 @@ int hashmap_init(HashMap *hm, uint32_t size)
     hm->mask = size - 1;
     hm->count = hm->deleted = 0;
     hm->seed = next_seed ++;
-    hm->grow_threshold = (uint32_t) (size * HASHMAP_GROW_THRESHOLD) - 1;
-    hm->shrink_threshold = (uint32_t) (size * HASHMAP_SHRINK_THRESHOLD) - 1;
+
+    hm->grow_threshold = size < HASHMAP_MAX_SIZE
+                         ? (uint32_t) (size * HASHMAP_GROW_THRESHOLD) - 1
+                         : HASHMAP_NO_GROW;
+    hm->shrink_threshold = size > HASHMAP_MIN_SIZE
+                         ? (uint32_t) (size * HASHMAP_SHRINK_THRESHOLD) - 1
+                         : HASHMAP_NO_SHRINK;
     hm->gc_threshold = (uint32_t) (size * HASHMAP_GC_THRESHOLD) - 1;
 
     return HASHMAP_OK;
@@ -261,8 +310,11 @@ int hashmap_put(HashMap *hm,
     r = find(hm, 0, key, key_len, &h, &i);
 
     if (r == HASHMAP_E_REHASH) {
-        if ((r = rehash(hm, hm->alloc * 2)))
+        if (hm->grow_threshold == HASHMAP_NO_GROW
+            || (r = rehash(hm, hm->alloc * 2)))
+        {
             return r;
+        }
         return hashmap_put(hm, key, key_len, new_value, old_value);
     }
     else if (r == HASHMAP_OK) {
@@ -281,12 +333,12 @@ int hashmap_put(HashMap *hm,
         return r;
     }
     else if (hm->kmeta[i].len == HASHMAP_BUCKET_EMPTY
-             && hm->count >= hm->grow_threshold)
+             && should_grow(hm, hm->count))
     {
         rehash(hm, hm->alloc * 2);
         return hashmap_put(hm, key, key_len, new_value, old_value);
     }
-    else if (hm->count + hm->deleted >= hm->gc_threshold) {
+    else if (should_gc(hm, hm->count, hm->deleted)) {
         rehash(hm, hm->alloc);
         return hashmap_put(hm, key, key_len, new_value, old_value);
     }
@@ -333,9 +385,9 @@ int hashmap_del(HashMap *hm, const void *key, size_t key_len, void **old_value)
         hm->deleted ++;
         hm->count --;
 
-        if (hm->count < hm->shrink_threshold)
+        if (should_shrink(hm, hm->count))
             rehash(hm, hm->alloc / 2);
-        else if (hm->count + hm->deleted >= hm->gc_threshold)
+        else if (should_gc(hm, hm->count, hm->deleted))
             rehash(hm, hm->alloc);
     }
     else {

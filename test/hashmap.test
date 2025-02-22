@@ -31,13 +31,22 @@ static void assert_hashmap_invariants(const HashMap *hm)
     assert_non_null(hm->key);
     assert_non_null(hm->value);
 
-    assert_int_equal(hm->alloc, nextpow2(hm->alloc));
+    assert_in_range(hm->alloc, HASHMAP_MIN_SIZE, HASHMAP_MAX_SIZE);
+    assert_int_equal(1, __builtin_popcount(hm->alloc));
     assert_int_equal(hm->mask, hm->alloc - 1);
     assert_in_range(hm->count + hm->deleted, 0, hm->alloc);
 
-    assert_in_range(hm->grow_threshold, hm->alloc / 2, hm->alloc - 1);
-    assert_in_range(hm->shrink_threshold, 1, (hm->grow_threshold / 2) - 1);
-    assert_in_range(hm->gc_threshold, hm->alloc / 2, hm->alloc - 1);
+    if (hm->grow_threshold != HASHMAP_NO_GROW)
+        assert_in_range(hm->grow_threshold, hm->alloc / 2, hm->alloc - 1);
+
+    if (hm->alloc == HASHMAP_MIN_SIZE)
+        assert_int_equal(HASHMAP_NO_SHRINK, hm->shrink_threshold);
+
+    if (hm->shrink_threshold != HASHMAP_NO_SHRINK)
+        assert_in_range(hm->shrink_threshold, 3, (hm->grow_threshold / 2) - 1);
+
+    if (hm->gc_threshold != HASHMAP_NO_GC)
+        assert_in_range(hm->gc_threshold, hm->alloc / 2, hm->alloc - 1);
 
     count = deleted = 0;
     for (i = 0; i < hm->alloc; i++) {
