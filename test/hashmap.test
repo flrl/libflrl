@@ -199,12 +199,258 @@ static void get_basic(NO_STATE)
     hashmap_fini(&hm, NULL);
 }
 
+static void do_put_del(const char *const keys[], size_t n_keys, uint32_t seed)
+{
+    uint32_t expect_alloc = HASHMAP_MIN_SIZE;
+    uint32_t expect_count = 0, expect_deleted = 0;
+    HashMap hm;
+    unsigned i;
+    int r;
+
+    assert(n_keys == 8);
+
+    hashmap_init(&hm, 0);
+    hm.seed = seed;
+
+    assert_int_equal(expect_alloc, hm.alloc);
+    assert_int_equal(expect_count, hm.count);
+    assert_int_equal(expect_deleted, hm.deleted);
+
+    /* insert the first half */
+    for (i = 0; i < n_keys / 2; i++) {
+        void *old_value = SENTINEL;
+
+        expect_count ++;
+
+        r = hashmap_put(&hm,
+                        keys[i],
+                        strlen(keys[i]),
+                        (void *)(uintptr_t) i,
+                        &old_value);
+        assert_int_equal(HASHMAP_OK, r);
+        assert_null(old_value);
+
+        assert_int_equal(expect_alloc, hm.alloc);
+        assert_int_equal(expect_count, hm.count);
+        assert_int_equal(expect_deleted, hm.deleted);
+        assert_hashmap_invariants(&hm);
+    }
+
+    /* delete a couple */
+    for (i = 0; i < 2; i++) {
+        void *old_value = SENTINEL;
+
+        expect_count --;
+        expect_deleted ++;
+
+        r = hashmap_del(&hm, keys[i], strlen(keys[i]),
+                        &old_value);
+        assert_int_equal(HASHMAP_OK, r);
+        assert_ptr_equal(i, old_value);
+
+        assert_int_equal(expect_alloc, hm.alloc);
+        assert_int_equal(expect_count, hm.count);
+        assert_int_equal(expect_deleted, hm.deleted);
+        assert_hashmap_invariants(&hm);
+    }
+
+    /* delete the same two again, they shouldn't exist */
+    for (i = 0; i < 2; i++) {
+        void *old_value = SENTINEL;
+
+        r = hashmap_del(&hm, keys[i], strlen(keys[i]),
+                        &old_value);
+        assert_int_equal(HASHMAP_E_NOKEY, r);
+        assert_null(old_value);
+
+        assert_int_equal(expect_alloc, hm.alloc);
+        assert_int_equal(expect_count, hm.count);
+        assert_int_equal(expect_deleted, hm.deleted);
+        assert_hashmap_invariants(&hm);
+    }
+
+    /* reinsert, expect them to reuse the deleted slots */
+    for (i = 0; i < 2; i++) {
+        void *old_value = SENTINEL;
+
+        expect_count ++;
+        expect_deleted --;
+
+        r = hashmap_put(&hm,
+                        keys[i],
+                        strlen(keys[i]),
+                        (void *)(uintptr_t) i,
+                        &old_value);
+        assert_int_equal(HASHMAP_OK, r);
+        assert_null(old_value);
+
+        assert_int_equal(expect_alloc, hm.alloc);
+        assert_int_equal(expect_count, hm.count);
+        assert_int_equal(expect_deleted, hm.deleted);
+        assert_hashmap_invariants(&hm);
+    }
+
+    /* insert the rest, expect to grow */
+    for (i = n_keys / 2; i < n_keys; i++) {
+        void *old_value = SENTINEL;
+
+        if (should_grow(&hm, hm.count))
+            expect_alloc *= 2;
+        expect_count ++;
+
+        r = hashmap_put(&hm,
+                        keys[i],
+                        strlen(keys[i]),
+                        (void *)(uintptr_t) i,
+                        &old_value);
+        assert_int_equal(HASHMAP_OK, r);
+        assert_null(old_value);
+
+        assert_int_equal(expect_alloc, hm.alloc);
+        assert_int_equal(expect_count, hm.count);
+        assert_int_equal(expect_deleted, hm.deleted);
+        assert_hashmap_invariants(&hm);
+    }
+
+    /* insert them all again with the same value as before */
+    for (i = 0; i < n_keys; i++) {
+        void *old_value = SENTINEL;
+
+        r = hashmap_put(&hm,
+                        keys[i],
+                        strlen(keys[i]),
+                        (void *)(uintptr_t) i,
+                        &old_value);
+        assert_int_equal(HASHMAP_OK, r);
+        assert_null(old_value);
+
+        assert_int_equal(expect_alloc, hm.alloc);
+        assert_int_equal(expect_count, hm.count);
+        assert_int_equal(expect_deleted, hm.deleted);
+        assert_hashmap_invariants(&hm);
+    }
+
+    /* insert them all again with a new value */
+    for (i = 0; i < n_keys; i++) {
+        void *old_value = SENTINEL;
+
+        r = hashmap_put(&hm,
+                        keys[i],
+                        strlen(keys[i]),
+                        (void *)(uintptr_t) (i & 0x80000000),
+                        &old_value);
+        assert_int_equal(HASHMAP_OK, r);
+        assert_ptr_equal(i, old_value);
+
+        assert_int_equal(expect_alloc, hm.alloc);
+        assert_int_equal(expect_count, hm.count);
+        assert_int_equal(expect_deleted, hm.deleted);
+        assert_hashmap_invariants(&hm);
+    }
+
+    /* delete them all, don't care about value */
+    for (i = 0; i < n_keys; i++) {
+        if (should_shrink(&hm, hm.count - 1)) {
+            expect_alloc /= 2;
+            expect_deleted = 0;
+        }
+        else if (should_gc(&hm, hm.count - 1, hm.deleted + 1)) {
+            expect_deleted = 0;
+        }
+        else {
+            expect_deleted ++;
+        }
+        expect_count --;
+
+        r = hashmap_del(&hm,
+                        keys[i],
+                        strlen(keys[i]),
+                        NULL);
+        assert_int_equal(HASHMAP_OK, r);
+
+        assert_int_equal(expect_alloc, hm.alloc);
+        assert_int_equal(expect_count, hm.count);
+        assert_int_equal(expect_deleted, hm.deleted);
+        assert_hashmap_invariants(&hm);
+    }
+
+    hashmap_fini(&hm, NULL);
+}
+
+static void put_del_nocollide(NO_STATE)
+{
+    /* keys that do not collide when mask is 0x7 and seed is 5 */
+    const char *const keys[] = {
+        "moline",
+        "urn",
+        "consistent",
+        "fluctuate",
+        "Meath",
+        "eider",
+        "villain",
+        "Lowell",
+    };
+    const size_t n_keys = sizeof(keys) / sizeof(keys[0]);
+    static_assert(n_keys == 8);
+    const uint32_t seed = 5;
+    const uint32_t mask = 0x00000007;
+    uint32_t hash[n_keys];
+    unsigned i;
+
+    /* validate belief that these keys do not collide */
+    for (i = 0; i < n_keys; i++) {
+        hash[i] = hashmap_hash32(keys[i], strlen(keys[i]), seed) & mask;
+    }
+    qsort(hash, n_keys, sizeof(hash[0]), &cmp_uint32_t);
+    for (i = 1; i < n_keys; i++)
+        assert_int_not_equal(hash[i - 1], hash[i]);
+
+    do_put_del(keys, n_keys, seed);
+}
+
+static void put_del_collide(NO_STATE)
+{
+    /* keys that collide (hash=0x3a) when mask is 0xff and seed is 5.
+     * "ember" and "equiv" have the same hash (0x1c12fb3a) even unmasked,
+     * and the same length, to force a real key comparison
+     */
+    const char *const keys[] = {
+        "pronouncing",
+        "cupcake",
+        "furies",
+        "lived",
+        "ember",
+        "equiv",
+        "Appenzell",
+        "rabbinical",
+    };
+    const size_t n_keys = sizeof(keys) / sizeof(keys[0]);
+    const uint32_t seed = 5;
+    const uint32_t mask = 0x000000ff;
+    static_assert(n_keys == 8);
+    uint32_t h, i, x;
+
+    /* validate belief that these keys collide */
+    for (i = 0; i < n_keys; i++) {
+        x = hashmap_hash32(keys[i],
+                           strlen(keys[i]),
+                           seed);
+        if (i > 0)
+            assert_int_equal((h & mask), (x & mask));
+        h = x;
+    }
+
+    do_put_del(keys, n_keys, seed);
+}
+
 const char *const um_group_name = "hashmap";
 const struct CMUnitTest um_group_tests[] =
 {
     cmocka_unit_test(fn_hashmap_hash32),
     cmocka_unit_test(init_fini),
     cmocka_unit_test(get_basic),
+    cmocka_unit_test(put_del_nocollide),
+    cmocka_unit_test(put_del_collide),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);
