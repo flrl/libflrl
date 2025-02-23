@@ -24,21 +24,15 @@ bool floats_equalish(double a, double b, double epsilon, double abs_th)
 }
 
 /* Kahan Babushka Neumaier sum */
+extern inline void kbn_sumf64_r(double *sum, double *comp, double addend);
+
 double kbn_sumf32v(const float *values, size_t n_values)
 {
     double sum = 0.0, c = 0.0;
     size_t i;
 
-    for (i = 0; i < n_values; i++) {
-        double t = sum + values[i];
-
-        if (fabs(sum) >= fabs(values[i]))
-            c += (sum - t) + values[i];
-        else
-            c += (values[i] - t) + sum;
-
-        sum = t;
-    }
+    for (i = 0; i < n_values; i++)
+        kbn_sumf64_r(&sum, &c, values[i]);
 
     return sum + c;
 }
@@ -48,16 +42,8 @@ double kbn_sumf64v(const double *values, size_t n_values)
     double sum = 0.0, c = 0.0;
     size_t i;
 
-    for (i = 0; i < n_values; i++) {
-        double t = sum + values[i];
-
-        if (fabs(sum) >= fabs(values[i]))
-            c += (sum - t) + values[i];
-        else
-            c += (values[i] - t) + sum;
-
-        sum = t;
-    }
+    for (i = 0; i < n_values; i++)
+        kbn_sumf64_r(&sum, &c, values[i]);
 
     return sum + c;
 }
