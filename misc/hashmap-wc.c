@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -15,11 +16,15 @@ static struct {
     uint32_t hash_mask;
     bool set_seed;
     uint32_t seed;
+    bool dump_psl;
+    bool quiet;
 } options = {
     .print_hash = false,
     .hash_mask = UINT32_MAX,
     .set_seed = false,
     .seed = UINT32_C(0),
+    .dump_psl = false,
+    .quiet = false,
 };
 
 static void incr(HashMap *hm, const char *word, size_t word_len)
@@ -84,8 +89,25 @@ static void hashmap_wc(const char *fname, int fd)
         key_len = 0;
     }
 
-    printf("%s:\n", fname);
-    hashmap_foreach(&hm, &output, NULL);
+    if (!options.quiet) {
+        printf("%s:\n", fname);
+        hashmap_foreach(&hm, &output, NULL);
+    }
+
+    if (options.dump_psl) {
+        HashMapStats stats;
+
+        hashmap_get_stats(&hm, &stats);
+
+        printf("%" PRIu32 "/%" PRIu32 " buckets in use\n",
+               hm.count, hm.alloc);
+        printf("load factor: %g\n", stats.load);
+        printf("min psl: %" PRIu32 "\n", stats.psl.min);
+        printf("max psl: %" PRIu32 "\n", stats.psl.max);
+        printf("avg psl: %g variance: %g stddev: %g\n",
+               stats.psl.avg, stats.psl.var, sqrt(stats.psl.var));
+    }
+
     hashmap_fini(&hm, NULL);
 }
 
@@ -93,15 +115,21 @@ int main(int argc, char **argv)
 {
     int opt;
 
-    while (-1 != (opt = getopt(argc, argv, "m:ps:"))) {
+    while (-1 != (opt = getopt(argc, argv, "hm:pqs:"))) {
         switch (opt) {
+        case 'h':
+            options.print_hash = true;
+            break;
         case 'm':
             errno = 0;
             options.hash_mask = strtoul(optarg, NULL, 0);
             if (errno) options.hash_mask = 0;
             break;
         case 'p':
-            options.print_hash = true;
+            options.dump_psl = true;
+            break;
+        case 'q':
+            options.quiet = true;
             break;
         case 's':
             errno = 0;

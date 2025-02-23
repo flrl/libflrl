@@ -1,6 +1,9 @@
 #include "flrl/hashmap.h"
 
+#include "flrl/fputil.h"
+
 #include <assert.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -428,6 +431,53 @@ int hashmap_foreach(const HashMap *hm, hashmap_foreach_cb *cb, void *ctx)
     return 0;
 }
 
+void hashmap_get_stats(const HashMap *hm, HashMapStats *hs)
+{
+    uint32_t min_psl = UINT32_MAX, max_psl = 0;
+    double avg_psl, var_psl, c;
+    double scale = 1.0 / hm->count;
+    uint32_t i, mask = hm->alloc - 1;
+
+    avg_psl = c = 0.0;
+    for (i = 0; i < hm->alloc; i++) {
+        uint32_t psl;
+
+        if (!has_key_at_index(hm, i)) continue;
+
+        psl = (hm->alloc + i - (hm->kmeta[i].hash & mask)) & mask;
+
+        if (psl < min_psl)
+            min_psl = psl;
+        if (psl > max_psl)
+            max_psl = psl;
+
+        kbn_sumf64_r(&avg_psl, &c, scale * psl);
+    }
+    avg_psl += c;
+
+    var_psl = c = 0.0;
+    for (i = 0; i < hm->alloc; i++) {
+        uint32_t psl;
+        double diff;
+
+        if (!has_key_at_index(hm, i)) continue;
+
+        psl = (hm->alloc + i - (hm->kmeta[i].hash & mask)) & mask;
+
+        diff = (double) psl - avg_psl;
+
+        kbn_sumf64_r(&var_psl, &c, scale * diff * diff);
+    }
+    var_psl += c;
+
+    if (hs) *hs = (HashMapStats){
+        .psl.min = min_psl,
+        .psl.max = max_psl,
+        .psl.avg = avg_psl,
+        .psl.var = var_psl,
+        .load = 1.0 * hm->count / hm->alloc,
+    };
+}
+
 extern inline uint32_t hashmap_hash32(const void *key, size_t key_len,
                                       uint32_t seed);
-extern inline double hashmap_load_factor(const HashMap *hm);

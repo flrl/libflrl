@@ -19,6 +19,16 @@ typedef struct __attribute__((aligned(64))) {
     uint32_t gc_threshold;
 } HashMap;
 
+typedef struct {
+    struct {
+        uint32_t min;
+        uint32_t max;
+        double   avg;
+        double   var;
+    } psl;
+    double load;
+} HashMapStats;
+
 enum {
     HASHMAP_E_NOKEY = INT_MIN,
     HASHMAP_E_KEYTOOBIG,
@@ -49,6 +59,8 @@ typedef int (hashmap_foreach_cb)(const HashMap *hm,
                                  void *ctx);
 extern int hashmap_foreach(const HashMap *hm, hashmap_foreach_cb *cb, void *ctx);
 
+extern void hashmap_get_stats(const HashMap *hm, HashMapStats *hs);
+
 inline uint32_t hashmap_hash32(const void *key, size_t key_len, uint32_t seed)
 {
     /* bob jenkins' one-at-a-time hash will do for now, but
@@ -70,8 +82,4 @@ inline uint32_t hashmap_hash32(const void *key, size_t key_len, uint32_t seed)
     return h;
 }
 
-inline double hashmap_load_factor(const HashMap *hm)
-{
-    return 1.0 * hm->count / hm->alloc;
-}
 #endif
