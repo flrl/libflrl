@@ -97,7 +97,7 @@ static int find(const HashMap *hm,
                 uint32_t *phash,
                 uint32_t *pindex)
 {
-    uint32_t d, h, i, x;
+    uint32_t d, h, i, x, mask;
     bool found_deleted = false;
 
     if (!key || !key_len)
@@ -108,7 +108,8 @@ static int find(const HashMap *hm,
     h = known_hash ? known_hash : hashmap_hash32(key, key_len, hm->seed);
     if (phash) *phash = h;
 
-    i = x = h & hm->mask;
+    mask = hm->alloc - 1;
+    i = x = h & mask;
     do {
         if (hm->kmeta[i].deleted) {
             if (!found_deleted) {
@@ -128,7 +129,7 @@ static int find(const HashMap *hm,
             return HASHMAP_OK;
         }
 
-        i = (i + 1) & hm->mask;
+        i = (i + 1) & mask;
     } while (i != x);
 
     /* if we get here without having found a deleted kv, then the map is full,
@@ -257,7 +258,6 @@ int hashmap_init(HashMap *hm, uint32_t size)
     }
 
     hm->alloc = size;
-    hm->mask = size - 1;
     hm->count = hm->deleted = 0;
     hm->seed = next_seed ++;
 

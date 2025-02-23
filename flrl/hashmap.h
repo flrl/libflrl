@@ -11,7 +11,6 @@ typedef struct __attribute__((aligned(64))) {
     struct hm_key *key;
     void **value;
     uint32_t alloc;
-    uint32_t mask;
     uint32_t count;
     uint32_t deleted;
     uint32_t seed;
