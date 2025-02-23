@@ -1,6 +1,7 @@
 #include "flrl/hashmap.h"
 
 #include <assert.h>
+#include <stdalign.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -14,29 +15,31 @@
 #define HASHMAP_NO_SHRINK           UINT32_C(0)
 #define HASHMAP_NO_GC               UINT32_MAX
 #define HASHMAP_BUCKET_EMPTY        UINT16_C(0)
+#define HASHMAP_INLINE_KEYLEN       (10)
 
 static_assert(1 == __builtin_popcount(HASHMAP_MIN_SIZE));
 static_assert(1 == __builtin_popcount(HASHMAP_MAX_SIZE));
 
-struct hm_kmeta {
-    uint32_t hash;
-    uint16_t len;
-    uint16_t deleted;
-};
-static_assert(sizeof(struct hm_kmeta) == 8);
-
 struct hm_key {
     union {
-        uint8_t kval[sizeof(void *)];
-        void *kptr;
+        struct {
+            void *kptr;
+            uint16_t pad__;
+        } __attribute__((packed));
+        uint8_t kval[HASHMAP_INLINE_KEYLEN];
     };
-};
-static_assert(sizeof(((struct hm_key){}).kval)
-              == sizeof(((struct hm_key){}).kptr));
-#define HM_KEY(hm, i) ((hm)->kmeta[i].len <= sizeof(void *) \
-                       ? (hm)->key[i].kval                  \
+    uint16_t len;
+    uint32_t hash;
+} __attribute__((aligned));
+static_assert(16 == sizeof(struct hm_key));
+static_assert(8 <= alignof(struct hm_key));
+static_assert(0 == offsetof(struct hm_key, kval));
+static_assert(0 == offsetof(struct hm_key, kptr));
+static_assert(10 == offsetof(struct hm_key, len));
+static_assert(12 == offsetof(struct hm_key, hash));
+#define HM_KEY(hm, i) ((hm)->key[i].len <= HASHMAP_INLINE_KEYLEN    \
+                       ? (hm)->key[i].kval                          \
                        : (hm)->key[i].kptr)
-
 
 static uint32_t next_seed = 1;
 
