@@ -36,10 +36,22 @@ struct hm_key {
 };
 static_assert(sizeof(((struct hm_key){}).kval)
               == sizeof(((struct hm_key){}).kptr));
+#define KM_KEY(km, k) (((km)->len <= sizeof(void *)) ? (k)->kval : (k)->kptr)
+
 #define HM_KEY(hm, i) ((hm)->kmeta[i].len <= sizeof(void *) \
                        ? (hm)->key[i].kval                  \
                        : (hm)->key[i].kptr)
 
+
+#define HM_PSL(hm, i) (((hm)->alloc + (i)                               \
+                        - ((hm)->kmeta[i].hash & ((hm)->alloc - 1)))    \
+                       & ((hm)->alloc - 1))
+
+#define SWAP(pa, pb) do {   \
+    __auto_type _t = *(pa); \
+    *(pa) = *(pb);          \
+    *(pb) = _t;             \
+} while(0)
 
 static uint32_t next_seed = 1;
 
@@ -94,13 +106,28 @@ static inline bool should_gc(const HashMap *hm,
            && count + deleted >= hm->gc_threshold;
 }
 
+static inline int hm_key_init(struct hm_key *hm_key,
+                              const void *key, size_t key_len)
+{
+    if (key_len > sizeof(void *)) {
+        hm_key->kptr = memndup(key, key_len);
+        if (!hm_key->kptr)
+            return HASHMAP_E_NOMEM;
+    }
+    else {
+        memcpy(hm_key->kval, key, key_len);
+    }
+
+    return HASHMAP_OK;
+}
+
 static int find(const HashMap *hm,
                 uint32_t known_hash,
                 const void *key, size_t key_len,
                 uint32_t *phash,
                 uint32_t *pindex)
 {
-    uint32_t d, h, i, x, mask;
+    uint32_t d, h, i, deleted, mask;
     bool found_deleted = false;
 
     if (!key || !key_len)
@@ -112,16 +139,19 @@ static int find(const HashMap *hm,
     if (phash) *phash = h;
 
     mask = hm->alloc - 1;
-    i = x = h & mask;
-    do {
-        if (hm->kmeta[i].deleted) {
-            if (!found_deleted) {
-                found_deleted = true;
-                d = i;
-            }
+    i = h & mask;
+    d = 0;
+    while (d < hm->alloc) {
+        if (!hm->kmeta[i].deleted && hm->kmeta[i].len == HASHMAP_BUCKET_EMPTY) {
+            *pindex = found_deleted ? deleted : i;
+            return HASHMAP_E_NOKEY;
         }
-        else if (hm->kmeta[i].len == HASHMAP_BUCKET_EMPTY) {
-            *pindex = found_deleted ? d : i;
+        else if (d == HM_PSL(hm, i) && hm->kmeta[i].deleted && !found_deleted) {
+            deleted = i;
+            found_deleted = true;
+        }
+        else if (d > HM_PSL(hm, i)) {
+            *pindex = found_deleted ? deleted : i;
             return HASHMAP_E_NOKEY;
         }
         else if (hm->kmeta[i].len == key_len
@@ -133,18 +163,63 @@ static int find(const HashMap *hm,
         }
 
         i = (i + 1) & mask;
-    } while (i != x);
-
-    /* if we get here without having found a deleted kv, then the map is full,
-     * and we ought to have rehashed earlier!
-     */
-    if (!found_deleted) {
-        *pindex = UINT32_MAX;
-        return HASHMAP_E_REHASH;
+        d++;
     }
 
-    *pindex = d;
-    return HASHMAP_E_NOKEY;
+    /* map is full, we ought to have rehashed earlier! */
+    return HASHMAP_E_REHASH;
+}
+
+static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
+                            const struct hm_kmeta *kmeta,
+                            const struct hm_key *key,
+                            void *value)
+{
+    struct hm_kmeta new_kmeta = *kmeta;
+    struct hm_key new_key = *key;
+    void *new_value = value;
+    uint32_t mask = hm->alloc - 1;
+    uint32_t d, i;
+
+    assert(hm->count <= hm->alloc);
+    if (hm->count >= hm->alloc)
+        return HASHMAP_E_REHASH;
+    
+    /* XXX */
+    assert(hash == new_kmeta.hash);
+
+    /* this key had better not already exist! */
+//     assert(!(hm->kmeta[pos].hash == hash
+//              && hm->kmeta[pos].len == key_len
+//              && hm->kmeta[pos].deleted == 0
+//              && memcmp(HM_KEY(hm, pos), key, key_len) == 0));
+
+    i = pos;
+    d = (hm->alloc + i - (hash & mask)) & mask;
+    while (!hm->kmeta[i].deleted && hm->kmeta[i].len != HASHMAP_BUCKET_EMPTY) {
+        if (hm->kmeta[i].deleted && d >= HM_PSL(hm, i)) {
+            break;
+        }
+        else if (d > HM_PSL(hm, i)) {
+
+            d = HM_PSL(hm, i); /* XXX is this correct? */
+            SWAP(&new_kmeta, &hm->kmeta[i]);
+            SWAP(&new_key, &hm->key[i]);
+            SWAP(&new_value, &hm->value[i]);
+        }
+
+        i = (i + 1) & mask;
+        d++;
+    }
+
+    if (hm->kmeta[i].deleted)
+        hm->deleted --;
+    SWAP(&new_kmeta, &hm->kmeta[i]);
+    SWAP(&new_key, &hm->key[i]);
+    SWAP(&new_value, &hm->value[i]);
+
+    hm->count ++;
+    return HASHMAP_OK;
 }
 
 static int rehash(HashMap *hm, uint32_t new_size)
@@ -185,22 +260,21 @@ static int rehash(HashMap *hm, uint32_t new_size)
     next_seed --;
 
     for (i = 0; i < hm->alloc; i++) {
-        uint32_t new_i;
+        uint32_t hash, new_i;
 
         if (!has_key_at_index(hm, i))
             continue;
 
         r = find(&new_hm, hm->kmeta[i].hash,
                  HM_KEY(hm, i), hm->kmeta[i].len,
-                 NULL, &new_i);
+                 &hash, &new_i);
         assert(r == HASHMAP_E_NOKEY); /* not found, but got a spot for it */
         assert(new_i < new_hm.alloc);
 
         /* steal the internals */
-        new_hm.kmeta[new_i] = hm->kmeta[i];
-        new_hm.key[new_i] = hm->key[i];
-        new_hm.value[new_i] = hm->value[i];
-        new_hm.count ++;
+        r = insert_robinhood(&new_hm, hash, new_i,
+                             &hm->kmeta[i], &hm->key[i], hm->value[i]);
+        assert(r == HASHMAP_OK);
     }
 
     free(hm->kmeta);
@@ -361,23 +435,18 @@ int hashmap_put(HashMap *hm,
         return hashmap_put(hm, key, key_len, new_value, old_value);
     }
     else {
-        if (key_len > sizeof(void *)) {
-            hm->key[i].kptr = memndup(key, key_len);
-            if (!hm->key[i].kptr)
-                return HASHMAP_E_NOMEM;
-        }
-        else {
-            memcpy(hm->key[i].kval, key, key_len);
-        }
+        struct hm_kmeta new_kmeta = {
+            .hash = h,
+            .len = key_len,
+            .deleted = 0,
+        };
+        struct hm_key new_key;
+
+        r = hm_key_init(&new_key, key, key_len);
+        if (r) return r;
 
         if (old_value) *old_value = NULL;
-        hm->deleted -= !!hm->kmeta[i].deleted;
-        hm->count ++;
-        hm->kmeta[i].hash = h;
-        hm->kmeta[i].len = key_len;
-        hm->kmeta[i].deleted = 0;
-        hm->value[i] = new_value;
-        return HASHMAP_OK;
+        return insert_robinhood(hm, h, i, &new_kmeta, &new_key, new_value);
     }
 }
 
@@ -394,7 +463,7 @@ int hashmap_del(HashMap *hm, const void *key, size_t key_len, void **old_value)
         if (hm->kmeta[i].len > sizeof(void *))
             free(hm->key[i].kptr);
 
-        hm->kmeta[i].hash = 0;
+        /* n.b. leave hash in place for psl computations */
         hm->kmeta[i].len = 0;
         hm->kmeta[i].deleted = 1;
         hm->key[i].kptr = NULL;
@@ -436,7 +505,7 @@ void hashmap_get_stats(const HashMap *hm, HashMapStats *hs)
     uint32_t min_psl = UINT32_MAX, max_psl = 0;
     double avg_psl, var_psl, c;
     double scale = 1.0 / hm->count;
-    uint32_t i, mask = hm->alloc - 1;
+    uint32_t i;
 
     avg_psl = c = 0.0;
     for (i = 0; i < hm->alloc; i++) {
@@ -444,7 +513,7 @@ void hashmap_get_stats(const HashMap *hm, HashMapStats *hs)
 
         if (!has_key_at_index(hm, i)) continue;
 
-        psl = (hm->alloc + i - (hm->kmeta[i].hash & mask)) & mask;
+        psl = HM_PSL(hm, i);
 
         if (psl < min_psl)
             min_psl = psl;
@@ -462,7 +531,7 @@ void hashmap_get_stats(const HashMap *hm, HashMapStats *hs)
 
         if (!has_key_at_index(hm, i)) continue;
 
-        psl = (hm->alloc + i - (hm->kmeta[i].hash & mask)) & mask;
+        psl = HM_PSL(hm, i);
 
         diff = (double) psl - avg_psl;
 
