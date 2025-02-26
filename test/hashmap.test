@@ -2,6 +2,12 @@
 
 #include "src/hashmap.c"
 
+#include "flrl/randutil.h"
+#include "flrl/xoshiro.h"
+
+#include <profileapi.h> /* win32 */
+
+#include <stdio.h>
 #include <stdlib.h>
 
 #define SENTINEL ((void *) 0xdeadbeef)
@@ -11,6 +17,39 @@ static int noop_destructor_called = 0;
 static void noop_destructor(void *p __attribute__((unused)))
 {
     noop_destructor_called ++;
+}
+
+static void dump_hashmap_stats(const HashMap *hm)
+{
+    HashMapStats stats;
+
+    hashmap_get_stats(hm, &stats);
+
+    fprintf(stderr, "%" PRIu32 " + %" PRIu32 " / %" PRIu32 " buckets in use\n",
+                    hm->count, hm->deleted, hm->alloc);
+    fprintf(stderr, "load factor: %g\n", stats.load);
+    fprintf(stderr, "min psl: %" PRIu32 "\n", stats.psl.min);
+    fprintf(stderr, "max psl: %" PRIu32 "\n", stats.psl.max);
+    fprintf(stderr, "avg psl: %g variance: %g stddev: %g\n",
+                    stats.psl.avg, stats.psl.var, sqrt(stats.psl.var));
+}
+
+__attribute__((unused))
+static void dump_hashmap(const HashMap *hm)
+{
+    uint32_t i, mask;
+
+    mask = hm->alloc - 1;
+
+    dump_hashmap_stats(hm);
+
+    for (i = 0; i < hm->alloc; i++) {
+        fprintf(stderr, "%u: key=%.*s%s hash=%u want=%u psl=%u\n",
+                        i, (int) hm->kmeta[i].len, (const char *) HM_KEY(hm, i),
+                        hm->kmeta[i].deleted ? " DELETED " : "",
+                        hm->kmeta[i].hash, (hm->kmeta[i].hash & mask),
+                        HM_PSL(hm, i));
+    }
 }
 
 static void assert_hashmap_invariants(const HashMap *hm)
@@ -94,6 +133,19 @@ static void assert_hashmap_invariants(const HashMap *hm)
     assert_int_equal(deleted, hm->deleted);
 
     assert_float_in_range(1.0 * hm->count / hm->alloc, 0.0, 1.0);
+}
+
+__attribute__((unused))
+static const char *random_printable(struct randbs *rbs)
+{
+    static char word[16];
+    unsigned len;
+
+    len = randu32(rbs, 6, sizeof(word) - 1);
+    randi8v(rbs, (int8_t *) word, len, ' ', '~');
+    word[len] = '\0';
+
+    return word;
 }
 
 static int cmp_uint32_t(const void *a, const void *b)
@@ -713,6 +765,169 @@ static void fn_hashmap_foreach(NO_STATE)
     hashmap_fini(&hm, NULL);
 }
 
+static inline int64_t get_timestamp(void)
+{
+    LARGE_INTEGER tmp;
+    QueryPerformanceCounter(&tmp);
+    return tmp.QuadPart;
+}
+
+static void do_load_factor(double load_factor)
+{
+    HashMap hm;
+    const unsigned size = 262144;
+    const unsigned n_ops = 10000;
+    struct randbs rbs = RANDBS_INITIALIZER(xoshiro128starstar_next);
+    unsigned i, x, y;
+    int r;
+
+    assert(load_factor >= 0.5);
+    assert(load_factor <= 1.0);
+
+    hashmap_init(&hm, size);
+    hm.grow_threshold = HASHMAP_NO_GROW;
+    hm.shrink_threshold = HASHMAP_NO_SHRINK;
+    hm.gc_threshold = HASHMAP_NO_GC;
+    assert_int_equal(size, hm.alloc);
+
+    randbs_seed64(&rbs, 0xcafebabefeeddeed); /* XXX need variable but repeatable seeds */
+
+    /* fill up to load factor */
+    for (i = 0; i < load_factor * size; i++) {
+        const char *word = random_printable(&rbs);
+//         uint32_t key = randu32(&rbs, 0, UINT32_MAX);
+        r = hashmap_put(&hm, word, strlen(word), (void *)(uintptr_t) i, NULL);
+        assert_int_equal(HASHMAP_OK, r);
+    }
+    dump_hashmap_stats(&hm);
+    assert_hashmap_invariants(&hm);
+
+    /* alternating random operations */
+    for (i = x = y = 0; i < n_ops; i++) {
+        const void *key;
+        size_t key_len;
+        uint32_t x;
+
+        switch ((i & 3)) {
+        case 0:
+            /* insert a random new (probably) key */
+            key = random_printable(&rbs);
+            key_len = strlen((const char *) key);
+
+            r = hashmap_put(&hm, key, key_len, (void *)(uintptr_t) i, NULL);
+
+            assert_int_equal(HASHMAP_OK, r);
+            break;
+        case 1:
+            /* delete a random existing key */
+            x = randu32(&rbs, 0, hm.alloc - 1);
+
+            while (hm.kmeta[x].len == HASHMAP_BUCKET_EMPTY)
+                x = (x + 1) & (hm.alloc - 1);
+
+            key = HM_KEY(&hm, x);
+            key_len = hm.kmeta[x].len;
+
+            r = hashmap_del(&hm, key, key_len, NULL);
+
+            assert_int_equal(HASHMAP_OK, r);
+            break;
+        case 2:
+            /* get a random existing key */
+            x = randu32(&rbs, 0, hm.alloc - 1);
+
+            while (hm.kmeta[x].len == HASHMAP_BUCKET_EMPTY)
+                x = (x + 1) & (hm.alloc - 1);
+
+            key = HM_KEY(&hm, x);
+            key_len = hm.kmeta[x].len;
+
+            r = hashmap_get(&hm, key, key_len, NULL);
+
+            assert_int_equal(HASHMAP_OK, r);
+            break;
+        case 3:
+            /* get a random probably nonexistent key */
+            key = random_printable(&rbs);
+            key_len = strlen((const char *) key);
+
+            r = hashmap_get(&hm, key, key_len, NULL);
+
+            break;
+        }
+    }
+
+    dump_hashmap_stats(&hm);
+    assert_hashmap_invariants(&hm);
+
+    hashmap_fini(&hm, NULL);
+}
+
+static void load_factor_60(NO_STATE)
+{
+    do_load_factor(0.6);
+}
+
+static void load_factor_70(NO_STATE)
+{
+    do_load_factor(0.7);
+}
+
+static void load_factor_80(NO_STATE)
+{
+    do_load_factor(0.8);
+}
+
+static void load_factor_90(NO_STATE)
+{
+    do_load_factor(0.90);
+}
+
+static void load_factor_91(NO_STATE)
+{
+    do_load_factor(0.91);
+}
+
+static void load_factor_92(NO_STATE)
+{
+    do_load_factor(0.92);
+}
+
+static void load_factor_93(NO_STATE)
+{
+    do_load_factor(0.93);
+}
+
+static void load_factor_94(NO_STATE)
+{
+    do_load_factor(0.94);
+}
+
+static void load_factor_95(NO_STATE)
+{
+    do_load_factor(0.95);
+}
+
+static void load_factor_96(NO_STATE)
+{
+    do_load_factor(0.96);
+}
+
+static void load_factor_97(NO_STATE)
+{
+    do_load_factor(0.97);
+}
+
+static void load_factor_98(NO_STATE)
+{
+    do_load_factor(0.98);
+}
+
+static void load_factor_99(NO_STATE)
+{
+    do_load_factor(0.99);
+}
+
 const char *const um_group_name = "hashmap";
 const struct CMUnitTest um_group_tests[] =
 {
@@ -724,6 +939,19 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test(put_del_collide),
     cmocka_unit_test(full),
     cmocka_unit_test(fn_hashmap_foreach),
+    cmocka_unit_test(load_factor_60),
+    cmocka_unit_test(load_factor_70),
+    cmocka_unit_test(load_factor_80),
+    cmocka_unit_test(load_factor_90),
+    cmocka_unit_test(load_factor_91),
+    cmocka_unit_test(load_factor_92),
+    cmocka_unit_test(load_factor_93),
+    cmocka_unit_test(load_factor_94),
+    cmocka_unit_test(load_factor_95),
+    cmocka_unit_test(load_factor_96),
+    cmocka_unit_test(load_factor_97),
+    cmocka_unit_test(load_factor_98),
+    cmocka_unit_test(load_factor_99),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);
