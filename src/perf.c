@@ -85,12 +85,30 @@ static const char *format_seconds(double seconds)
     return buf;
 }
 
-void perf_report(const struct perf *perf, FILE *out)
+static int cmp_double(const void *a, const void *b)
 {
-    double total = 0, min = INFINITY, max = 0, avg = 0, var = 0;
-    double scale = 1.0 / perf->count;
+    double aa = *(const double *) a;
+    double bb = *(const double *) b;
+
+    return (aa > bb) - (aa < bb);
+}
+
+void perf_report(struct perf *perf, FILE *out)
+{
+    const double scale = 1.0 / perf->count;
+    double total = 0, min = INFINITY, max = 0;
+    double median = 0, mean = 0, variance = 0;
     double c;
     size_t i;
+
+    qsort(perf->samples, perf->count, sizeof(perf->samples[0]), &cmp_double);
+    if (perf->count & 1) {
+        median = perf->samples[perf->count / 2];
+    }
+    else {
+        median = 0.5 * (perf->samples[perf->count / 2 - 1]
+                        + perf->samples[perf->count / 2]);
+    }
 
     c = 0;
     for (i = 0; i < perf->count; i++) {
@@ -102,17 +120,17 @@ void perf_report(const struct perf *perf, FILE *out)
         kbn_sumf64_r(&total, &c, perf->samples[i]);
     }
     total += c;
-    avg = scale * total;
+    mean = scale * total;
 
     c = 0;
     for (i = 0; i < perf->count; i++) {
         double diff;
 
-        diff = perf->samples[i] - avg;
+        diff = perf->samples[i] - mean;
 
-        kbn_sumf64_r(&var, &c, diff * diff);
+        kbn_sumf64_r(&variance, &c, diff * diff);
     }
-    var = scale * (var + c);
+    variance = scale * (variance + c);
 
     fprintf(out, "%s (%zu samples)\n", perf->name, perf->count);
     fputs("  total: ", out);
@@ -121,9 +139,11 @@ void perf_report(const struct perf *perf, FILE *out)
     fputs(format_seconds(min), out);
     fputs("\n    max: ", out);
     fputs(format_seconds(max), out);
-    fputs("\n    avg: ", out);
-    fputs(format_seconds(avg), out);
+    fputs("\n   mean: ", out);
+    fputs(format_seconds(mean), out);
+    fputs("\n median: ", out);
+    fputs(format_seconds(median), out);
     fputs("\n stddev: ", out);
-    fputs(format_seconds(sqrt(var)), out);
+    fputs(format_seconds(sqrt(variance)), out);
     fputs("\n", out);
 }
