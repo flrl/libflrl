@@ -4,6 +4,7 @@
 
 #include <assert.h>
 #include <inttypes.h>
+#include <stdalign.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -17,34 +18,35 @@
 #define HASHMAP_NO_SHRINK           UINT32_C(0)
 #define HASHMAP_NO_GC               UINT32_MAX
 #define HASHMAP_BUCKET_EMPTY        UINT16_C(0)
+#define HASHMAP_BUCKET_DELETED      UINT16_MAX
+#define HASHMAP_INLINE_KEYLEN       (10)
 
 static_assert(1 == __builtin_popcount(HASHMAP_MIN_SIZE));
 static_assert(1 == __builtin_popcount(HASHMAP_MAX_SIZE));
 
-struct hm_kmeta {
-    uint32_t hash;
-    uint16_t len;
-    uint16_t deleted;
-};
-static_assert(sizeof(struct hm_kmeta) == 8);
-
 struct hm_key {
     union {
-        uint8_t kval[sizeof(void *)];
-        void *kptr;
+        struct {
+            void *kptr;
+            uint16_t pad__;
+        } __attribute__((packed));
+        uint8_t kval[HASHMAP_INLINE_KEYLEN];
     };
-};
-static_assert(sizeof(((struct hm_key){}).kval)
-              == sizeof(((struct hm_key){}).kptr));
-#define KM_KEY(km, k) (((km)->len <= sizeof(void *)) ? (k)->kval : (k)->kptr)
-
-#define HM_KEY(hm, i) ((hm)->kmeta[i].len <= sizeof(void *) \
-                       ? (hm)->key[i].kval                  \
+    uint16_t len;
+    uint32_t hash;
+} __attribute__((aligned));
+static_assert(16 == sizeof(struct hm_key));
+static_assert(8 <= alignof(struct hm_key));
+static_assert(0 == offsetof(struct hm_key, kval));
+static_assert(0 == offsetof(struct hm_key, kptr));
+static_assert(10 == offsetof(struct hm_key, len));
+static_assert(12 == offsetof(struct hm_key, hash));
+#define HM_KEY(hm, i) ((hm)->key[i].len <= HASHMAP_INLINE_KEYLEN    \
+                       ? (hm)->key[i].kval                          \
                        : (hm)->key[i].kptr)
 
-
-#define HM_PSL(hm, i) (((hm)->alloc + (i)                               \
-                        - ((hm)->kmeta[i].hash & ((hm)->alloc - 1)))    \
+#define HM_PSL(hm, i) (((hm)->alloc + (i)                           \
+                        - ((hm)->key[i].hash & ((hm)->alloc - 1)))  \
                        & ((hm)->alloc - 1))
 
 #define SWAP(pa, pb) do {   \
@@ -80,8 +82,8 @@ static inline void *memndup(const void *a, size_t len)
 
 static inline bool has_key_at_index(const HashMap *hm, uint32_t index)
 {
-    return hm->kmeta[index].len != HASHMAP_BUCKET_EMPTY
-           && !hm->kmeta[index].deleted;
+    return hm->key[index].len != HASHMAP_BUCKET_EMPTY
+           && hm->key[index].len != HASHMAP_BUCKET_DELETED;
 }
 
 static inline bool should_grow(const HashMap *hm, uint32_t count)
@@ -107,9 +109,12 @@ static inline bool should_gc(const HashMap *hm,
 }
 
 static inline int hm_key_init(struct hm_key *hm_key,
-                              const void *key, size_t key_len)
+                              uint32_t hash, const void *key, size_t key_len)
 {
-    if (key_len > sizeof(void *)) {
+    assert(key_len != HASHMAP_BUCKET_EMPTY);
+    assert(key_len != HASHMAP_BUCKET_DELETED);
+
+    if (key_len > HASHMAP_INLINE_KEYLEN) {
         hm_key->kptr = memndup(key, key_len);
         if (!hm_key->kptr)
             return HASHMAP_E_NOMEM;
@@ -117,6 +122,8 @@ static inline int hm_key_init(struct hm_key *hm_key,
     else {
         memcpy(hm_key->kval, key, key_len);
     }
+    hm_key->len = key_len;
+    hm_key->hash = hash;
 
     return HASHMAP_OK;
 }
@@ -127,7 +134,7 @@ static int find(const HashMap *hm,
                 uint32_t *phash,
                 uint32_t *pindex)
 {
-    uint32_t d, h, i, deleted, mask;
+    uint32_t dist, h, i, deleted, mask;
     bool found_deleted = false;
 
     if (!key || !key_len)
@@ -140,22 +147,23 @@ static int find(const HashMap *hm,
 
     mask = hm->alloc - 1;
     i = h & mask;
-    d = 0;
-    while (d < hm->alloc) {
-        if (!hm->kmeta[i].deleted && hm->kmeta[i].len == HASHMAP_BUCKET_EMPTY) {
+    dist = 0;
+    while (dist < hm->alloc) {
+        if (hm->key[i].len == HASHMAP_BUCKET_EMPTY
+            || dist > HM_PSL(hm, i))
+        {
             *pindex = found_deleted ? deleted : i;
             return HASHMAP_E_NOKEY;
         }
-        else if (d == HM_PSL(hm, i) && hm->kmeta[i].deleted && !found_deleted) {
+        else if (dist == HM_PSL(hm, i)
+                 && hm->key[i].len == HASHMAP_BUCKET_DELETED
+                 && !found_deleted)
+        {
             deleted = i;
             found_deleted = true;
         }
-        else if (d > HM_PSL(hm, i)) {
-            *pindex = found_deleted ? deleted : i;
-            return HASHMAP_E_NOKEY;
-        }
-        else if (hm->kmeta[i].len == key_len
-                 && hm->kmeta[i].hash == h
+        else if (hm->key[i].len == key_len
+                 && hm->key[i].hash == h
                  && 0 == memcmp(HM_KEY(hm, i), key, key_len))
         {
             *pindex = i;
@@ -163,7 +171,7 @@ static int find(const HashMap *hm,
         }
 
         i = (i + 1) & mask;
-        d++;
+        dist++;
     }
 
     /* map is full, we ought to have rehashed earlier! */
@@ -171,50 +179,41 @@ static int find(const HashMap *hm,
 }
 
 static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
-                            const struct hm_kmeta *kmeta,
                             const struct hm_key *key,
                             void *value)
 {
-    struct hm_kmeta new_kmeta = *kmeta;
     struct hm_key new_key = *key;
     void *new_value = value;
     uint32_t mask = hm->alloc - 1;
-    uint32_t d, i;
+    uint32_t dist, i;
 
     assert(hm->count <= hm->alloc);
     if (hm->count >= hm->alloc)
         return HASHMAP_E_REHASH;
     
     /* XXX */
-    assert(hash == new_kmeta.hash);
+    assert(hash == new_key.hash);
 
     /* this key had better not already exist! */
-//     assert(!(hm->kmeta[pos].hash == hash
-//              && hm->kmeta[pos].len == key_len
-//              && hm->kmeta[pos].deleted == 0
+//     assert(!(hm->key[pos].hash == hash
+//              && hm->key[pos].len == key.len
 //              && memcmp(HM_KEY(hm, pos), key, key_len) == 0));
 
     i = pos;
-    d = (hm->alloc + i - (hash & mask)) & mask;
-    while (!hm->kmeta[i].deleted && hm->kmeta[i].len != HASHMAP_BUCKET_EMPTY) {
-        if (hm->kmeta[i].deleted && d >= HM_PSL(hm, i)) {
-            break;
-        }
-        else if (d > HM_PSL(hm, i)) {
-
-            d = HM_PSL(hm, i); /* XXX is this correct? */
-            SWAP(&new_kmeta, &hm->kmeta[i]);
+    dist = (hm->alloc + i - (hash & mask)) & mask;
+    while (has_key_at_index(hm, i)) {
+        if (dist > HM_PSL(hm, i)) {
+            dist = HM_PSL(hm, i);
             SWAP(&new_key, &hm->key[i]);
             SWAP(&new_value, &hm->value[i]);
         }
 
         i = (i + 1) & mask;
-        d++;
+        dist++;
     }
 
-    if (hm->kmeta[i].deleted)
+    if (hm->key[i].len == HASHMAP_BUCKET_DELETED)
         hm->deleted --;
-    SWAP(&new_kmeta, &hm->kmeta[i]);
     SWAP(&new_key, &hm->key[i]);
     SWAP(&new_value, &hm->value[i]);
 
@@ -265,19 +264,17 @@ static int rehash(HashMap *hm, uint32_t new_size)
         if (!has_key_at_index(hm, i))
             continue;
 
-        r = find(&new_hm, hm->kmeta[i].hash,
-                 HM_KEY(hm, i), hm->kmeta[i].len,
+        r = find(&new_hm, hm->key[i].hash,
+                 HM_KEY(hm, i), hm->key[i].len,
                  &hash, &new_i);
         assert(r == HASHMAP_E_NOKEY); /* not found, but got a spot for it */
         assert(new_i < new_hm.alloc);
 
         /* steal the internals */
-        r = insert_robinhood(&new_hm, hash, new_i,
-                             &hm->kmeta[i], &hm->key[i], hm->value[i]);
+        r = insert_robinhood(&new_hm, hash, new_i, &hm->key[i], hm->value[i]);
         assert(r == HASHMAP_OK);
     }
 
-    free(hm->kmeta);
     free(hm->key);
     free(hm->value);
     memcpy(hm, &new_hm, sizeof(*hm));
@@ -322,12 +319,10 @@ int hashmap_init(HashMap *hm, uint32_t size)
 
     size = nextpow2(size);
 
-    hm->kmeta = calloc(size, sizeof(hm->kmeta[0]));
     hm->key = calloc(size, sizeof(hm->key[0]));
     hm->value = calloc(size, sizeof(hm->value[0]));
 
-    if (!hm->kmeta || !hm->key || !hm->value) {
-        free(hm->kmeta);
+    if (!hm->key || !hm->value) {
         free(hm->key);
         free(hm->value);
         memset(hm, 0, sizeof(*hm));
@@ -355,7 +350,7 @@ void hashmap_fini(HashMap *hm, void (*value_destructor)(void *))
 
     for (i = 0; i < hm->alloc; i++) {
         if (has_key_at_index(hm, i)) {
-            if (hm->kmeta[i].len > sizeof(void *))
+            if (hm->key[i].len > HASHMAP_INLINE_KEYLEN)
                 free(hm->key[i].kptr);
 
             if (value_destructor)
@@ -363,7 +358,6 @@ void hashmap_fini(HashMap *hm, void (*value_destructor)(void *))
         }
     }
 
-    free(hm->kmeta);
     free(hm->key);
     free(hm->value);
 
@@ -424,7 +418,7 @@ int hashmap_put(HashMap *hm,
     else if (r != HASHMAP_E_NOKEY) {
         return r;
     }
-    else if (hm->kmeta[i].len == HASHMAP_BUCKET_EMPTY
+    else if (hm->key[i].len == HASHMAP_BUCKET_EMPTY
              && should_grow(hm, hm->count))
     {
         rehash(hm, hm->alloc * 2);
@@ -435,18 +429,13 @@ int hashmap_put(HashMap *hm,
         return hashmap_put(hm, key, key_len, new_value, old_value);
     }
     else {
-        struct hm_kmeta new_kmeta = {
-            .hash = h,
-            .len = key_len,
-            .deleted = 0,
-        };
         struct hm_key new_key;
 
-        r = hm_key_init(&new_key, key, key_len);
+        r = hm_key_init(&new_key, h, key, key_len);
         if (r) return r;
 
         if (old_value) *old_value = NULL;
-        return insert_robinhood(hm, h, i, &new_kmeta, &new_key, new_value);
+        return insert_robinhood(hm, h, i, &new_key, new_value);
     }
 }
 
@@ -460,12 +449,11 @@ int hashmap_del(HashMap *hm, const void *key, size_t key_len, void **old_value)
     if (r == HASHMAP_OK) {
         if (old_value) *old_value = hm->value[i];
 
-        if (hm->kmeta[i].len > sizeof(void *))
+        if (hm->key[i].len > HASHMAP_INLINE_KEYLEN)
             free(hm->key[i].kptr);
 
         /* n.b. leave hash in place for psl computations */
-        hm->kmeta[i].len = 0;
-        hm->kmeta[i].deleted = 1;
+        hm->key[i].len = HASHMAP_BUCKET_DELETED;
         hm->key[i].kptr = NULL;
         hm->value[i] = NULL;
 
@@ -493,7 +481,7 @@ int hashmap_foreach(const HashMap *hm, hashmap_foreach_cb *cb, void *ctx)
     for (i = 0; i < hm->alloc; i++) {
         if (!has_key_at_index(hm, i)) continue;
 
-        r = cb(hm, HM_KEY(hm, i), hm->kmeta[i].len, hm->value[i], ctx);
+        r = cb(hm, HM_KEY(hm, i), hm->key[i].len, hm->value[i], ctx);
         if (r) return r;
     }
 
