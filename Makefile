@@ -3,7 +3,7 @@ AR := ar
 WARNINGS := -Wall -Wextra -Werror -Wsuggest-attribute=format -Wwrite-strings
 FEATURES := -fstrict-aliasing
 CFLAGS := -Og -ggdb3 $(WARNINGS) $(FEATURES) $(CFLAGS)
-CXXFLAGS := -Og -ggdb3 -std=c++2b $(WARNINGS) $(FEATURES) $(CXXFLAGS)
+CXXFLAGS := -Og -ggdb3 -std=c++2b -ffreestanding -fno-exceptions $(WARNINGS) $(FEATURES) $(CXXFLAGS)
 LDFLAGS := $(LDFLAGS)
 LCOVEXCLUDE := misc/* src/xoshiro*.c src/splitmix64.c
 UTMUX := $(shell which utmux 2>/dev/null)
