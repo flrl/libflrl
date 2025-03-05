@@ -6,7 +6,11 @@
 #include <stdlib.h>
 
 #ifdef __cplusplus
-#define restrict
+ #define restrict
+ using std::size_t;
+ extern double randutil_fma(double x, double y, double z);
+ extern double randutil_log(double x);
+ extern double randutil_sqrt(double x);
 #endif
 
 struct state128 {

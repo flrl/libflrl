@@ -5,7 +5,7 @@ extern "C" {
 #include <algorithm>
 #include <bit>
 #include <cassert>
-#include <cmath>
+#include <climits>
 #include <limits>
 #include <type_traits>
 
@@ -188,7 +188,7 @@ static void randfv(BS *bs, T *out, std::size_t count, double min, double max)
         val = std::bit_cast<T, uintf<T>>((exponent << mantissa_bits<T>)
                                          | mantissa);
 
-        out[i] = std::fma(range, val, min);
+        out[i] = randutil_fma(range, val, min);
     }
 }
 
@@ -209,16 +209,16 @@ static void gaussv(BS *bs,
 
             randfv(bs, u, 2, 0.0, 1.0);
 
-            v[0] = std::fma(2.0, u[0], -1.0);
-            v[1] = std::fma(2.0, u[1], -1.0);
+            v[0] = randutil_fma(2.0, u[0], -1.0);
+            v[1] = randutil_fma(2.0, u[1], -1.0);
             s = v[0] * v[0] + v[1] * v[1];
         } while (s >= 1.0 || s == 0.0);
 
-        t = std::sqrt(-2.0 * std::log(s) / s);
+        t = randutil_sqrt(-2.0 * randutil_log(s) / s);
 
-        out[i] = std::fma(stddev, v[0] * t, mean);
+        out[i] = randutil_fma(stddev, v[0] * t, mean);
         if (i + 1 < count)
-            out[i + 1] = std::fma(stddev, v[1] * t, mean);
+            out[i + 1] = randutil_fma(stddev, v[1] * t, mean);
     }
 }
 
@@ -237,12 +237,12 @@ static T gauss(BS *bs, double mean, double stddev)
 
             randfv(bs, u, 2, 0.0, 1.0);
 
-            v[0] = std::fma(2.0, u[0], -1.0);
-            v[1] = std::fma(2.0, u[1], -1.0);
+            v[0] = randutil_fma(2.0, u[0], -1.0);
+            v[1] = randutil_fma(2.0, u[1], -1.0);
             s = v[0] * v[0] + v[1] * v[1];
         } while (s >= 1.0 || s == 0.0);
 
-        t = std::sqrt(-2.0 * std::log(s) / s);
+        t = randutil_sqrt(-2.0 * randutil_log(s) / s);
         x = v[0] * t;
     }
     else {
@@ -251,7 +251,7 @@ static T gauss(BS *bs, double mean, double stddev)
 
     phase = 1 - phase;
 
-    return std::fma(stddev, x, mean);
+    return randutil_fma(stddev, x, mean);
 }
 
 extern "C" {

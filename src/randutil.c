@@ -2,6 +2,7 @@
 #include "flrl/splitmix64.h"
 
 #include <assert.h>
+#include <math.h>
 #include <stdarg.h>
 #include <string.h>
 
@@ -21,6 +22,21 @@
     __auto_type _b = (b);   \
     _a < _b ? _a : _b;      \
 })
+
+double randutil_fma(double x, double y, double z)
+{
+    return fma(x, y, z);
+}
+
+double randutil_log(double x)
+{
+    return log(x);
+}
+
+double randutil_sqrt(double x)
+{
+    return sqrt(x);
+}
 
 void state_seed(void *state, size_t state_len,
                 const void *seed, size_t seed_len)
