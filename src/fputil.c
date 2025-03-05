@@ -26,6 +26,11 @@ bool floats_equalish(double a, double b, double epsilon, double abs_th)
 /* Kahan Babushka Neumaier sum */
 extern inline void kbn_sumf64_r(double *sum, double *comp, double addend);
 
+void noinline_kbn_sumf64_r(double *sum, double *comp, double addend)
+{
+    KBN_SUMF64_R(sum, comp, addend);
+}
+
 double kbn_sumf32v(const float *values, size_t n_values)
 {
     double sum = 0.0, c = 0.0;
