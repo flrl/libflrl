@@ -1,0 +1,14 @@
+#include "test/unitmain.h"
+
+#include "src/statsutil.c"
+
+const char *const um_group_name = "statsutil";
+const struct CMUnitTest um_group_tests[] =
+{
+};
+const size_t um_group_n_tests = sizeof(um_group_tests)
+                                / sizeof(um_group_tests[0]);
+CMFixtureFunction um_group_setup = NULL;
+CMFixtureFunction um_group_teardown = NULL;
+
+/* vim: set ft=c :*/
