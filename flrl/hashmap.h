@@ -1,6 +1,7 @@
 #ifndef FLRL_HASHMAP_H
 #define FLRL_HASHMAP_H
 
+#include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -65,7 +66,7 @@ inline uint32_t hashmap_hash32(const void *key, size_t key_len, uint32_t seed)
     /* bob jenkins' one-at-a-time hash will do for now, but
      * XXX consider using lookup3 instead
      */
-    const uint8_t *k = key;
+    const uint8_t *k = (const uint8_t *) key;
     uint32_t h = seed;
     size_t i;
 
