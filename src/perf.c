@@ -1,6 +1,7 @@
 #include "flrl/perf.h"
 
 #include "flrl/fputil.h"
+#include "flrl/statsutil.h"
 
 #include <math.h>
 
@@ -85,52 +86,23 @@ static const char *format_seconds(double seconds)
     return buf;
 }
 
-static int cmp_double(const void *a, const void *b)
+void perf_report(const struct perf *perf, FILE *out)
 {
-    double aa = *(const double *) a;
-    double bb = *(const double *) b;
-
-    return (aa > bb) - (aa < bb);
-}
-
-void perf_report(struct perf *perf, FILE *out)
-{
-    const double scale = 1.0 / perf->count;
     double total = 0, min = INFINITY, max = 0;
     double median = 0, mean = 0, variance = 0;
-    double c;
     size_t i;
 
-    qsort(perf->samples, perf->count, sizeof(perf->samples[0]), &cmp_double);
-    if (perf->count & 1) {
-        median = perf->samples[perf->count / 2];
-    }
-    else {
-        median = 0.5 * (perf->samples[perf->count / 2 - 1]
-                        + perf->samples[perf->count / 2]);
-    }
+    total = kbn_sumf64v(perf->samples, perf->count);
+    median = medianf64v(perf->samples, perf->count);
+    mean = meanf64v(perf->samples, perf->count);
+    variance = variancef64v(perf->samples, perf->count, mean);
 
-    c = 0;
     for (i = 0; i < perf->count; i++) {
         if (perf->samples[i] > max)
             max = perf->samples[i];
         if (perf->samples[i] < min)
             min = perf->samples[i];
-
-        kbn_sumf64_r(&total, &c, perf->samples[i]);
     }
-    total += c;
-    mean = scale * total;
-
-    c = 0;
-    for (i = 0; i < perf->count; i++) {
-        double diff;
-
-        diff = perf->samples[i] - mean;
-
-        kbn_sumf64_r(&variance, &c, diff * diff);
-    }
-    variance = scale * (variance + c);
 
     fprintf(out, "%s (%zu samples)\n", perf->name, perf->count);
     fputs("  total: ", out);

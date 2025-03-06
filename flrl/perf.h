@@ -43,6 +43,6 @@ inline void perf_end(struct perf *perf)
     perf_add_sample(perf, ended);
 }
 
-extern void perf_report(struct perf *perf, FILE *out);
+extern void perf_report(const struct perf *perf, FILE *out);
 
 #endif
