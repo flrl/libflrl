@@ -1,10 +1,22 @@
 extern "C" {
-    #include "flrl/statsutil.h"
+#include "flrl/statsutil.h"
 
-    #include "flrl/fputil.h"
+#include "flrl/fputil.h"
+#include "flrl/hashmap.h"
+
+struct fmv_ctx {
+    const void *max_key;
+    void *max_value;
+};
+static int find_max_value(const HashMap *hm,
+                          const void *key,
+                          size_t key_len,
+                          void *value,
+                          void *ctx);
 }
 
 #include <algorithm>
+#include <type_traits>
 
 template<typename T>
 static double mean(const T *values, std::size_t n_values)
@@ -41,6 +53,36 @@ static double median(const T *values, std::size_t n_values)
 }
 
 template<typename T>
+static T mode(const T *values, std::size_t n_values)
+{
+    HashMap counts;
+    struct fmv_ctx fmv_ctx = { NULL, NULL };
+    size_t i;
+    T mode;
+
+    static_assert(std::is_integral<T>::value, "Integral required");
+
+    hashmap_init(&counts, n_values / 10);
+
+    for (i = 0; i < n_values; i++) {
+        uintptr_t count;
+
+        /* XXX hashmap_mod */
+        hashmap_get(&counts, &values[i], sizeof(values[i]),
+                    reinterpret_cast<void **>(&count));
+        hashmap_put(&counts, &values[i], sizeof(values[i]),
+                    reinterpret_cast<void *>(count + 1), NULL);
+    }
+
+    hashmap_foreach(&counts, &find_max_value, &fmv_ctx);
+
+    mode = *static_cast<const T *>(fmv_ctx.max_key);
+
+    hashmap_fini(&counts, NULL);
+    return mode;
+}
+
+template<typename T>
 static double variance(const T *values, std::size_t n_values, double mean)
 {
     double variance = 0, c = 0, scale = 1.0 / n_values;
@@ -57,6 +99,21 @@ static double variance(const T *values, std::size_t n_values, double mean)
 }
 
 extern "C" {
+static int find_max_value(const HashMap *hm __attribute__((unused)),
+                          const void *key,
+                          size_t key_len __attribute__((unused)),
+                          void *value,
+                          void *ctx)
+{
+    struct fmv_ctx *fmv_ctx = static_cast<struct fmv_ctx *>(ctx);
+
+    if (value > fmv_ctx->max_value) {
+        fmv_ctx->max_key = key;
+        fmv_ctx->max_value = value;
+    }
+
+    return 0;
+}
 
 double meani8v(const int8_t *values, size_t n_values)
 {
@@ -66,6 +123,11 @@ double meani8v(const int8_t *values, size_t n_values)
 double mediani8v(const int8_t *values, size_t n_values)
 {
     return median(values, n_values);
+}
+
+int8_t modei8v(const int8_t *values, size_t n_values)
+{
+    return mode(values, n_values);
 }
 
 double variancei8v(const int8_t *values, size_t n_values, double mean)
@@ -83,6 +145,11 @@ double medianu8v(const uint8_t *values, size_t n_values)
     return median(values, n_values);
 }
 
+uint8_t modeu8v(const uint8_t *values, size_t n_values)
+{
+    return mode(values, n_values);
+}
+
 double varianceu8v(const uint8_t *values, size_t n_values, double mean)
 {
     return variance(values, n_values, mean);
@@ -96,6 +163,11 @@ double meani16v(const int16_t *values, size_t n_values)
 double mediani16v(const int16_t *values, size_t n_values)
 {
     return median(values, n_values);
+}
+
+int16_t modei16v(const int16_t *values, size_t n_values)
+{
+    return mode(values, n_values);
 }
 
 double variancei16v(const int16_t *values, size_t n_values, double mean)
@@ -113,6 +185,11 @@ double medianu16v(const uint16_t *values, size_t n_values)
     return median(values, n_values);
 }
 
+uint16_t modeu16v(const uint16_t *values, size_t n_values)
+{
+    return mode(values, n_values);
+}
+
 double varianceu16v(const uint16_t *values, size_t n_values, double mean)
 {
     return variance(values, n_values, mean);
@@ -126,6 +203,11 @@ double meani32v(const int32_t *values, size_t n_values)
 double mediani32v(const int32_t *values, size_t n_values)
 {
     return median(values, n_values);
+}
+
+int32_t modei32v(const int32_t *values, size_t n_values)
+{
+    return mode(values, n_values);
 }
 
 double variancei32v(const int32_t *values, size_t n_values, double mean)
@@ -143,6 +225,11 @@ double medianu32v(const uint32_t *values, size_t n_values)
     return median(values, n_values);
 }
 
+uint32_t modeu32v(const uint32_t *values, size_t n_values)
+{
+    return mode(values, n_values);
+}
+
 double varianceu32v(const uint32_t *values, size_t n_values, double mean)
 {
     return variance(values, n_values, mean);
@@ -158,6 +245,11 @@ double mediani64v(const int64_t *values, size_t n_values)
     return median(values, n_values);
 }
 
+int64_t modei64v(const int64_t *values, size_t n_values)
+{
+    return mode(values, n_values);
+}
+
 double variancei64v(const int64_t *values, size_t n_values, double mean)
 {
     return variance(values, n_values, mean);
@@ -171,6 +263,11 @@ double meanu64v(const uint64_t *values, size_t n_values)
 double medianu64v(const uint64_t *values, size_t n_values)
 {
     return median(values, n_values);
+}
+
+uint64_t modeu64v(const uint64_t *values, size_t n_values)
+{
+    return mode(values, n_values);
 }
 
 double varianceu64v(const uint64_t *values, size_t n_values, double mean)
