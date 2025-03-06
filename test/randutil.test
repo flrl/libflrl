@@ -3,6 +3,7 @@
 #include "src/randutil.c"
 
 #include "flrl/fputil.h"
+#include "flrl/statsutil.h"
 #include "flrl/xoshiro.h"
 
 #include <float.h>
@@ -1275,7 +1276,6 @@ static void gaussf32v_mean(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = 1 << 20; /* about a million, as a power of two */
-    const double recip_n_values = 1.0 / n_values;
     const double recip_sqrt_n_values = 1.0 / sqrt(n_values);
     struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     float *values;
@@ -1290,7 +1290,7 @@ static void gaussf32v_mean(NO_STATE)
         double mean, mean_stddev;
 
         gaussf32v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
-        mean = kbn_sumf32v(values, n_values) * recip_n_values;
+        mean = meanf32v(values, n_values);
 
         /* the standard deviation of the mean is smaller than the standard
          * deviation of individual samples by a factor of 1/sqrt(n)
@@ -1331,21 +1331,11 @@ static void gaussf32v_variance(NO_STATE)
 
     for (i = 0; i < n_tests; i++) {
         const double expected_variance = tests[i].stddev * tests[i].stddev;
-        double mean, variance = 0.0, variance_stddev;
-        unsigned j;
+        double mean, variance, variance_stddev;
 
         gaussf32v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
-        mean = kbn_sumf32v(values, n_values) *recip_n_values;
-
-        for (j = 0; j < n_values; j++) {
-            double diff = values[j] - mean;
-
-            /* n.b. using population variance rather than sample variance,
-             * because x/n plays nicer with floating point than x/(n - 1)
-             * when n is a power of 2
-             */
-            variance += diff * diff * recip_n_values;
-        }
+        mean = meanf32v(values, n_values);
+        variance = variancef32v(values, n_values, mean);
 
         /* sample variance approximately has a normal distribution with mean
          * of stddev^2 and variance of 2*stddev^4 / (n - 1)
@@ -1479,7 +1469,6 @@ static void gaussf64v_mean(NO_STATE)
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     const size_t n_values = 1 << 20; /* about a million, as a power of two */
-    const double recip_n_values = 1.0 / n_values;
     const double recip_sqrt_n_values = 1.0 / sqrt(n_values);
     struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     double *values;
@@ -1494,7 +1483,7 @@ static void gaussf64v_mean(NO_STATE)
         double mean, mean_stddev;
 
         gaussf64v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
-        mean = kbn_sumf64v(values, n_values) * recip_n_values;
+        mean = meanf64v(values, n_values);
 
         /* the standard deviation of the mean is smaller than the standard
          * deviation of individual samples by a factor of 1/sqrt(n)
@@ -1535,21 +1524,11 @@ static void gaussf64v_variance(NO_STATE)
 
     for (i = 0; i < n_tests; i++) {
         const double expected_variance = tests[i].stddev * tests[i].stddev;
-        double mean, variance = 0.0, variance_stddev;
-        unsigned j;
+        double mean, variance, variance_stddev;
 
         gaussf64v(&bs, values, n_values, tests[i].mean, tests[i].stddev);
-        mean = kbn_sumf64v(values, n_values) *recip_n_values;
-
-        for (j = 0; j < n_values; j++) {
-            double diff = values[j] - mean;
-
-            /* n.b. using population variance rather than sample variance,
-             * because x/n plays nicer with floating point than x/(n - 1)
-             * when n is a power of 2
-             */
-            variance += diff * diff * recip_n_values;
-        }
+        mean = meanf64v(values, n_values);
+        variance = variancef64v(values, n_values, mean);
 
         /* sample variance approximately has a normal distribution with mean
          * of stddev^2 and variance of 2*stddev^4 / (n - 1)
