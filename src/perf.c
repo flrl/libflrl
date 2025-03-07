@@ -88,21 +88,13 @@ static const char *format_seconds(double seconds)
 
 void perf_report(const struct perf *perf, FILE *out)
 {
-    double total = 0, min = INFINITY, max = 0;
-    double median = 0, mean = 0, variance = 0;
-    size_t i;
+    double min, max, mean, variance;
+    double median, total;
 
     total = kbn_sumf64v(perf->samples, perf->count);
+    statsf64v(perf->samples, perf->count,
+              &min, &max, &mean, &variance);
     median = medianf64v(perf->samples, perf->count);
-    mean = meanf64v(perf->samples, perf->count);
-    variance = variancef64v(perf->samples, perf->count, mean);
-
-    for (i = 0; i < perf->count; i++) {
-        if (perf->samples[i] > max)
-            max = perf->samples[i];
-        if (perf->samples[i] < min)
-            min = perf->samples[i];
-    }
 
     fprintf(out, "%s (%zu samples)\n", perf->name, perf->count);
     fputs("  total: ", out);
