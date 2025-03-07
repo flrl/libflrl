@@ -16,6 +16,7 @@ static int find_max_value(const HashMap *hm,
 }
 
 #include <algorithm>
+#include <limits>
 #include <type_traits>
 
 template<typename T>
@@ -96,6 +97,45 @@ static double variance(const T *values, std::size_t n_values, double mean)
     }
 
     return scale * (variance + c);
+}
+
+template<typename T>
+static void stats(const T *values, std::size_t n_values,
+                  T *pmin, T *pmax, double *pmean, double *pvariance)
+{
+    const double scale = 1.0 / n_values;
+    double mean, variance, c;
+    T min, max;
+    std::size_t i;
+
+    min = std::numeric_limits<T>::max();
+    max = std::numeric_limits<T>::lowest();
+
+    /* min, max, mean */
+    mean = c = 0;
+    for (i = 0; i < n_values; i++) {
+        min = std::min(min, values[i]);
+        max = std::max(max, values[i]);
+
+        kbn_sumf64_r(&mean, &c, scale * values[i]);
+    }
+    mean += c;
+
+    if (pmin) *pmin = min;
+    if (pmax) *pmax = max;
+    if (pmean) *pmean = mean;
+
+    if (!pvariance) return;
+
+    /* variance */
+    variance = c = 0;
+    for (i = 0; i < n_values; i++) {
+        double diff;
+
+        diff = values[i] - mean;
+        kbn_sumf64_r(&variance, &c, diff * diff);
+    }
+    *pvariance = scale * (variance + c);
 }
 
 extern "C" {
@@ -303,6 +343,76 @@ double medianf64v(const double *values, size_t n_values)
 double variancef64v(const double *values, size_t n_values, double mean)
 {
     return variance(values, n_values, mean);
+}
+
+void statsi8v(const int8_t *values, size_t n_values,
+              int8_t *pmin, int8_t *pmax,
+              double *pmean, double *pvariance)
+{
+    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+}
+
+void statsu8v(const uint8_t *values, size_t n_values,
+              uint8_t *pmin, uint8_t *pmax,
+              double *pmean, double *pvariance)
+{
+    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+}
+
+void statsi16v(const int16_t *values, size_t n_values,
+               int16_t *pmin, int16_t *pmax,
+               double *pmean, double *pvariance)
+{
+    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+}
+
+void statsu16v(const uint16_t *values, size_t n_values,
+               uint16_t *pmin, uint16_t *pmax,
+               double *pmean, double *pvariance)
+{
+    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+}
+
+void statsi32v(const int32_t *values, size_t n_values,
+               int32_t *pmin, int32_t *pmax,
+               double *pmean, double *pvariance)
+{
+    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+}
+
+void statsu32v(const uint32_t *values, size_t n_values,
+               uint32_t *pmin, uint32_t *pmax,
+               double *pmean, double *pvariance)
+{
+    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+}
+
+void statsi64v(const int64_t *values, size_t n_values,
+               int64_t *pmin, int64_t *pmax,
+               double *pmean, double *pvariance)
+{
+    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+}
+
+void statsu64v(const uint64_t *values, size_t n_values,
+               uint64_t *pmin, uint64_t *pmax,
+               double *pmean, double *pvariance)
+{
+    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+}
+
+void statsf32v(const float *values, size_t n_values,
+               float *pmin, float *pmax,
+               double *pmean, double *pvariance)
+{
+    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+}
+
+void statsf64v(const double *values, size_t n_values,
+               double *pmin, double *pmax,
+               double *pmean, double *pvariance)
+{
+    return stats(values, n_values, pmin, pmax, pmean, pvariance);
 }
 
 } /* extern "C" */
