@@ -104,8 +104,8 @@ static void hashmap_wc(const char *fname, int fd)
         printf("load factor: %g\n", stats.load);
         printf("min psl: %" PRIu32 "\n", stats.psl.min);
         printf("max psl: %" PRIu32 "\n", stats.psl.max);
-        printf("avg psl: %g variance: %g stddev: %g\n",
-               stats.psl.avg, stats.psl.var, sqrt(stats.psl.var));
+        printf("mean psl: %g variance: %g stddev: %g\n",
+               stats.psl.mean, stats.psl.variance, sqrt(stats.psl.variance));
     }
 
     hashmap_fini(&hm, NULL);

@@ -23,9 +23,25 @@ typedef struct {
     struct {
         uint32_t min;
         uint32_t max;
-        double   avg;
-        double   var;
+        size_t   min_frequency;
+        size_t   max_frequency;
+        double   mean;
+        double   median;
+        uint32_t mode;
+        size_t   mode_frequency;
+        double   variance;
     } psl;
+    struct {
+        uint32_t min;
+        uint32_t max;
+        size_t   min_frequency;
+        size_t   max_frequency;
+        double   mean;
+        double   median;
+        uint32_t mode;
+        size_t   mode_frequency;
+        double   variance;
+    } bdc;
     double load;
 } HashMapStats;
 

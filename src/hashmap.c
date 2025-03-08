@@ -1,6 +1,7 @@
 #include "flrl/hashmap.h"
 
 #include "flrl/fputil.h"
+#include "flrl/statsutil.h"
 
 #include <assert.h>
 #include <inttypes.h>
@@ -490,50 +491,49 @@ int hashmap_foreach(const HashMap *hm, hashmap_foreach_cb *cb, void *ctx)
 
 void hashmap_get_stats(const HashMap *hm, HashMapStats *hs)
 {
-    uint32_t min_psl = UINT32_MAX, max_psl = 0;
-    double avg_psl, var_psl, c;
-    double scale = 1.0 / hm->count;
-    uint32_t i;
+    uint32_t *psl, *bucket_desired_count;
+    uint32_t i, n_psl;
 
-    avg_psl = c = 0.0;
-    for (i = 0; i < hm->alloc; i++) {
-        uint32_t psl;
+    bucket_desired_count = calloc(hm->alloc, sizeof(bucket_desired_count[0]));
+    psl = calloc(hm->alloc, sizeof(psl[0]));
+
+    if (!bucket_desired_count || !psl) {
+        memset(hs, 0, sizeof(*hs));
+        free(bucket_desired_count);
+        free(psl);
+        return;
+    }
+
+    for (i = 0, n_psl = 0; i < hm->alloc; i++) {
+        uint32_t db;
 
         if (!has_key_at_index(hm, i)) continue;
 
-        psl = HM_PSL(hm, i);
+        db = hm->key[i].hash & (hm->alloc - 1);
+        bucket_desired_count[db] ++;
 
-        if (psl < min_psl)
-            min_psl = psl;
-        if (psl > max_psl)
-            max_psl = psl;
-
-        kbn_sumf64_r(&avg_psl, &c, scale * psl);
+        psl[n_psl++] = HM_PSL(hm, i);
     }
-    avg_psl += c;
+    assert(n_psl == hm->count);
 
-    var_psl = c = 0.0;
-    for (i = 0; i < hm->alloc; i++) {
-        uint32_t psl;
-        double diff;
+    hs->load = 1.0 * hm->count / hm->alloc;
 
-        if (!has_key_at_index(hm, i)) continue;
+    statsu32v(psl, hm->alloc,
+              &hs->psl.min, &hs->psl.min_frequency,
+              &hs->psl.max, &hs->psl.max_frequency,
+              &hs->psl.mean, &hs->psl.variance);
+    hs->psl.median = medianu32v(psl, hm->alloc);
+    hs->psl.mode = modeu32v(psl, n_psl, &hs->psl.mode_frequency);
 
-        psl = HM_PSL(hm, i);
+    statsu32v(bucket_desired_count, hm->alloc,
+              &hs->bdc.min, &hs->bdc.min_frequency,
+              &hs->bdc.max, &hs->bdc.max_frequency,
+              &hs->bdc.mean, &hs->bdc.variance);
+    hs->bdc.median = medianu32v(bucket_desired_count, hm->alloc);
+    hs->bdc.mode = modeu32v(bucket_desired_count, hm->alloc, &hs->bdc.mode_frequency);
 
-        diff = (double) psl - avg_psl;
-
-        kbn_sumf64_r(&var_psl, &c, scale * diff * diff);
-    }
-    var_psl += c;
-
-    if (hs) *hs = (HashMapStats){
-        .psl.min = min_psl,
-        .psl.max = max_psl,
-        .psl.avg = avg_psl,
-        .psl.var = var_psl,
-        .load = 1.0 * hm->count / hm->alloc,
-    };
+    free(bucket_desired_count);
+    free(psl);
 }
 
 extern inline uint32_t hashmap_hash32(const void *key, size_t key_len,
