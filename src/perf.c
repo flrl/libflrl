@@ -93,7 +93,7 @@ void perf_report(const struct perf *perf, FILE *out)
 
     total = kbn_sumf64v(perf->samples, perf->count);
     statsf64v(perf->samples, perf->count,
-              &min, &max, &mean, &variance);
+              &min, NULL, &max, NULL, &mean, &variance);
     median = medianf64v(perf->samples, perf->count);
 
     fprintf(out, "%s (%zu samples)\n", perf->name, perf->count);

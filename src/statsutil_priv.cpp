@@ -54,7 +54,7 @@ static double median(const T *values, std::size_t n_values)
 }
 
 template<typename T>
-static T mode(const T *values, std::size_t n_values)
+static T mode(const T *values, std::size_t n_values, std::size_t *pfrequency)
 {
     HashMap counts;
     struct fmv_ctx fmv_ctx = { NULL, NULL };
@@ -78,6 +78,10 @@ static T mode(const T *values, std::size_t n_values)
     hashmap_foreach(&counts, &find_max_value, &fmv_ctx);
 
     mode = *static_cast<const T *>(fmv_ctx.max_key);
+    if (pfrequency) {
+        uintptr_t frequency = reinterpret_cast<uintptr_t>(fmv_ctx.max_value);
+        *pfrequency = frequency;
+    }
 
     hashmap_fini(&counts, NULL);
     return mode;
@@ -101,28 +105,45 @@ static double variance(const T *values, std::size_t n_values, double mean)
 
 template<typename T>
 static void stats(const T *values, std::size_t n_values,
-                  T *pmin, T *pmax, double *pmean, double *pvariance)
+                  T *pmin, size_t *pmin_frequency,
+                  T *pmax, size_t *pmax_frequency,
+                  double *pmean, double *pvariance)
 {
     const double scale = 1.0 / n_values;
     double mean, variance, c;
     T min, max;
-    std::size_t i;
+    std::size_t i, min_freq, max_freq;
 
     min = std::numeric_limits<T>::max();
     max = std::numeric_limits<T>::lowest();
 
     /* min, max, mean */
-    mean = c = 0;
+    min_freq = max_freq = mean = c = 0;
     for (i = 0; i < n_values; i++) {
-        min = std::min(min, values[i]);
-        max = std::max(max, values[i]);
+        if (values[i] < min) {
+            min = values[i];
+            min_freq = 1;
+        }
+        else if (values[i] == min) {
+            min_freq ++;
+        }
+
+        if (values[i] > max) {
+            max = values[i];
+            max_freq = 1;
+        }
+        else if (values[i] == max) {
+            max_freq ++;
+        }
 
         kbn_sumf64_r(&mean, &c, scale * values[i]);
     }
     mean += c;
 
     if (pmin) *pmin = min;
+    if (pmin_frequency) *pmin_frequency = min_freq;
     if (pmax) *pmax = max;
+    if (pmax_frequency) *pmax_frequency = max_freq;
     if (pmean) *pmean = mean;
 
     if (!pvariance) return;
@@ -165,9 +186,9 @@ double mediani8v(const int8_t *values, size_t n_values)
     return median(values, n_values);
 }
 
-int8_t modei8v(const int8_t *values, size_t n_values)
+int8_t modei8v(const int8_t *values, size_t n_values, size_t *pfrequency)
 {
-    return mode(values, n_values);
+    return mode(values, n_values, pfrequency);
 }
 
 double variancei8v(const int8_t *values, size_t n_values, double mean)
@@ -185,9 +206,9 @@ double medianu8v(const uint8_t *values, size_t n_values)
     return median(values, n_values);
 }
 
-uint8_t modeu8v(const uint8_t *values, size_t n_values)
+uint8_t modeu8v(const uint8_t *values, size_t n_values, size_t *pfrequency)
 {
-    return mode(values, n_values);
+    return mode(values, n_values, pfrequency);
 }
 
 double varianceu8v(const uint8_t *values, size_t n_values, double mean)
@@ -205,9 +226,9 @@ double mediani16v(const int16_t *values, size_t n_values)
     return median(values, n_values);
 }
 
-int16_t modei16v(const int16_t *values, size_t n_values)
+int16_t modei16v(const int16_t *values, size_t n_values, size_t *pfrequency)
 {
-    return mode(values, n_values);
+    return mode(values, n_values, pfrequency);
 }
 
 double variancei16v(const int16_t *values, size_t n_values, double mean)
@@ -225,9 +246,9 @@ double medianu16v(const uint16_t *values, size_t n_values)
     return median(values, n_values);
 }
 
-uint16_t modeu16v(const uint16_t *values, size_t n_values)
+uint16_t modeu16v(const uint16_t *values, size_t n_values, size_t *pfrequency)
 {
-    return mode(values, n_values);
+    return mode(values, n_values, pfrequency);
 }
 
 double varianceu16v(const uint16_t *values, size_t n_values, double mean)
@@ -245,9 +266,9 @@ double mediani32v(const int32_t *values, size_t n_values)
     return median(values, n_values);
 }
 
-int32_t modei32v(const int32_t *values, size_t n_values)
+int32_t modei32v(const int32_t *values, size_t n_values, size_t *pfrequency)
 {
-    return mode(values, n_values);
+    return mode(values, n_values, pfrequency);
 }
 
 double variancei32v(const int32_t *values, size_t n_values, double mean)
@@ -265,9 +286,9 @@ double medianu32v(const uint32_t *values, size_t n_values)
     return median(values, n_values);
 }
 
-uint32_t modeu32v(const uint32_t *values, size_t n_values)
+uint32_t modeu32v(const uint32_t *values, size_t n_values, size_t *pfrequency)
 {
-    return mode(values, n_values);
+    return mode(values, n_values, pfrequency);
 }
 
 double varianceu32v(const uint32_t *values, size_t n_values, double mean)
@@ -285,9 +306,9 @@ double mediani64v(const int64_t *values, size_t n_values)
     return median(values, n_values);
 }
 
-int64_t modei64v(const int64_t *values, size_t n_values)
+int64_t modei64v(const int64_t *values, size_t n_values, size_t *pfrequency)
 {
-    return mode(values, n_values);
+    return mode(values, n_values, pfrequency);
 }
 
 double variancei64v(const int64_t *values, size_t n_values, double mean)
@@ -305,9 +326,9 @@ double medianu64v(const uint64_t *values, size_t n_values)
     return median(values, n_values);
 }
 
-uint64_t modeu64v(const uint64_t *values, size_t n_values)
+uint64_t modeu64v(const uint64_t *values, size_t n_values, size_t *pfrequency)
 {
-    return mode(values, n_values);
+    return mode(values, n_values, pfrequency);
 }
 
 double varianceu64v(const uint64_t *values, size_t n_values, double mean)
@@ -346,73 +367,113 @@ double variancef64v(const double *values, size_t n_values, double mean)
 }
 
 void statsi8v(const int8_t *values, size_t n_values,
-              int8_t *pmin, int8_t *pmax,
+              int8_t *pmin, size_t *pmin_frequency,
+              int8_t *pmax, size_t *pmax_frequency,
               double *pmean, double *pvariance)
 {
-    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+    return stats(values, n_values,
+                 pmin, pmin_frequency,
+                 pmax, pmax_frequency,
+                 pmean, pvariance);
 }
 
 void statsu8v(const uint8_t *values, size_t n_values,
-              uint8_t *pmin, uint8_t *pmax,
+              uint8_t *pmin, size_t *pmin_frequency,
+              uint8_t *pmax, size_t *pmax_frequency,
               double *pmean, double *pvariance)
 {
-    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+    return stats(values, n_values,
+                 pmin, pmin_frequency,
+                 pmax, pmax_frequency,
+                 pmean, pvariance);
 }
 
 void statsi16v(const int16_t *values, size_t n_values,
-               int16_t *pmin, int16_t *pmax,
+               int16_t *pmin, size_t *pmin_frequency,
+               int16_t *pmax, size_t *pmax_frequency,
                double *pmean, double *pvariance)
 {
-    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+    return stats(values, n_values,
+                 pmin, pmin_frequency,
+                 pmax, pmax_frequency,
+                 pmean, pvariance);
 }
 
 void statsu16v(const uint16_t *values, size_t n_values,
-               uint16_t *pmin, uint16_t *pmax,
+               uint16_t *pmin, size_t *pmin_frequency,
+               uint16_t *pmax, size_t *pmax_frequency,
                double *pmean, double *pvariance)
 {
-    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+    return stats(values, n_values,
+                 pmin, pmin_frequency,
+                 pmax, pmax_frequency,
+                 pmean, pvariance);
 }
 
 void statsi32v(const int32_t *values, size_t n_values,
-               int32_t *pmin, int32_t *pmax,
+               int32_t *pmin, size_t *pmin_frequency,
+               int32_t *pmax, size_t *pmax_frequency,
                double *pmean, double *pvariance)
 {
-    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+    return stats(values, n_values,
+                 pmin, pmin_frequency,
+                 pmax, pmax_frequency,
+                 pmean, pvariance);
 }
 
 void statsu32v(const uint32_t *values, size_t n_values,
-               uint32_t *pmin, uint32_t *pmax,
+               uint32_t *pmin, size_t *pmin_frequency,
+               uint32_t *pmax, size_t *pmax_frequency,
                double *pmean, double *pvariance)
 {
-    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+    return stats(values, n_values,
+                 pmin, pmin_frequency,
+                 pmax, pmax_frequency,
+                 pmean, pvariance);
 }
 
 void statsi64v(const int64_t *values, size_t n_values,
-               int64_t *pmin, int64_t *pmax,
+               int64_t *pmin, size_t *pmin_frequency,
+               int64_t *pmax, size_t *pmax_frequency,
                double *pmean, double *pvariance)
 {
-    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+    return stats(values, n_values,
+                 pmin, pmin_frequency,
+                 pmax, pmax_frequency,
+                 pmean, pvariance);
 }
 
 void statsu64v(const uint64_t *values, size_t n_values,
-               uint64_t *pmin, uint64_t *pmax,
+               uint64_t *pmin, size_t *pmin_frequency,
+               uint64_t *pmax, size_t *pmax_frequency,
                double *pmean, double *pvariance)
 {
-    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+    return stats(values, n_values,
+                 pmin, pmin_frequency,
+                 pmax, pmax_frequency,
+                 pmean, pvariance);
 }
 
 void statsf32v(const float *values, size_t n_values,
-               float *pmin, float *pmax,
+               float *pmin, size_t *pmin_frequency,
+               float *pmax, size_t *pmax_frequency,
                double *pmean, double *pvariance)
 {
-    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+    return stats(values, n_values,
+                 pmin, pmin_frequency,
+                 pmax, pmax_frequency,
+                 pmean, pvariance);
 }
 
 void statsf64v(const double *values, size_t n_values,
-               double *pmin, double *pmax,
+               double *pmin, size_t *pmin_frequency,
+               double *pmax, size_t *pmax_frequency,
                double *pmean, double *pvariance)
 {
-    return stats(values, n_values, pmin, pmax, pmean, pvariance);
+    return stats(values, n_values,
+                 pmin, pmin_frequency,
+                 pmax, pmax_frequency,
+                 pmean, pvariance);
 }
 
 } /* extern "C" */
