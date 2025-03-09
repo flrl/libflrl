@@ -6,6 +6,7 @@
 #include <float.h>
 #include <getopt.h>
 #include <inttypes.h>
+#include <locale.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -34,6 +35,8 @@ int main(int argc, char **argv)
     bool skip_filter = false;
     bool do_list = false;
     int c, r;
+
+    setlocale(LC_ALL, ".utf8");
 
     while ((c = getopt(argc, argv, "Slv")) != -1) {
         switch (c) {
