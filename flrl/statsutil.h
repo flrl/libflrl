@@ -1,15 +1,14 @@
 #ifndef LIBFLRL_STATSUTIL_H
 #define LIBFLRL_STATSUTIL_H
 
+#include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #ifdef __cplusplus
  #define restrict
  using std::size_t;
- extern const double statsutil_nan;
- extern void *statsutil_malloc(size_t size);
- extern void statsutil_free(void *ptr);
 #endif
 
 extern double meani8v(const int8_t *values, size_t n_values);
@@ -102,4 +101,43 @@ extern void statsf64v(const double *values, size_t n_values,
                       double *pmax, size_t *pmax_frequency,
                       double *pmean, double *pvariance);
 
+struct hist_bucket {
+    size_t freq_raw;
+    double freq_pc;
+    unsigned pips;
+    bool skip_if_zero;
+    char lb_label[9];
+    char ub_label[9];
+};
+
+extern void histogrami8v(const int8_t *values, size_t n_values,
+                         const int8_t *thresholds, size_t n_thresholds,
+                         FILE *out);
+extern void histogramu8v(const uint8_t *values, size_t n_values,
+                         const uint8_t *thresholds, size_t n_thresholds,
+                         FILE *out);
+extern void histogrami16v(const int16_t *values, size_t n_values,
+                          const int16_t *thresholds, size_t n_thresholds,
+                          FILE *out);
+extern void histogramu16v(const uint16_t *values, size_t n_values,
+                          const uint16_t *thresholds, size_t n_thresholds,
+                          FILE *out);
+extern void histogrami32v(const int32_t *values, size_t n_values,
+                          const int32_t *thresholds, size_t n_thresholds,
+                          FILE *out);
+extern void histogramu32v(const uint32_t *values, size_t n_values,
+                          const uint32_t *thresholds, size_t n_thresholds,
+                          FILE *out);
+extern void histogrami64v(const int64_t *values, size_t n_values,
+                          const int64_t *thresholds, size_t n_thresholds,
+                          FILE *out);
+extern void histogramu64v(const uint64_t *values, size_t n_values,
+                          const uint64_t *thresholds, size_t n_thresholds,
+                          FILE *out);
+extern void histogramf32v(const float *values, size_t n_values,
+                          const float *thresholds, size_t n_thresholds,
+                          FILE *out);
+extern void histogramf64v(const double *values, size_t n_values,
+                          const double *thresholds, size_t n_thresholds,
+                          FILE *out);
 #endif

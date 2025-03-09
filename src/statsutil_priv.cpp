@@ -4,6 +4,14 @@ extern "C" {
 #include "flrl/fputil.h"
 #include "flrl/hashmap.h"
 
+extern const double statsutil_nan;
+extern void *statsutil_malloc(size_t size);
+extern void statsutil_free(void *ptr);
+extern double statsutil_round(double x);
+
+extern void hist_print(const struct hist_bucket *buckets, size_t n_buckets,
+                       FILE *out);
+
 struct fmv_ctx {
     const void *max_key;
     void *max_value;
@@ -16,6 +24,8 @@ static int find_max_value(const HashMap *hm,
 }
 
 #include <algorithm>
+#include <cassert>
+#include <cstring>
 #include <limits>
 #include <type_traits>
 
@@ -157,6 +167,100 @@ static void stats(const T *values, std::size_t n_values,
         kbn_sumf64_r(&variance, &c, diff * diff);
     }
     *pvariance = scale * (variance + c);
+}
+
+template<typename T>
+static T *invent_thresholds(const T *values, size_t n_values,
+                            size_t n_thresholds)
+{
+    T min, max;
+    T *thresholds;
+    std::size_t i;
+    double step;
+
+    thresholds = (T*) statsutil_malloc(n_thresholds * sizeof(thresholds[0]));
+    if (!thresholds) return NULL;
+
+    min = std::numeric_limits<T>::max();
+    max = std::numeric_limits<T>::lowest();
+    for (i = 0; i < n_values; i++) {
+        min = std::min(min, values[i]);
+        max = std::max(max, values[i]);
+    }
+
+    step = (max - min) / (n_thresholds + 1.0);
+    for (i = 0; i < n_thresholds; i++) {
+        thresholds[i] = (i + 1) * step;
+    }
+
+    return thresholds;
+}
+
+template<typename T>
+static void histogram(const T *values, std::size_t n_values,
+                      const T *thresholds, std::size_t n_thresholds,
+                      FILE *out)
+{
+    std::size_t n_buckets = n_thresholds + 1;
+    std::size_t max_freq_raw = 0;
+    std::size_t i, t;
+    double rpp;
+    hist_bucket buckets[n_buckets] = {};
+    T *freeme = NULL;
+
+    assert(n_thresholds > 0);
+    if (!thresholds) {
+        thresholds = freeme = invent_thresholds(values, n_values, n_thresholds);
+    }
+
+    /* count raw frequencies */
+    for (i = 0; i < n_values; i++) {
+        for (t = 0; t < n_thresholds; t++) {
+            if (values[i] < thresholds[t]) {
+                buckets[t].freq_raw ++;
+                break;
+            }
+        }
+        if (t == n_thresholds)
+            buckets[t].freq_raw ++;
+    }
+
+    /* compute percent frequencies, max raw frequency, and labels */
+    for (i = 0; i < n_buckets; i++) {
+        buckets[i].freq_pc = 100.0 * buckets[i].freq_raw / n_values;
+        max_freq_raw = std::max(max_freq_raw, buckets[i].freq_raw);
+
+        buckets[i].skip_if_zero = false;
+
+        if (i == 0) {
+            strcpy(buckets[i].lb_label, "");
+            buckets[i].skip_if_zero = true;
+        }
+        else {
+            snprintf(buckets[i].lb_label, sizeof(buckets[i].lb_label),
+                     "%g", (double) thresholds[i - 1]);
+        }
+
+        if (i == n_thresholds) {
+            strcpy(buckets[i].ub_label, "");
+            buckets[i].skip_if_zero = true;
+        }
+        else {
+            snprintf(buckets[i].ub_label, sizeof(buckets[i].ub_label),
+                     "<%g", (double) thresholds[i]);
+        }
+    }
+
+    /* compute pips */
+    rpp = max_freq_raw / 60.0;
+    for (i = 0; i < n_buckets; i++) {
+        buckets[i].pips = statsutil_round(buckets[i].freq_raw / rpp);
+    }
+
+    /* print it */
+    hist_print(buckets, n_buckets, out);
+
+    statsutil_free(freeme);
 }
 
 extern "C" {
@@ -474,6 +578,76 @@ void statsf64v(const double *values, size_t n_values,
                  pmin, pmin_frequency,
                  pmax, pmax_frequency,
                  pmean, pvariance);
+}
+
+void histogrami8v(const int8_t *values, size_t n_values,
+                  const int8_t *thresholds, size_t n_thresholds,
+                  FILE *out)
+{
+    histogram(values, n_values, thresholds, n_thresholds, out);
+}
+
+void histogramu8v(const uint8_t *values, size_t n_values,
+                  const uint8_t *thresholds, size_t n_thresholds,
+                  FILE *out)
+{
+    histogram(values, n_values, thresholds, n_thresholds, out);
+}
+
+void histogrami16v(const int16_t *values, size_t n_values,
+                   const int16_t *thresholds, size_t n_thresholds,
+                   FILE *out)
+{
+    histogram(values, n_values, thresholds, n_thresholds, out);
+}
+
+void histogramu16v(const uint16_t *values, size_t n_values,
+                   const uint16_t *thresholds, size_t n_thresholds,
+                   FILE *out)
+{
+    histogram(values, n_values, thresholds, n_thresholds, out);
+}
+
+void histogrami32v(const int32_t *values, size_t n_values,
+                   const int32_t *thresholds, size_t n_thresholds,
+                   FILE *out)
+{
+    histogram(values, n_values, thresholds, n_thresholds, out);
+}
+
+void histogramu32v(const uint32_t *values, size_t n_values,
+                   const uint32_t *thresholds, size_t n_thresholds,
+                   FILE *out)
+{
+    histogram(values, n_values, thresholds, n_thresholds, out);
+}
+
+void histogrami64v(const int64_t *values, size_t n_values,
+                   const int64_t *thresholds, size_t n_thresholds,
+                   FILE *out)
+{
+    histogram(values, n_values, thresholds, n_thresholds, out);
+}
+
+void histogramu64v(const uint64_t *values, size_t n_values,
+                   const uint64_t *thresholds, size_t n_thresholds,
+                   FILE *out)
+{
+    histogram(values, n_values, thresholds, n_thresholds, out);
+}
+
+void histogramf32v(const float *values, size_t n_values,
+                   const float *thresholds, size_t n_thresholds,
+                   FILE *out)
+{
+    histogram(values, n_values, thresholds, n_thresholds, out);
+}
+
+void histogramf64v(const double *values, size_t n_values,
+                   const double *thresholds, size_t n_thresholds,
+                   FILE *out)
+{
+    histogram(values, n_values, thresholds, n_thresholds, out);
 }
 
 } /* extern "C" */
