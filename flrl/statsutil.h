@@ -110,34 +110,44 @@ struct hist_bucket {
     char ub_label[9];
 };
 
-extern void histogrami8v(const int8_t *values, size_t n_values,
+extern void histogrami8v(const char *title,
+                         const int8_t *values, size_t n_values,
                          const int8_t *thresholds, size_t n_thresholds,
                          FILE *out);
-extern void histogramu8v(const uint8_t *values, size_t n_values,
+extern void histogramu8v(const char *title,
+                         const uint8_t *values, size_t n_values,
                          const uint8_t *thresholds, size_t n_thresholds,
                          FILE *out);
-extern void histogrami16v(const int16_t *values, size_t n_values,
+extern void histogrami16v(const char *title,
+                          const int16_t *values, size_t n_values,
                           const int16_t *thresholds, size_t n_thresholds,
                           FILE *out);
-extern void histogramu16v(const uint16_t *values, size_t n_values,
+extern void histogramu16v(const char *title,
+                          const uint16_t *values, size_t n_values,
                           const uint16_t *thresholds, size_t n_thresholds,
                           FILE *out);
-extern void histogrami32v(const int32_t *values, size_t n_values,
+extern void histogrami32v(const char *title,
+                          const int32_t *values, size_t n_values,
                           const int32_t *thresholds, size_t n_thresholds,
                           FILE *out);
-extern void histogramu32v(const uint32_t *values, size_t n_values,
+extern void histogramu32v(const char *title,
+                          const uint32_t *values, size_t n_values,
                           const uint32_t *thresholds, size_t n_thresholds,
                           FILE *out);
-extern void histogrami64v(const int64_t *values, size_t n_values,
+extern void histogrami64v(const char *title,
+                          const int64_t *values, size_t n_values,
                           const int64_t *thresholds, size_t n_thresholds,
                           FILE *out);
-extern void histogramu64v(const uint64_t *values, size_t n_values,
+extern void histogramu64v(const char *title,
+                          const uint64_t *values, size_t n_values,
                           const uint64_t *thresholds, size_t n_thresholds,
                           FILE *out);
-extern void histogramf32v(const float *values, size_t n_values,
+extern void histogramf32v(const char *title,
+                          const float *values, size_t n_values,
                           const float *thresholds, size_t n_thresholds,
                           FILE *out);
-extern void histogramf64v(const double *values, size_t n_values,
+extern void histogramf64v(const char *title,
+                          const double *values, size_t n_values,
                           const double *thresholds, size_t n_thresholds,
                           FILE *out);
 #endif

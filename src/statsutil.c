@@ -25,6 +25,25 @@ double statsutil_round(double x)
     return round(x);
 }
 
+double statsutil_niceceil(double x)
+{
+    double scale = 1.0;
+
+    while (x >= 10.0) {
+        x /= 10.0;
+        scale *= 10.0;
+    }
+
+    while (x < 1.0) {
+        x *= 10.0;
+        scale /= 10.0;
+    }
+
+    x = 0.5 * ceil(2.0 * x);
+
+    return scale * x;
+}
+
 static inline void ansi_colour_256(FILE *out, uint8_t colour)
 {
     fprintf(out, "\e[38;5;%dm", colour);
@@ -35,12 +54,61 @@ static inline void ansi_reset(FILE *out)
     fputs("\e[0m", out);
 }
 
+static const uint8_t grid_colour = 236;
+
+void hist_print_header(const char *title, double grid[6], FILE *out)
+{
+    unsigned i;
+    int ws;
+
+    ansi_colour_256(out, grid_colour);
+    fputws(L"════════════════════════════════════════"
+           L"════════════════════════════════════════",
+           out);
+    ansi_reset(out);
+    fputc('\n', out);
+
+    assert(strlen(title) < 80);
+    ws = (80 - strlen(title)) / 2;
+    for (i = 0; (int) i < ws; i++)
+        fputc(' ', out);
+    fputs(title, out);
+    fputc('\n', out);
+
+    ansi_colour_256(out, grid_colour);
+    fputws(L"════════════════════════════════════════"
+           L"════════════════════════════════════════",
+           out);
+    ansi_reset(out);
+    fputs("\n         ", out);
+    fprintf(out, "%-7g   ", 0.0);
+    for (i = 0; i < 6; i++) {
+        fprintf(out, "%-7g   ", grid[i]);
+    }
+    fputc('\n', out);
+    ansi_colour_256(out, grid_colour);
+    fputws(L"─────────┼─────────┼─────────┼─────────┼"
+           L"─────────┼─────────┼─────────┼──────────",
+           out);
+    ansi_reset(out);
+    fputc('\n', out);
+}
+
+void hist_print_footer(FILE *out)
+{
+    ansi_colour_256(out, grid_colour);
+    fputws(L"─────────┴─────────┴─────────┴─────────┴"
+           L"─────────┴─────────┴─────────┴──────────",
+           out);
+    ansi_reset(out);
+    fputc('\n', out);
+}
+
 void hist_print(const struct hist_bucket *buckets, size_t n_buckets, FILE *out)
 {
     size_t i;
     unsigned p;
     uint8_t bucket_colours[2] = { 242, 249 };
-    uint8_t grid_colour = 236;
 
     for (i = 0; i < n_buckets; i++) {
         int ws;
@@ -69,7 +137,7 @@ void hist_print(const struct hist_bucket *buckets, size_t n_buckets, FILE *out)
         /* end grid */
         ansi_colour_256(out, grid_colour);
         for (; p < 60; p++) {
-            switch ((p + 1) % 6) {
+            switch ((p + 1) % 10) {
             case 0:
                 fputwc(L'│', out);
                 break;
@@ -106,7 +174,7 @@ void hist_print(const struct hist_bucket *buckets, size_t n_buckets, FILE *out)
         /* end grid */
         ansi_colour_256(out, grid_colour);
         for (; p < 60; p++) {
-            switch ((p + 1) % 6) {
+            switch ((p + 1) % 10) {
             case 0:
                 fputwc(L'│', out);
                 break;
