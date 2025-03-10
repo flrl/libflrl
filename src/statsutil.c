@@ -15,14 +15,24 @@ void *statsutil_malloc(size_t size)
     return malloc(size);
 }
 
+void *statsutil_calloc(size_t nelem, size_t elsize)
+{
+    return calloc(nelem, elsize);
+}
+
 void statsutil_free(void *ptr)
 {
     free(ptr);
 }
 
-double statsutil_round(double x)
+double statsutil_ceil(double x)
 {
-    return round(x);
+    return ceil(x);
+}
+
+double statsutil_floor(double x)
+{
+    return floor(x);
 }
 
 double statsutil_niceceil(double x)
@@ -42,6 +52,11 @@ double statsutil_niceceil(double x)
     x = 0.5 * ceil(2.0 * x);
 
     return scale * x;
+}
+
+double statsutil_round(double x)
+{
+    return round(x);
 }
 
 static inline void ansi_colour_256(FILE *out, uint8_t colour)

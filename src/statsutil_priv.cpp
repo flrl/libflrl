@@ -5,10 +5,15 @@ extern "C" {
 #include "flrl/hashmap.h"
 
 extern const double statsutil_nan;
+
 extern void *statsutil_malloc(size_t size);
+extern void *statsutil_calloc(size_t nelem, size_t elsize);
 extern void statsutil_free(void *ptr);
-extern double statsutil_round(double x);
+
+extern double statsutil_ceil(double x);
+extern double statsutil_floor(double x);
 extern double statsutil_niceceil(double x);
+extern double statsutil_round(double x);
 
 extern void hist_print_header(const char *title, double grid[6], FILE *out);
 extern void hist_print(const struct hist_bucket *buckets, size_t n_buckets,
@@ -173,29 +178,63 @@ static void stats(const T *values, std::size_t n_values,
 }
 
 template<typename T>
-static T *invent_thresholds(const T *values, size_t n_values,
-                            size_t n_thresholds)
+requires std::is_integral_v<T> || std::is_floating_point_v<T>
+static T *invent_thresholds(const T *values, std::size_t n_values,
+                            std::size_t *pn_thresholds)
 {
-    T min, max;
+    T lb, ub, range, step;
     T *thresholds;
-    std::size_t i;
-    double step;
+    std::size_t i, n_thresholds;
+
+    lb = std::numeric_limits<T>::max();
+    ub = std::numeric_limits<T>::lowest();
+    for (i = 0; i < n_values; i++) {
+        lb = std::min(lb, values[i]);
+        ub = std::max(ub, values[i]);
+    }
+
+    if (std::is_floating_point_v<T>) {
+        ub = statsutil_niceceil(ub);
+        range = statsutil_niceceil(ub - lb);
+        lb = ub - range;
+    }
+    else {
+        if (ub < std::numeric_limits<T>::max())
+            ub ++;
+        range = ub - lb;
+    }
+
+    n_thresholds = *pn_thresholds;
+    if (n_thresholds == 0) {
+        double t = range;
+
+        while (t >= 15.0)
+            t *= 1.0 / 3.0;
+
+        while (t < 5.0)
+            t *= 3.0;
+
+        n_thresholds = statsutil_ceil(t);
+    }
+
+    if (std::is_floating_point_v<T>) {
+        step = statsutil_niceceil(range / n_thresholds);
+    }
+    else {
+        n_thresholds = std::min(n_thresholds, (size_t) range);
+        step = statsutil_ceil(1.0 * range / n_thresholds);
+    }
 
     thresholds = (T*) statsutil_malloc(n_thresholds * sizeof(thresholds[0]));
     if (!thresholds) return NULL;
 
-    min = std::numeric_limits<T>::max();
-    max = std::numeric_limits<T>::lowest();
-    for (i = 0; i < n_values; i++) {
-        min = std::min(min, values[i]);
-        max = std::max(max, values[i]);
-    }
-
-    step = (max - min) / (n_thresholds + 1.0);
+    if (lb == std::numeric_limits<T>::lowest())
+        lb += step;
     for (i = 0; i < n_thresholds; i++) {
-        thresholds[i] = (i + 1) * step;
+        thresholds[i] = i * step + lb;
     }
 
+    *pn_thresholds = n_thresholds;
     return thresholds;
 }
 
@@ -205,19 +244,22 @@ static void histogram(const char *title,
                       const T *thresholds, std::size_t n_thresholds,
                       FILE *out)
 {
-    std::size_t n_buckets = n_thresholds + 1;
     std::size_t min_freq_raw = std::numeric_limits<std::size_t>::max();
     std::size_t max_freq_raw = 0;
     std::size_t i, t;
     double fpp;
     double grid[6];
-    hist_bucket buckets[n_buckets] = {};
+    hist_bucket *buckets;
+    std::size_t n_buckets;
     T *freeme = NULL;
 
-    assert(n_thresholds > 0);
     if (!thresholds) {
-        thresholds = freeme = invent_thresholds(values, n_values, n_thresholds);
+        thresholds = freeme = invent_thresholds(values, n_values,
+                                                &n_thresholds);
     }
+
+    n_buckets = n_thresholds + 1;
+    buckets = (hist_bucket *) statsutil_calloc(n_buckets, sizeof(buckets[0]));
 
     /* count raw frequencies */
     for (i = 0; i < n_values; i++) {
@@ -272,6 +314,7 @@ static void histogram(const char *title,
     hist_print(buckets, n_buckets, out);
     hist_print_footer(out);
 
+    statsutil_free(buckets);
     statsutil_free(freeme);
 }
 
