@@ -31,13 +31,14 @@ extern double kbn_sumf64v(const double *values, size_t n_values);
 
 extern void noinline_kbn_sumf64_r(double *sum, double *comp, double addend);
 
+#if INLINE_MATH
 inline void kbn_sumf64_r(double *sum, double *comp, double addend)
 {
-#if INLINE_MATH
     KBN_SUMF64_R(sum, comp, addend);
+}
 #else
+#define kbn_sumf64_r(sum, comp, addend) \
     noinline_kbn_sumf64_r(sum, comp, addend);
 #endif
-}
 
 #endif
