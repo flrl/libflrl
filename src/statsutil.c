@@ -10,6 +10,10 @@
 
 const double statsutil_nan = NAN;
 
+static const uint8_t grid_colour = 236;
+static const uint8_t bucket_colours[2] = { 242, 249 };
+static const uint8_t bucket_bgcolours[2] = { 0, 232 };
+
 void *statsutil_malloc(size_t size)
 {
     return malloc(size);
@@ -64,12 +68,15 @@ static inline void ansi_colour_256(FILE *out, uint8_t colour)
     fprintf(out, "\e[38;5;%dm", colour);
 }
 
+static inline void ansi_bgcolour_256(FILE *out, uint8_t colour)
+{
+    fprintf(out, "\e[48;5;%dm", colour);
+}
+
 static inline void ansi_reset(FILE *out)
 {
     fputs("\e[0m", out);
 }
-
-static const uint8_t grid_colour = 236;
 
 void hist_print_header(const char *title, double grid[6], FILE *out)
 {
@@ -123,7 +130,6 @@ void hist_print(const struct hist_bucket *buckets, size_t n_buckets, FILE *out)
 {
     size_t i;
     unsigned p;
-    uint8_t bucket_colours[2] = { 242, 249 };
 
     for (i = 0; i < n_buckets; i++) {
         int ws;
@@ -133,6 +139,7 @@ void hist_print(const struct hist_bucket *buckets, size_t n_buckets, FILE *out)
 
         /* first line: lower bound label */
         ansi_colour_256(out, bucket_colours[i & 1]);
+        ansi_bgcolour_256(out, bucket_bgcolours[i & 1]);
         assert(strlen(buckets[i].lb_label) <= 9);
         ws = 9 - strlen(buckets[i].lb_label);
         fputs(buckets[i].lb_label, out);
@@ -164,12 +171,13 @@ void hist_print(const struct hist_bucket *buckets, size_t n_buckets, FILE *out)
 
         /* raw frequency */
         ansi_colour_256(out, bucket_colours[i & 1]);
-        fprintf(out, " %-8g", (double) buckets[i].freq_raw);
+        fprintf(out, " %-9g", (double) buckets[i].freq_raw);
         ansi_reset(out);
         fputc('\n', out);
 
         /* second line: upper bound label */
         ansi_colour_256(out, bucket_colours[i & 1]);
+        ansi_bgcolour_256(out, bucket_bgcolours[i & 1]);
         assert(strlen(buckets[i].ub_label) <= 9);
         ws = 9 - strlen(buckets[i].ub_label);
         for (p = 0; (int) p < ws; p++)
