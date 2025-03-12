@@ -282,7 +282,10 @@ static void histogram(const char *title,
         buckets[i].skip_if_zero = false;
 
         if (i == 0) {
-            strcpy(buckets[i].lb_label, "");
+            if (std::numeric_limits<T>::is_signed)
+                strcpy(buckets[i].lb_label, "-inf");
+            else
+                strcpy(buckets[i].lb_label, "0");
             buckets[i].skip_if_zero = true;
         }
         else {
@@ -291,7 +294,7 @@ static void histogram(const char *title,
         }
 
         if (i == n_thresholds) {
-            strcpy(buckets[i].ub_label, "");
+            strcpy(buckets[i].ub_label, "+inf");
             buckets[i].skip_if_zero = true;
         }
         else {
