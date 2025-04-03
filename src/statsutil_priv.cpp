@@ -8,17 +8,13 @@ extern const double statsutil_nan;
 
 extern void *statsutil_malloc(size_t size);
 extern void *statsutil_calloc(size_t nelem, size_t elsize);
+extern char *statsutil_strdup(const char *s);
 extern void statsutil_free(void *ptr);
 
 extern double statsutil_ceil(double x);
 extern double statsutil_floor(double x);
 extern double statsutil_niceceil(double x);
 extern double statsutil_round(double x);
-
-extern void hist_print_header(const char *title, double grid[6], FILE *out);
-extern void hist_print(const struct hist_bucket *buckets, size_t n_buckets,
-                       FILE *out);
-extern void hist_print_footer(FILE *out);
 
 struct fmv_ctx {
     const void *max_key;
@@ -239,18 +235,14 @@ static T *invent_thresholds(const T *values, std::size_t n_values,
 }
 
 template<typename T>
-static void histogram(const char *title,
-                      const T *values, std::size_t n_values,
-                      const T *thresholds, std::size_t n_thresholds,
-                      FILE *out)
+static void histogram_freq(Histogram *hist, const char *title,
+                           const T *values, std::size_t n_values,
+                           const T *thresholds, std::size_t n_thresholds)
 {
     std::size_t min_freq_raw = std::numeric_limits<std::size_t>::max();
     std::size_t max_freq_raw = 0;
     std::size_t i, t;
     double fpp;
-    double grid[6];
-    hist_bucket *buckets;
-    std::size_t n_buckets;
     T *freeme = NULL;
 
     if (!thresholds) {
@@ -258,47 +250,52 @@ static void histogram(const char *title,
                                                 &n_thresholds);
     }
 
-    n_buckets = n_thresholds + 1;
-    buckets = (hist_bucket *) statsutil_calloc(n_buckets, sizeof(buckets[0]));
+    memset(hist, 0, sizeof(*hist));
+    hist->title = statsutil_strdup(title);
+    hist->n_buckets = n_thresholds + 1;
+    hist->buckets = (hist_bucket *) statsutil_calloc(hist->n_buckets,
+                                                     sizeof(hist->buckets[0]));
 
     /* count raw frequencies */
     for (i = 0; i < n_values; i++) {
         for (t = 0; t < n_thresholds; t++) {
             if (values[i] < thresholds[t]) {
-                buckets[t].freq_raw ++;
+                hist->buckets[t].freq_raw ++;
                 break;
             }
         }
         if (t == n_thresholds)
-            buckets[t].freq_raw ++;
+            hist->buckets[t].freq_raw ++;
     }
 
     /* compute percent frequencies, min/max raw frequency, and labels */
-    for (i = 0; i < n_buckets; i++) {
-        buckets[i].freq_pc = 100.0 * buckets[i].freq_raw / n_values;
-        min_freq_raw = std::min(min_freq_raw, buckets[i].freq_raw);
-        max_freq_raw = std::max(max_freq_raw, buckets[i].freq_raw);
+    for (i = 0; i < hist->n_buckets; i++) {
+        struct hist_bucket *bucket = &hist->buckets[i];
 
-        buckets[i].skip_if_zero = false;
+        bucket->freq_pc = 100.0 * bucket->freq_raw / n_values;
+        min_freq_raw = std::min(min_freq_raw, bucket->freq_raw);
+        max_freq_raw = std::max(max_freq_raw, bucket->freq_raw);
+
+        bucket->skip_if_zero = false;
 
         if (i == 0) {
             if (std::numeric_limits<T>::is_signed)
-                strcpy(buckets[i].lb_label, "-inf");
+                strcpy(bucket->lb_label, "-inf");
             else
-                strcpy(buckets[i].lb_label, "0");
-            buckets[i].skip_if_zero = true;
+                strcpy(bucket->lb_label, "0");
+            bucket->skip_if_zero = true;
         }
         else {
-            snprintf(buckets[i].lb_label, sizeof(buckets[i].lb_label),
+            snprintf(bucket->lb_label, sizeof(bucket->lb_label),
                      "%g", (double) thresholds[i - 1]);
         }
 
         if (i == n_thresholds) {
-            strcpy(buckets[i].ub_label, "+inf");
-            buckets[i].skip_if_zero = true;
+            strcpy(bucket->ub_label, "+inf");
+            bucket->skip_if_zero = true;
         }
         else {
-            snprintf(buckets[i].ub_label, sizeof(buckets[i].ub_label),
+            snprintf(bucket->ub_label, sizeof(bucket->ub_label),
                      "<%g", (double) thresholds[i]);
         }
     }
@@ -306,19 +303,12 @@ static void histogram(const char *title,
     /* compute grid lines and pips */
     fpp = statsutil_niceceil(max_freq_raw / 60.0);
     for (i = 0; i < 6; i++) {
-        grid[i] = (i + 1) * fpp * 10.0;
+        hist->grid[i] = (i + 1) * fpp * 10.0;
     }
-    for (i = 0; i < n_buckets; i++) {
-        buckets[i].pips = statsutil_round(buckets[i].freq_raw / fpp);
+    for (i = 0; i < hist->n_buckets; i++) {
+        struct hist_bucket *bucket = &hist->buckets[i];
+        bucket->pips = statsutil_round(bucket->freq_raw / fpp);
     }
-
-    /* print it */
-    hist_print_header(title, grid, out);
-    hist_print(buckets, n_buckets, out);
-    hist_print_footer(out);
-
-    statsutil_free(buckets);
-    statsutil_free(freeme);
 }
 
 extern "C" {
@@ -638,84 +628,74 @@ void statsf64v(const double *values, size_t n_values,
                  pmean, pvariance);
 }
 
-void histogrami8v(const char *title,
-                  const int8_t *values, size_t n_values,
-                  const int8_t *thresholds, size_t n_thresholds,
-                  FILE *out)
+void histogram_freqi8v(Histogram *hist, const char *title,
+                       const int8_t *values, size_t n_values,
+                       const int8_t *thresholds, size_t n_thresholds)
 {
-    histogram(title, values, n_values, thresholds, n_thresholds, out);
+    histogram_freq(hist, title, values, n_values, thresholds, n_thresholds);
 }
 
-void histogramu8v(const char *title,
-                  const uint8_t *values, size_t n_values,
-                  const uint8_t *thresholds, size_t n_thresholds,
-                  FILE *out)
+void histogram_frequ8v(Histogram *hist, const char *title,
+                       const uint8_t *values, size_t n_values,
+                       const uint8_t *thresholds, size_t n_thresholds)
 {
-    histogram(title, values, n_values, thresholds, n_thresholds, out);
+    histogram_freq(hist, title, values, n_values, thresholds, n_thresholds);
 }
 
-void histogrami16v(const char *title,
-                   const int16_t *values, size_t n_values,
-                   const int16_t *thresholds, size_t n_thresholds,
-                   FILE *out)
+void histogram_freqi16v(Histogram *hist, const char *title,
+                        const int16_t *values, size_t n_values,
+                        const int16_t *thresholds, size_t n_thresholds)
 {
-    histogram(title, values, n_values, thresholds, n_thresholds, out);
+    histogram_freq(hist, title, values, n_values, thresholds, n_thresholds);
 }
 
-void histogramu16v(const char *title,
-                   const uint16_t *values, size_t n_values,
-                   const uint16_t *thresholds, size_t n_thresholds,
-                   FILE *out)
+void histogram_frequ16v(Histogram *hist, const char *title,
+                        const uint16_t *values, size_t n_values,
+                        const uint16_t *thresholds, size_t n_thresholds)
 {
-    histogram(title, values, n_values, thresholds, n_thresholds, out);
+    histogram_freq(hist, title, values, n_values, thresholds, n_thresholds);
 }
 
-void histogrami32v(const char *title,
-                   const int32_t *values, size_t n_values,
-                   const int32_t *thresholds, size_t n_thresholds,
-                   FILE *out)
+void histogram_freqi32v(Histogram *hist, const char *title,
+                        const int32_t *values, size_t n_values,
+                        const int32_t *thresholds, size_t n_thresholds)
 {
-    histogram(title, values, n_values, thresholds, n_thresholds, out);
+    histogram_freq(hist, title, values, n_values, thresholds, n_thresholds);
 }
 
-void histogramu32v(const char *title,
-                   const uint32_t *values, size_t n_values,
-                   const uint32_t *thresholds, size_t n_thresholds,
-                   FILE *out)
+void histogram_frequ32v(Histogram *hist, const char *title,
+                        const uint32_t *values, size_t n_values,
+                        const uint32_t *thresholds, size_t n_thresholds)
 {
-    histogram(title, values, n_values, thresholds, n_thresholds, out);
+    histogram_freq(hist, title, values, n_values, thresholds, n_thresholds);
 }
 
-void histogrami64v(const char *title,
-                   const int64_t *values, size_t n_values,
-                   const int64_t *thresholds, size_t n_thresholds,
-                   FILE *out)
+void histogram_freqi64v(Histogram *hist, const char *title,
+                        const int64_t *values, size_t n_values,
+                        const int64_t *thresholds, size_t n_thresholds)
 {
-    histogram(title, values, n_values, thresholds, n_thresholds, out);
+    histogram_freq(hist, title, values, n_values, thresholds, n_thresholds);
 }
 
-void histogramu64v(const char *title,
-                   const uint64_t *values, size_t n_values,
-                   const uint64_t *thresholds, size_t n_thresholds,
-                   FILE *out)
+void histogram_frequ64v(Histogram *hist, const char *title,
+                        const uint64_t *values, size_t n_values,
+                        const uint64_t *thresholds, size_t n_thresholds)
 {
-    histogram(title, values, n_values, thresholds, n_thresholds, out);
+    histogram_freq(hist, title, values, n_values, thresholds, n_thresholds);
 }
 
-void histogramf32v(const char *title,
-                   const float *values, size_t n_values,
-                   const float *thresholds, size_t n_thresholds,
-                   FILE *out)
+void histogram_freqf32v(Histogram *hist, const char *title,
+                        const float *values, size_t n_values,
+                        const float *thresholds, size_t n_thresholds)
 {
-    histogram(title, values, n_values, thresholds, n_thresholds, out);
+    histogram_freq(hist, title, values, n_values, thresholds, n_thresholds);
 }
 
-void histogramf64v(const char *title,
-                   const double *values, size_t n_values,
-                   const double *thresholds, size_t n_thresholds,
-                   FILE *out)
+void histogram_freqf64v(Histogram *hist, const char *title,
+                        const double *values, size_t n_values,
+                        const double *thresholds, size_t n_thresholds)
 {
-    histogram(title, values, n_values, thresholds, n_thresholds, out);
+    histogram_freq(hist, title, values, n_values, thresholds, n_thresholds);
 }
 
 } /* extern "C" */

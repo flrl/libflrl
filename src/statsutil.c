@@ -24,6 +24,11 @@ void *statsutil_calloc(size_t nelem, size_t elsize)
     return calloc(nelem, elsize);
 }
 
+char *statsutil_strdup(const char *s)
+{
+    return strdup(s);
+}
+
 void statsutil_free(void *ptr)
 {
     free(ptr);
@@ -78,7 +83,7 @@ static inline void ansi_reset(FILE *out)
     fputs("\e[0m", out);
 }
 
-void hist_print_header(const char *title, double grid[6], FILE *out)
+static void hist_print_header(const Histogram *hist, FILE *out)
 {
     unsigned i;
     int ws;
@@ -90,11 +95,11 @@ void hist_print_header(const char *title, double grid[6], FILE *out)
     ansi_reset(out);
     fputc('\n', out);
 
-    assert(strlen(title) < 80);
-    ws = (80 - strlen(title)) / 2;
+    assert(strlen(hist->title) < 80);
+    ws = (80 - strlen(hist->title)) / 2;
     for (i = 0; (int) i < ws; i++)
         fputc(' ', out);
-    fputs(title, out);
+    fputs(hist->title, out);
     fputc('\n', out);
 
     ansi_colour_256(out, grid_colour);
@@ -105,7 +110,7 @@ void hist_print_header(const char *title, double grid[6], FILE *out)
     fputs("\n         ", out);
     fprintf(out, "%-7g   ", 0.0);
     for (i = 0; i < 6; i++) {
-        fprintf(out, "%-7g   ", grid[i]);
+        fprintf(out, "%-7g   ", hist->grid[i]);
     }
     fputc('\n', out);
     ansi_colour_256(out, grid_colour);
@@ -116,7 +121,7 @@ void hist_print_header(const char *title, double grid[6], FILE *out)
     fputc('\n', out);
 }
 
-void hist_print_footer(FILE *out)
+static void hist_print_footer(FILE *out)
 {
     ansi_colour_256(out, grid_colour);
     fputws(L"─────────┴─────────┴─────────┴─────────┴"
@@ -126,23 +131,26 @@ void hist_print_footer(FILE *out)
     fputc('\n', out);
 }
 
-void hist_print(const struct hist_bucket *buckets, size_t n_buckets, FILE *out)
+void histogram_print(const Histogram *hist, FILE *out)
 {
     size_t i;
     unsigned p;
 
-    for (i = 0; i < n_buckets; i++) {
+    hist_print_header(hist, out);
+
+    for (i = 0; i < hist->n_buckets; i++) {
+        struct hist_bucket *bucket = &hist->buckets[i];
         int ws;
 
-        if (!buckets[i].freq_raw && buckets[i].skip_if_zero)
+        if (!bucket->freq_raw && bucket->skip_if_zero)
             continue;
 
         /* first line: lower bound label */
         ansi_colour_256(out, bucket_colours[i & 1]);
         ansi_bgcolour_256(out, bucket_bgcolours[i & 1]);
-        assert(strlen(buckets[i].lb_label) <= 9);
-        ws = 9 - strlen(buckets[i].lb_label);
-        fputs(buckets[i].lb_label, out);
+        assert(strlen(bucket->lb_label) <= 9);
+        ws = 9 - strlen(bucket->lb_label);
+        fputs(bucket->lb_label, out);
         for (p = 0; (int) p < ws; p++)
             fputc(' ', out);
 
@@ -152,8 +160,8 @@ void hist_print(const struct hist_bucket *buckets, size_t n_buckets, FILE *out)
 
         /* pips */
         ansi_colour_256(out, bucket_colours[i & 1]);
-        assert(buckets[i].pips <= 60);
-        for (p = 0; p < buckets[i].pips; p++)
+        assert(bucket->pips <= 60);
+        for (p = 0; p < bucket->pips; p++)
             fputwc(L'▄', out);
 
         /* end grid */
@@ -171,18 +179,18 @@ void hist_print(const struct hist_bucket *buckets, size_t n_buckets, FILE *out)
 
         /* raw frequency */
         ansi_colour_256(out, bucket_colours[i & 1]);
-        fprintf(out, " %-9g", (double) buckets[i].freq_raw);
+        fprintf(out, " %-9g", (double) bucket->freq_raw);
         ansi_reset(out);
         fputc('\n', out);
 
         /* second line: upper bound label */
         ansi_colour_256(out, bucket_colours[i & 1]);
         ansi_bgcolour_256(out, bucket_bgcolours[i & 1]);
-        assert(strlen(buckets[i].ub_label) <= 9);
-        ws = 9 - strlen(buckets[i].ub_label);
+        assert(strlen(bucket->ub_label) <= 9);
+        ws = 9 - strlen(bucket->ub_label);
         for (p = 0; (int) p < ws; p++)
             fputc(' ', out);
-        fputs(buckets[i].ub_label, out);
+        fputs(bucket->ub_label, out);
 
         /* start grid */
         ansi_colour_256(out, grid_colour);
@@ -190,8 +198,8 @@ void hist_print(const struct hist_bucket *buckets, size_t n_buckets, FILE *out)
 
         /* pips */
         ansi_colour_256(out, bucket_colours[i & 1]);
-        assert(buckets[i].pips <= 60);
-        for (p = 0; p < buckets[i].pips; p++)
+        assert(bucket->pips <= 60);
+        for (p = 0; p < bucket->pips; p++)
             fputwc(L'▀', out);
 
         /* end grid */
@@ -209,9 +217,18 @@ void hist_print(const struct hist_bucket *buckets, size_t n_buckets, FILE *out)
 
         /* percentage frequency */
         ansi_colour_256(out, bucket_colours[i & 1]);
-        fprintf(out, " %8.3g%%", buckets[i].freq_pc);
+        fprintf(out, " %8.3g%%", bucket->freq_pc);
         ansi_reset(out);
         fputc('\n', out);
     }
+
+    hist_print_footer(out);
     fflush(out);
+}
+
+void histogram_fini(Histogram *hist)
+{
+    free(hist->title);
+    free(hist->buckets);
+    memset(hist, 0, sizeof(*hist));
 }
