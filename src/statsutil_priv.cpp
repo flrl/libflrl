@@ -13,7 +13,6 @@ extern void statsutil_free(void *ptr);
 
 extern double statsutil_ceil(double x);
 extern double statsutil_floor(double x);
-extern double statsutil_niceceil(double x);
 extern double statsutil_round(double x);
 
 struct fmv_ctx {
@@ -190,8 +189,8 @@ static T *invent_thresholds(const T *values, std::size_t n_values,
     }
 
     if (std::is_floating_point_v<T>) {
-        ub = statsutil_niceceil(ub);
-        range = statsutil_niceceil(ub - lb);
+        ub = niceceil(ub);
+        range = niceceil(ub - lb);
         lb = ub - range;
     }
     else {
@@ -214,7 +213,7 @@ static T *invent_thresholds(const T *values, std::size_t n_values,
     }
 
     if (std::is_floating_point_v<T>) {
-        step = statsutil_niceceil(range / n_thresholds);
+        step = niceceil(range / n_thresholds);
     }
     else {
         n_thresholds = std::min(n_thresholds, (size_t) range);
@@ -301,7 +300,7 @@ static void histogram_freq(Histogram *hist, const char *title,
     }
 
     /* compute grid lines and pips */
-    fpp = statsutil_niceceil(max_freq_raw / 60.0);
+    fpp = niceceil(max_freq_raw / 60.0);
     for (i = 0; i < 6; i++) {
         hist->grid[i] = (i + 1) * fpp * 10.0;
     }

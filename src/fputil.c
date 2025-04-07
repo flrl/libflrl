@@ -52,3 +52,45 @@ double kbn_sumf64v(const double *values, size_t n_values)
 
     return sum + c;
 }
+
+double niceceil(double x)
+{
+    double scale = 1.0;
+
+    if (x == 0.0) return 0.0;
+
+    while (fabs(x) >= 10.0) {
+        x /= 10.0;
+        scale *= 10.0;
+    }
+
+    while (fabs(x) < 1.0) {
+        x *= 10.0;
+        scale /= 10.0;
+    }
+
+    x = 0.5 * ceil(2.0 * x);
+
+    return scale * x;
+}
+
+double nicefloor(double x)
+{
+    double scale = 1.0;
+
+    if (x == 0.0) return 0.0;
+
+    while (fabs(x) >= 10.0) {
+        x /= 10.0;
+        scale *= 10.0;
+    }
+
+    while (fabs(x) < 1.0) {
+        x *= 10.0;
+        scale /= 10.0;
+    }
+
+    x = 0.5 * floor(2.0 * x);
+
+    return scale * x;
+}

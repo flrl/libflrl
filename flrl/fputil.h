@@ -41,4 +41,7 @@ inline void kbn_sumf64_r(double *sum, double *comp, double addend)
     noinline_kbn_sumf64_r(sum, comp, addend);
 #endif
 
+extern double niceceil(double x);
+extern double nicefloor(double x);
+
 #endif

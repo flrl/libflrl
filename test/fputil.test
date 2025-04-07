@@ -6,6 +6,8 @@
 #include <math.h>
 #include <stdio.h>
 
+#define TEST_EPSILON (0) /* XXX not actually used by assert_float_equal()! */
+
 static void fn_kbn_sumf32v(NO_STATE)
 {
     const struct {
@@ -84,11 +86,73 @@ static void fn_kbn_sumf64v(NO_STATE)
     }
 }
 
+static void fn_niceceil(NO_STATE)
+{
+    const struct {
+        double input;
+        double expect;
+    } tests[] = {
+        {       0.0,          0.0    },
+        {       0.0034,       0.0035 },
+        {       0.4,          0.4    },
+        {       0.41,         0.45   },
+        {       1.2,          1.5    },
+        {   84554.0,      85000.0    },
+        {  143928.0,     150000.0    },
+        { -143928.0,    -100000.0    },
+        {  -84554.0,     -80000.0    },
+        {      -1.2,         -1.0    },
+        {      -0.41,        -0.40   },
+        {      -0.4,         -0.4    },
+        {      -0.0034,      -0.0030 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        double actual = niceceil(tests[i].input);
+
+        assert_float_equal(actual, tests[i].expect, TEST_EPSILON);
+    }
+}
+
+static void fn_nicefloor(NO_STATE)
+{
+    const struct {
+        double input;
+        double expect;
+    } tests[] = {
+        {       0.0,          0.0    },
+        {       0.0034,       0.0030 },
+        {       0.4,          0.4    },
+        {       0.41,         0.40   },
+        {       1.2,          1.0    },
+        {   84554.0,      80000.0    },
+        {  143928.0,     100000.0    },
+        { -143928.0,    -150000.0    },
+        {  -84554.0,     -85000.0    },
+        {      -1.2,         -1.5    },
+        {      -0.41,        -0.45   },
+        {      -0.4,         -0.4    },
+        {      -0.0034,      -0.0035 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        double actual = nicefloor(tests[i].input);
+
+        assert_float_equal(actual, tests[i].expect, TEST_EPSILON);
+    }
+}
+
 const char *const um_group_name = "fputil";
 const struct CMUnitTest um_group_tests[] =
 {
     cmocka_unit_test(fn_kbn_sumf32v),
     cmocka_unit_test(fn_kbn_sumf64v),
+    cmocka_unit_test(fn_niceceil),
+    cmocka_unit_test(fn_nicefloor),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);

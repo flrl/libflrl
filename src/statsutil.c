@@ -44,25 +44,6 @@ double statsutil_floor(double x)
     return floor(x);
 }
 
-double statsutil_niceceil(double x)
-{
-    double scale = 1.0;
-
-    while (x >= 10.0) {
-        x /= 10.0;
-        scale *= 10.0;
-    }
-
-    while (x < 1.0) {
-        x *= 10.0;
-        scale /= 10.0;
-    }
-
-    x = 0.5 * ceil(2.0 * x);
-
-    return scale * x;
-}
-
 double statsutil_round(double x)
 {
     return round(x);
