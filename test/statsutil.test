@@ -2,9 +2,253 @@
 
 #include "src/statsutil.c"
 
+#include "flrl/randutil.h"
+
+#include <float.h>
+#include <math.h>
+
+#define TEST_EPSILON (0) /* XXX not actually used by assert_float_equal()! */
+
+static void fn_meani8v(NO_STATE)
+{
+    const struct {
+        int8_t values[8];
+        size_t n_values;
+        double expect;
+    } tests[] = {
+        { {},
+          0, NAN },
+        { { 0, 0, 0, 0, 0, 0, 0, 0 },
+          8, 0.0 },
+        { { -1, 0, +1 },
+          3, 0.0 },
+        { { 12, 20, 111 },
+          3, 47.667 },
+        { { INT8_MIN, INT8_MAX },
+          2, -0.5 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        double actual = meani8v(tests[i].values, tests[i].n_values);
+
+        assert_float_equal(actual, tests[i].expect, TEST_EPSILON);
+    }
+}
+
+static void fn_mediani8v(NO_STATE)
+{
+    const struct {
+        int8_t values[8];
+        size_t n_values;
+        double expect;
+    } tests[] = {
+        { {},
+          0, NAN },
+        { { 0, 0, 0, 0, 0, 0, 0, 0 },
+          8, 0.0 },
+        { { -1, 0, +1 },
+          3, 0.0 },
+        { { 12, 20, 111 },
+          3, 20.0 },
+        { { INT8_MIN, INT8_MAX },
+          2, -0.5 },
+        { { INT8_MIN, 12, INT8_MAX },
+          3, 12.0 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        double actual = mediani8v(tests[i].values, tests[i].n_values);
+
+        assert_float_equal(actual, tests[i].expect, TEST_EPSILON);
+    }
+}
+
+static void fn_modei8v(NO_STATE)
+{
+    const struct {
+        int8_t values[8];
+        size_t n_values;
+        int8_t expect_mode;
+        size_t expect_frequency;
+    } tests[] = {
+        { {},
+          0, 0, 0 },
+        { { 0, 0, 0, 0, 0, 0, 0, 0 },
+          8, 0, 8 },
+        { { -1, 0, 1, 0 },
+          4, 0, 2 },
+        { { 12, 20, 111, 12, 20, 12 },
+          6, 12, 3 },
+        { { INT8_MIN, INT8_MIN, INT8_MAX },
+          3, INT8_MIN, 2 },
+        { { INT8_MIN, 12, 12 },
+          3, 12, 2 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        size_t actual_frequency;
+
+        int8_t actual_mode = modei8v(tests[i].values, tests[i].n_values,
+                                     &actual_frequency);
+
+        assert_int_equal(actual_mode, tests[i].expect_mode);
+        assert_int_equal(actual_frequency, tests[i].expect_frequency);
+    }
+}
+
+static void fn_variancei8v(NO_STATE)
+{
+    const struct {
+        int8_t values[8];
+        size_t n_values;
+        double expect;
+    } tests[] = {
+        { {},
+          0, NAN },
+        { { 0, 0, 0, 0, 0, 0, 0, 0 },
+          8, 0.0 },
+        { { -1, 0, 1, 0 },
+          4, 0.66667 },
+        { { 12, 20, 111, 12, 20, 12 },
+          6, 1544.9667 },
+        { { INT8_MIN, INT8_MIN, INT8_MAX },
+          3, 21675.0 },
+        { { INT8_MIN, 12, 12 },
+          3, 6533.333 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        double mean = meani8v(tests[i].values, tests[i].n_values);
+
+        double actual = variancei8v(tests[i].values, tests[i].n_values, mean);
+
+        assert_float_equal(actual, tests[i].expect, TEST_EPSILON);
+    }
+}
+
+#define do_test_stats(ctype, ftype, min, max) do                            \
+{                                                                           \
+    ctype *values = NULL;                                                   \
+    const size_t n_values = 10000;                                          \
+    double expect_mean, expect_variance;                                    \
+    double actual_mean = nan(""), actual_variance = nan("");                \
+                                                                            \
+    values = calloc(n_values, sizeof(values[0]));                           \
+    assert_non_null(values);                                                \
+                                                                            \
+    rand##ftype##v(rbs, values, n_values, min, max);                        \
+                                                                            \
+    expect_mean = mean##ftype##v(values, n_values);                         \
+    expect_variance = variance##ftype##v(values, n_values, expect_mean);    \
+                                                                            \
+    stats##ftype##v(values, n_values,                                       \
+                    NULL, NULL,                                             \
+                    NULL, NULL,                                             \
+                    &actual_mean, &actual_variance);                        \
+                                                                            \
+    assert_float_equal(actual_mean, expect_mean, TEST_EPSILON);             \
+    assert_float_equal(actual_variance, expect_variance, TEST_EPSILON);     \
+                                                                            \
+    free(values);                                                           \
+} while (0)
+
+static void fn_statsi8v(void **state)
+{
+    struct randbs *rbs = *state;
+
+    do_test_stats(int8_t, i8, INT8_MIN, INT8_MAX);
+}
+
+static void fn_statsu8v(void **state)
+{
+    struct randbs *rbs = *state;
+
+    do_test_stats(uint8_t, u8, 0, UINT8_MAX);
+}
+
+static void fn_statsi16v(void **state)
+{
+    struct randbs *rbs = *state;
+
+    do_test_stats(int16_t, i16, INT16_MIN, INT16_MAX);
+}
+
+static void fn_statsu16v(void **state)
+{
+    struct randbs *rbs = *state;
+
+    do_test_stats(uint16_t, u16, 0, UINT16_MAX);
+}
+
+static void fn_statsi32v(void **state)
+{
+    struct randbs *rbs = *state;
+
+    do_test_stats(int32_t, i32, INT32_MIN, INT32_MAX);
+}
+
+static void fn_statsu32v(void **state)
+{
+    struct randbs *rbs = *state;
+
+    do_test_stats(uint32_t, u32, 0, UINT32_MAX);
+}
+
+static void fn_statsi64v(void **state)
+{
+    struct randbs *rbs = *state;
+
+    do_test_stats(int64_t, i64, INT64_MIN, INT64_MAX);
+}
+
+static void fn_statsu64v(void **state)
+{
+    struct randbs *rbs = *state;
+
+    do_test_stats(uint64_t, u64, 0, UINT64_MAX);
+}
+
+static void fn_statsf32v(void **state)
+{
+    struct randbs *rbs = *state;
+
+    do_test_stats(float, f32, 0, FLT_MAX);
+    do_test_stats(float, f32, -FLT_MAX, 0);
+}
+
+static void fn_statsf64v(void **state)
+{
+    struct randbs *rbs = *state;
+
+    do_test_stats(double, f64, 0, DBL_MAX);
+    do_test_stats(double, f64, -DBL_MAX, 0);
+}
+
 const char *const um_group_name = "statsutil";
 const struct CMUnitTest um_group_tests[] =
 {
+    cmocka_unit_test(fn_meani8v),
+    cmocka_unit_test(fn_mediani8v),
+    cmocka_unit_test(fn_modei8v),
+    cmocka_unit_test(fn_variancei8v),
+    cmocka_unit_test_setup(fn_statsi8v, um_setup_rbs),
+    cmocka_unit_test_setup(fn_statsu8v, um_setup_rbs),
+    cmocka_unit_test_setup(fn_statsi16v, um_setup_rbs),
+    cmocka_unit_test_setup(fn_statsu16v, um_setup_rbs),
+    cmocka_unit_test_setup(fn_statsi32v, um_setup_rbs),
+    cmocka_unit_test_setup(fn_statsu32v, um_setup_rbs),
+    cmocka_unit_test_setup(fn_statsi64v, um_setup_rbs),
+    cmocka_unit_test_setup(fn_statsu64v, um_setup_rbs),
+    cmocka_unit_test_setup(fn_statsf32v, um_setup_rbs),
+    cmocka_unit_test_setup(fn_statsf64v, um_setup_rbs),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);
