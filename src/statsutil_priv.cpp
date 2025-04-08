@@ -38,6 +38,8 @@ static double mean(const T *values, std::size_t n_values)
     double mean = 0, c = 0, scale = 1.0 / n_values;
     std::size_t i;
 
+    if (!n_values) return statsutil_nan;
+
     for (i = 0; i < n_values; i++) {
         kbn_sumf64_r(&mean, &c, scale * values[i]);
     }
@@ -50,6 +52,8 @@ static double median(const T *values, std::size_t n_values)
 {
     T *copy;
     double median;
+
+    if (!n_values) return statsutil_nan;
 
     copy = (T*) statsutil_malloc(n_values * sizeof(values[0]));
     if (!copy) return statsutil_nan;
@@ -75,6 +79,11 @@ static T mode(const T *values, std::size_t n_values, std::size_t *pfrequency)
     T mode;
 
     static_assert(std::is_integral<T>::value, "Integral required");
+
+    if (!n_values) {
+        if (pfrequency) *pfrequency = 0;
+        return 0;
+    }
 
     hashmap_init(&counts, n_values / 10);
 
@@ -103,8 +112,12 @@ static T mode(const T *values, std::size_t n_values, std::size_t *pfrequency)
 template<typename T>
 static double variance(const T *values, std::size_t n_values, double mean)
 {
-    double variance = 0, c = 0, scale = 1.0 / n_values;
+    double variance = 0, c = 0, scale;
     std::size_t i;
+
+    if (!n_values) return statsutil_nan;
+
+    scale = 1.0 / (n_values - 1);
 
     for (i = 0; i < n_values; i++) {
         double diff;
