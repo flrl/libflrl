@@ -1,0 +1,206 @@
+#include "test/unitmain.h"
+
+#include "src/base64.c"
+
+static const struct {
+    const char *raw;
+    const char *encoded;
+} known_pairs[] = {
+    /* some examples from wikipedia */
+    { "Many hands make light work.",        "TWFueSBoYW5kcyBtYWtlIGxpZ2h0IHdvcmsu" },
+    { "Man",                                "TWFu" },
+    { "Ma",                                 "TWE=" },
+    { "M",                                  "TQ==" },
+    { "light work.",                        "bGlnaHQgd29yay4=" },
+    { "light work",                         "bGlnaHQgd29yaw==" },
+    { "light wor",                          "bGlnaHQgd29y" },
+    { "light wo",                           "bGlnaHQgd28=" },
+    { "light w",                            "bGlnaHQgdw==" },
+    /* computed to contain values 62 and 63 */
+    { "\xfa\xbf\xd0",                       "-r_Q" },
+    /* other stuff */
+    { "\x86\x2b\x7e\xa2\xbf\xa6\x8a\xcb",   "hit-or-miss=" },
+};
+const size_t n_known_pairs = sizeof(known_pairs) / sizeof(known_pairs[0]);
+
+static void encode_known_values(NO_STATE)
+{
+    unsigned i;
+
+    for (i = 0; i < n_known_pairs; i++) {
+        char buf[1024];
+        const char *p;
+        size_t expect_len;
+
+        expect_len = base64_encoded_len(strlen(known_pairs[i].raw));
+
+        p = base64_encode(buf, sizeof(buf),
+                          known_pairs[i].raw, strlen(known_pairs[i].raw));
+
+        if (expect_len >= sizeof(buf)) {
+            assert_null(p);
+        }
+        else {
+            assert_ptr_equal(p, buf);
+            assert_int_equal(expect_len, strlen(buf));
+            assert_string_equal(known_pairs[i].encoded, buf);
+        }
+    }
+}
+
+static void decode_known_values(NO_STATE)
+{
+    unsigned i;
+
+    for (i = 0; i < n_known_pairs; i++) {
+        char buf[1024] = {0};
+        ssize_t r;
+        ssize_t expected_len;
+
+        expected_len = base64_decoded_len(known_pairs[i].encoded);
+        assert_int_not_equal(-1, expected_len);
+
+        r = base64_decode(buf, sizeof(buf),
+                          known_pairs[i].encoded, 0);
+
+        assert_int_not_equal(-1, r);
+        assert_int_equal(expected_len, r);
+        assert_string_equal(known_pairs[i].raw, buf);
+    }
+}
+
+static void decode_bad_inputs(NO_STATE)
+{
+    const struct {
+        const char *input;
+    } tests[] = {
+        { "B==="        }, /* incomplete byte */
+        { "Beefx==="    }, /* incomplete byte */
+        { "Bee\eface"   }, /* invalid char */
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        char buf[1024];
+        ssize_t r;
+
+        r = base64_decoded_len(tests[i].input);
+        assert_int_equal(-1, r);
+
+        r = base64_decode(buf, sizeof(buf), tests[i].input, 0);
+        assert_int_equal(-1, r);
+    }
+}
+
+static void decode_uint64(NO_STATE)
+{
+    const struct {
+        const char *encoded;
+        ssize_t expect_r;
+        uint64_t expect_val;
+    } tests[] = {
+        { "washingmachine", -1,                  0 }, /* too long */
+        { "washingmachi",   -1,                  0 }, /* too long */
+        { "washingmach=",    8, 0xc86926788a21abc1 }, /* just right */
+        { "washingmach",     8, 0xc86926788a21abc1 }, /* just right */
+        { "washingmac==",    7, 0x006926788a21abc1 }, /* short input */
+        { "washingmac",      7, 0x006926788a21abc1 }, /* short input */
+        { "washingma===",   -1,                  0 }, /* incomplete byte */
+        { "washingma",      -1,                  0 }, /* incomplete byte */
+        { "washingm",        6, 0x000026788a21abc1 }, /* short input */
+        { "",                0,                  0 }, /* empty */
+        { "====",            0,                  0 }, /* also empty */
+        { "-r_Q",            3, 0x0000000000d0bffa }, /* url */
+        { "+r/Q",            3, 0x0000000000d0bffa }, /* standard */
+        { "washin==\e\e\e",  4, 0x000000008a21abc1 }, /* ign junk after pad */
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        uint64_t val = {0};
+        ssize_t r;
+
+        r = base64_decode(&val, sizeof(val), tests[i].encoded, 0);
+        assert_int_equal(tests[i].expect_r, r);
+
+        if (tests[i].expect_r >= 0)
+            assert_int_equal(tests[i].expect_val, val);
+    }
+}
+
+static void decode_whitespace(NO_STATE)
+{
+    int tests[] = {
+        ' ', '\t', '\r', '\n', '\f', '\v',
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        char encoded[32];
+        uint64_t val;
+        ssize_t r;
+
+        snprintf(encoded, sizeof(encoded), "%cwash%cingm%cach=%c",
+                 tests[i], tests[i], tests[i], tests[i]);
+
+        r = base64_decoded_len(encoded);
+        assert_int_equal(sizeof(val), r);
+
+        r = base64_decode(&val, sizeof(val), encoded, 0);
+        assert_int_equal(sizeof(val), r);
+        assert_int_equal(0xc86926788a21abc1, val);
+    }
+}
+
+static void round_trip(NO_STATE)
+{
+    unsigned i;
+
+    for (i = 0; i < n_known_pairs; i++) {
+        char encoded[1024] = {0}, decoded[1024] = {0};
+        const char *p;
+        ssize_t r;
+
+        p = base64_encode(encoded, sizeof(encoded),
+                          known_pairs[i].raw, strlen(known_pairs[i].raw));
+        assert_non_null(p);
+        assert_string_equal(known_pairs[i].encoded, encoded);
+
+        r = base64_decode(decoded, sizeof(decoded),
+                          encoded, 0);
+        assert_int_not_equal(-1, r);
+        assert_int_equal(strlen(known_pairs[i].raw), r);
+        assert_string_equal(known_pairs[i].raw, decoded);
+
+        memset(encoded, 0, sizeof(encoded));
+        p = base64_encode(encoded, sizeof(encoded),
+                          decoded, strlen(decoded));
+        assert_non_null(p);
+        assert_string_equal(known_pairs[i].encoded, encoded);
+
+        memset(decoded, 0, sizeof(decoded));
+        r = base64_decode(decoded, sizeof(decoded),
+                          encoded, strlen(encoded));
+        assert_int_not_equal(-1, r);
+        assert_int_equal(strlen(known_pairs[i].raw), r);
+        assert_string_equal(known_pairs[i].raw, decoded);
+    }
+}
+
+const char *const um_group_name = "base64";
+const struct CMUnitTest um_group_tests[] = {
+    cmocka_unit_test(encode_known_values),
+    cmocka_unit_test(decode_known_values),
+    cmocka_unit_test(decode_bad_inputs),
+    cmocka_unit_test(decode_uint64),
+    cmocka_unit_test(decode_whitespace),
+    cmocka_unit_test(round_trip),
+};
+const size_t um_group_n_tests = sizeof(um_group_tests) / sizeof(um_group_tests[0]);
+CMFixtureFunction um_group_setup = NULL;
+CMFixtureFunction um_group_teardown = NULL;
+
+/* vim: set ft=c :*/
