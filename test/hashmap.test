@@ -3,7 +3,6 @@
 #include "src/hashmap.c"
 
 #include "flrl/randutil.h"
-#include "flrl/xoshiro.h"
 
 #include <profileapi.h> /* win32 */
 
@@ -802,12 +801,11 @@ static inline int64_t get_timestamp(void)
     return tmp.QuadPart;
 }
 
-static void do_load_factor(double load_factor)
+static void do_load_factor(struct randbs *rbs, double load_factor)
 {
     HashMap hm;
     const unsigned size = 262144;
     const unsigned n_ops = 10000;
-    struct randbs rbs = RANDBS_INITIALIZER(xoshiro128starstar_next);
     unsigned i, x, y;
     int r;
 
@@ -820,12 +818,10 @@ static void do_load_factor(double load_factor)
     hm.gc_threshold = HASHMAP_NO_GC;
     assert_int_equal(size, hm.alloc);
 
-    randbs_seed64(&rbs, 0xcafebabefeeddeed); /* XXX need variable but repeatable seeds */
-
     /* fill up to load factor */
     for (i = 0; i < load_factor * size; i++) {
-        const char *word = random_printable(&rbs);
-//         uint32_t key = randu32(&rbs, 0, UINT32_MAX);
+        const char *word = random_printable(rbs);
+//         uint32_t key = randu32(rbs, 0, UINT32_MAX);
         r = hashmap_put(&hm, word, strlen(word), (void *)(uintptr_t) i, NULL);
         assert_int_equal(HASHMAP_OK, r);
     }
@@ -841,7 +837,7 @@ static void do_load_factor(double load_factor)
         switch ((i & 3)) {
         case 0:
             /* insert a random new (probably) key */
-            key = random_printable(&rbs);
+            key = random_printable(rbs);
             key_len = strlen((const char *) key);
 
             r = hashmap_put(&hm, key, key_len, (void *)(uintptr_t) i, NULL);
@@ -850,7 +846,7 @@ static void do_load_factor(double load_factor)
             break;
         case 1:
             /* delete a random existing key */
-            x = randu32(&rbs, 0, hm.alloc - 1);
+            x = randu32(rbs, 0, hm.alloc - 1);
 
             while (!has_key_at_index(&hm, x))
                 x = (x + 1) & (hm.alloc - 1);
@@ -864,7 +860,7 @@ static void do_load_factor(double load_factor)
             break;
         case 2:
             /* get a random existing key */
-            x = randu32(&rbs, 0, hm.alloc - 1);
+            x = randu32(rbs, 0, hm.alloc - 1);
 
             while (!has_key_at_index(&hm, x))
                 x = (x + 1) & (hm.alloc - 1);
@@ -878,7 +874,7 @@ static void do_load_factor(double load_factor)
             break;
         case 3:
             /* get a random probably nonexistent key */
-            key = random_printable(&rbs);
+            key = random_printable(rbs);
             key_len = strlen((const char *) key);
 
             r = hashmap_get(&hm, key, key_len, NULL);
@@ -893,69 +889,95 @@ static void do_load_factor(double load_factor)
     hashmap_fini(&hm, NULL);
 }
 
-static void load_factor_60(NO_STATE)
+static void load_factor_60(void **state)
 {
-    do_load_factor(0.6);
+    struct randbs *rbs = *state;
+
+    do_load_factor(rbs, 0.6);
 }
 
-static void load_factor_70(NO_STATE)
+static void load_factor_70(void **state)
 {
-    do_load_factor(0.7);
+    struct randbs *rbs = *state;
+
+    do_load_factor(rbs, 0.7);
 }
 
-static void load_factor_80(NO_STATE)
+static void load_factor_80(void **state)
 {
-    do_load_factor(0.8);
+    struct randbs *rbs = *state;
+
+    do_load_factor(rbs, 0.8);
 }
 
-static void load_factor_90(NO_STATE)
+static void load_factor_90(void **state)
 {
-    do_load_factor(0.90);
+    struct randbs *rbs = *state;
+
+    do_load_factor(rbs, 0.90);
 }
 
-static void load_factor_91(NO_STATE)
+static void load_factor_91(void **state)
 {
-    do_load_factor(0.91);
+    struct randbs *rbs = *state;
+
+    do_load_factor(rbs, 0.91);
 }
 
-static void load_factor_92(NO_STATE)
+static void load_factor_92(void **state)
 {
-    do_load_factor(0.92);
+    struct randbs *rbs = *state;
+
+    do_load_factor(rbs, 0.92);
 }
 
-static void load_factor_93(NO_STATE)
+static void load_factor_93(void **state)
 {
-    do_load_factor(0.93);
+    struct randbs *rbs = *state;
+
+    do_load_factor(rbs, 0.93);
 }
 
-static void load_factor_94(NO_STATE)
+static void load_factor_94(void **state)
 {
-    do_load_factor(0.94);
+    struct randbs *rbs = *state;
+
+    do_load_factor(rbs, 0.94);
 }
 
-static void load_factor_95(NO_STATE)
+static void load_factor_95(void **state)
 {
-    do_load_factor(0.95);
+    struct randbs *rbs = *state;
+
+    do_load_factor(rbs, 0.95);
 }
 
-static void load_factor_96(NO_STATE)
+static void load_factor_96(void **state)
 {
-    do_load_factor(0.96);
+    struct randbs *rbs = *state;
+
+    do_load_factor(rbs, 0.96);
 }
 
-static void load_factor_97(NO_STATE)
+static void load_factor_97(void **state)
 {
-    do_load_factor(0.97);
+    struct randbs *rbs = *state;
+
+    do_load_factor(rbs, 0.97);
 }
 
-static void load_factor_98(NO_STATE)
+static void load_factor_98(void **state)
 {
-    do_load_factor(0.98);
+    struct randbs *rbs = *state;
+
+    do_load_factor(rbs, 0.98);
 }
 
-static void load_factor_99(NO_STATE)
+static void load_factor_99(void **state)
 {
-    do_load_factor(0.99);
+    struct randbs *rbs = *state;
+
+    do_load_factor(rbs, 0.99);
 }
 
 const char *const um_group_name = "hashmap";
@@ -969,19 +991,19 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test(put_del_collide),
     cmocka_unit_test(full),
     cmocka_unit_test(fn_hashmap_foreach),
-    cmocka_unit_test(load_factor_60),
-    cmocka_unit_test(load_factor_70),
-    cmocka_unit_test(load_factor_80),
-    cmocka_unit_test(load_factor_90),
-    cmocka_unit_test(load_factor_91),
-    cmocka_unit_test(load_factor_92),
-    cmocka_unit_test(load_factor_93),
-    cmocka_unit_test(load_factor_94),
-    cmocka_unit_test(load_factor_95),
-    cmocka_unit_test(load_factor_96),
-    cmocka_unit_test(load_factor_97),
-    cmocka_unit_test(load_factor_98),
-    cmocka_unit_test(load_factor_99),
+    cmocka_unit_test_setup(load_factor_60, um_setup_rbs),
+    cmocka_unit_test_setup(load_factor_70, um_setup_rbs),
+    cmocka_unit_test_setup(load_factor_80, um_setup_rbs),
+    cmocka_unit_test_setup(load_factor_90, um_setup_rbs),
+    cmocka_unit_test_setup(load_factor_91, um_setup_rbs),
+    cmocka_unit_test_setup(load_factor_92, um_setup_rbs),
+    cmocka_unit_test_setup(load_factor_93, um_setup_rbs),
+    cmocka_unit_test_setup(load_factor_94, um_setup_rbs),
+    cmocka_unit_test_setup(load_factor_95, um_setup_rbs),
+    cmocka_unit_test_setup(load_factor_96, um_setup_rbs),
+    cmocka_unit_test_setup(load_factor_97, um_setup_rbs),
+    cmocka_unit_test_setup(load_factor_98, um_setup_rbs),
+    cmocka_unit_test_setup(load_factor_99, um_setup_rbs),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);
