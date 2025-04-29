@@ -135,8 +135,7 @@ static void stats(const T *values, std::size_t n_values,
                   T *pmax, size_t *pmax_frequency,
                   double *pmean, double *pvariance)
 {
-    const double scale = 1.0 / n_values;
-    double mean, variance, c;
+    double mean, scale, variance, c;
     T min, max;
     std::size_t i, min_freq, max_freq;
 
@@ -145,6 +144,7 @@ static void stats(const T *values, std::size_t n_values,
 
     /* min, max, mean */
     min_freq = max_freq = mean = c = 0;
+    scale = 1.0 / n_values;
     for (i = 0; i < n_values; i++) {
         if (values[i] < min) {
             min = values[i];
@@ -176,6 +176,7 @@ static void stats(const T *values, std::size_t n_values,
 
     /* variance */
     variance = c = 0;
+    scale = 1.0 / (n_values - 1);
     for (i = 0; i < n_values; i++) {
         double diff;
 
