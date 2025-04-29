@@ -56,3 +56,6 @@ dkms.conf
 *.gcno
 *.info
 coverage/
+
+# test seed files
+test/*.seed

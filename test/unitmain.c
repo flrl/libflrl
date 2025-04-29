@@ -1,6 +1,9 @@
 #include "unitmain.h"
 
+#include "flrl/base64.h"
 #include "flrl/fputil.h"
+#include "flrl/randutil.h"
+#include "flrl/xoshiro.h"
 
 #include <assert.h>
 #include <float.h>
@@ -14,7 +17,10 @@
 #include <time.h>
 
 int verbose;
+uint64_t um_seed = 0;
+char um_encoded_seed[16] = {0};
 
+static int setup_seed(const char *seedstr);
 static int list_group_tests(const char *name,
                             const struct CMUnitTest tests[],
                             const size_t n_tests);
@@ -32,19 +38,23 @@ int main(int argc, char **argv)
 {
     const char *filter = NULL;
     const char *outfmt = NULL;
+    const char *seed = NULL;
     bool skip_filter = false;
     bool do_list = false;
     int c, r;
 
     setlocale(LC_ALL, ".utf8");
 
-    while ((c = getopt(argc, argv, "Slv")) != -1) {
+    while ((c = getopt(argc, argv, "Sls:v")) != -1) {
         switch (c) {
         case 'S':
             skip_filter = true;
             break;
         case 'l':
             do_list = true;
+            break;
+        case 's':
+            seed = optarg;
             break;
         case 'v':
             verbose ++;
@@ -64,6 +74,9 @@ int main(int argc, char **argv)
         filter = argv[optind++];
 
     if (argc > optind)
+        exit(usage(argv[0]));
+
+    if (setup_seed(seed))
         exit(usage(argv[0]));
 
     if (filter) {
@@ -98,6 +111,82 @@ static int list_group_tests(const char *const name,
         printf("%s.%s\n", name, tests[i].name);
     }
 
+    return 0;
+}
+
+/* arrange for same seed to be used by each test, and saved to a file
+ * so that if a randomised test fails, it can be rerun in the debugger
+ * using the same seed to find out why
+ */
+static int setup_seed(const char *seedstr)
+{
+    char seed_fname[64];
+    FILE *f;
+    int r;
+    bool got_seed = false;
+
+    snprintf(seed_fname, sizeof(seed_fname), "test/%s.seed", um_group_name);
+
+    if (seedstr && *seedstr) {
+        um_seed = 0;
+        r = base64_decode(&um_seed, sizeof(um_seed), seedstr, 0);
+        if (r < 0) {
+            fprintf(stderr, "base64_decode(%s) returned %lld (%llx)\n",
+                            seedstr, (int64_t) r, um_seed);
+            fprintf(stderr, "invalid seed: %s\n", seedstr);
+            fputs("    valid characters are A-Z, a-z, 0-9, '-', and '_'\n", stderr);
+            fputs("    maximum length 11 chars\n", stderr);
+            fflush(stderr);
+            return r;
+        }
+        got_seed = true;
+    }
+
+    if (!got_seed && (f = fopen(seed_fname, "r"))) {
+        char buf[128];
+
+        if (fgets(buf, sizeof(buf), f)) {
+            um_seed = 0;
+            r = base64_decode(&um_seed, sizeof(um_seed), buf, 0);
+            if (r > 0)
+                got_seed = true;
+        }
+        fclose(f);
+    }
+
+    if (!got_seed) {
+        um_seed = time(NULL);
+    }
+
+    base64_encode(um_encoded_seed, sizeof(um_encoded_seed),
+                  &um_seed, sizeof(um_seed));
+    if (verbose) {
+        fprintf(stderr, "%s: using seed: %s (%llx)\n",
+                        um_group_name, um_encoded_seed, um_seed);
+        fflush(stderr);
+    }
+
+    f = fopen(seed_fname, "w");
+    if (!f) {
+        perror(seed_fname);
+        return -1;
+    }
+    else {
+        fprintf(f, "%s\n", um_encoded_seed);
+        fclose(f);
+    }
+
+    return 0;
+}
+
+int um_setup_rbs(void **state)
+{
+    static struct randbs rbs;
+
+    rbs = RANDBS_INITIALIZER(&xoshiro128plusplus_next);
+    randbs_seed64(&rbs, um_seed);
+
+    *state = &rbs;
     return 0;
 }
 

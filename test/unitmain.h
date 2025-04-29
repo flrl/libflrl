@@ -21,6 +21,11 @@ extern const size_t um_group_n_tests;
 extern CMFixtureFunction um_group_setup;
 extern CMFixtureFunction um_group_teardown;
 
+extern uint64_t um_seed;
+extern char um_encoded_seed[16];
+
+extern int um_setup_rbs(void **state);
+
 #undef assert_float_equal
 #define assert_float_equal(a, b, e) do {                    \
     (void) (e);                                             \
