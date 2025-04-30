@@ -106,8 +106,8 @@ struct hist_bucket {
     double freq_pc;
     unsigned pips;
     bool skip_if_zero;
-    char lb_label[9];
-    char ub_label[9];
+    char lb_label[10]; /* 9 + 1 */
+    char ub_label[10];
 };
 
 typedef struct histogram {
