@@ -2,16 +2,18 @@ CC := gcc
 AR := ar
 WARNINGS := -Wall -Wextra -Werror -Wsuggest-attribute=format -Wwrite-strings
 FEATURES := -fstrict-aliasing
-CFLAGS := -Og -ggdb3 $(WARNINGS) $(FEATURES) $(CFLAGS)
-CXXFLAGS := -Og -ggdb3 -std=c++2b -ffreestanding -fno-exceptions $(WARNINGS) $(FEATURES) $(CXXFLAGS)
-LDFLAGS := $(LDFLAGS)
 LCOVEXCLUDE := misc/* src/xoshiro*.c src/splitmix64.c
 UTMUX := $(shell which utmux 2>/dev/null)
+COVERAGE :=
 
 REQUIRES := cmocka
 
-CPPFLAGS += $(shell pkg-config --cflags $(REQUIRES))
-LDLIBS += $(shell pkg-config --libs $(REQUIRES))
+FLRL_CFLAGS := -Og -ggdb3 $(WARNINGS) $(FEATURES) $(COVERAGE) $(CFLAGS)
+FLRL_CXXFLAGS := -Og -ggdb3 -std=c++2b -ffreestanding -fno-exceptions \
+				 $(WARNINGS) $(FEATURES) $(COVERAGE) $(CXXFLAGS)
+FLRL_LDFLAGS := $(LDFLAGS)
+FLRL_CPPFLAGS := $(shell pkg-config --cflags $(REQUIRES)) $(CPPFLAGS)
+FLRL_LDLIBS := $(shell pkg-config --libs $(REQUIRES)) $(LDLIBS)
 
 .PHONY: all check clean
 .PHONY: coverage coverage-setup coverage-report
@@ -91,34 +93,34 @@ endif
 $(TARGET): $(LIBCOBJS) $(LIBCXXOBJS)
 	$(AR) -rcsD $@ $^
 
-$(TESTOBJS): CPPFLAGS += -DUNIT_TESTING
+$(TESTOBJS): FLRL_CPPFLAGS += -DUNIT_TESTING
 
 filt_flrl = $(filter-out $(BUILDDIR)/$(1).o, $(2))
 
 $(TESTTARGETS): $(TESTDIR)/%: $(BUILDDIR)/test-%.o $(TESTCOMMONOBJS) $(LIBCOBJS) $(LIBCXXOBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(call filt_flrl,$*,$^) $(LDLIBS)
+	$(CC) $(FLRL_CFLAGS) $(FLRL_LDFLAGS) -o $@ $(call filt_flrl,$*,$^) $(FLRL_LDLIBS)
 
 $(MISCTARGETS): $(MISCDIR)/%: $(BUILDDIR)/misc-%.o $(TARGET)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $+
+	$(CC) $(FLRL_CFLAGS) $(FLRL_LDFLAGS) -o $@ $+
 
 $(OBJS) $(DEPS): | $(BUILDDIR)
 
-$(OBJS): CPPFLAGS += -I.
+$(OBJS): FLRL_CPPFLAGS += -I.
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(BUILDDIR)/%.d
-	$(CC) $(CFLAGS) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/$*.d -o $@ -c $<
+	$(CC) $(FLRL_CFLAGS) $(FLRL_CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/$*.d -o $@ -c $<
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.cpp $(BUILDDIR)/%.d
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/$*.d -o $@ -c $<
+	$(CXX) $(FLRL_CXXFLAGS) $(FLRL_CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/$*.d -o $@ -c $<
 
 $(BUILDDIR)/%.o: $(TESTDIR)/%.c $(BUILDDIR)/%.d
-	$(CC) $(CFLAGS) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/$*.d -o $@ -c $<
+	$(CC) $(FLRL_CFLAGS) $(FLRL_CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/$*.d -o $@ -c $<
 
 $(BUILDDIR)/test-%.o: $(TESTDIR)/%.test $(BUILDDIR)/test-%.d
-	$(CC) $(CFLAGS) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/test-$*.d -o $@ -x c -c $<
+	$(CC) $(FLRL_CFLAGS) $(FLRL_CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/test-$*.d -o $@ -x c -c $<
 
 $(BUILDDIR)/misc-%.o: $(MISCDIR)/%.c $(BUILDDIR)/misc-%.d
-	$(CC) $(CFLAGS) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/misc-$*.d -o $@ -c $<
+	$(CC) $(FLRL_CFLAGS) $(FLRL_CPPFLAGS) -MT $@ -MMD -MP -MF $(BUILDDIR)/misc-$*.d -o $@ -c $<
 
 ifeq ($(OS),Windows_NT)
 # lcov doesn't handle / paths on windows well, replace / with \.
@@ -134,13 +136,9 @@ app_base.info: all tests
 app_test.info:
 	lcov --config-file=lcovrc $(LCOVFLAGS) --directory . --capture -o $@
 
-coverage-setup: export CFLAGS += --coverage
-coverage-setup: export CXXFLAGS += --coverage
-coverage-setup: export LDFLAGS += --coverage
 coverage-setup:
 	$(MAKE) clean clean-coverage
-	env | grep FLAGS
-	$(MAKE) app_base.info
+	$(MAKE) COVERAGE=--coverage app_base.info
 
 coverage-report:
 	$(MAKE) -B app_test.info
