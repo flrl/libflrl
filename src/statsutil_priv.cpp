@@ -217,10 +217,10 @@ static T *invent_thresholds(const T *values, std::size_t n_values,
     if (n_thresholds == 0) {
         double t = range;
 
-        while (t >= 15.0)
+        while (t >= 18.0)
             t *= 1.0 / 3.0;
 
-        while (t < 5.0)
+        while (t < 6.0)
             t *= 3.0;
 
         n_thresholds = statsutil_ceil(t);
