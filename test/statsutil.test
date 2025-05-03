@@ -232,6 +232,104 @@ static void fn_statsf64v(void **state)
     do_test_stats(double, f64, -DBL_MAX, 0);
 }
 
+#define do_test_summary5(ctype, ftype) do                                   \
+{                                                                           \
+    const struct {                                                          \
+        size_t n_values;                                                    \
+        ctype  values[16];                                                  \
+        int    expect_r;                                                    \
+        double expect_quartiles[5];                                         \
+    } tests[] = {                                                           \
+        { 11, { 6, 7, 15, 36, 39, 40, 41, 42, 43, 47, 49 }, /* 4x + 3 */    \
+          0, { 6, 15, 40, 43, 49 } },                                       \
+        { 11, { 15, 7, 43, 36, 42, 40, 41, 39, 6, 47, 49 }, /* unsorted */  \
+          0, { 6, 15, 40, 43, 49 } },                                       \
+        { 9, { 13, 13, 14, 64, 68, 85, 91, 97, 127 }, /* 4x + 1 */          \
+          0, { 13, 13.5, 68, 94, 127 } },                                   \
+        { 6, { 7, 15, 36, 39, 40, 41 }, /* 4x + 2 */                        \
+          0, { 7, 13, 37.5, 40.25, 41 } },                                  \
+        { 4, { 6, 10, 17, 22 }, /* 4x + 0 */                                \
+          0, { 6, 7, 13.5, 20.75, 22 } },                                   \
+        { 3, { 9, 20, 64 },                                                 \
+          0, { 9, NAN, 20, NAN, 64 } },                                     \
+        { 2, { 6, 9 },                                                      \
+          0, { 6, NAN, 7.5, NAN, 9 } },                                     \
+        { 2, { 9, 6 },                                                      \
+          0, { 6, NAN, 7.5, NAN, 9 } },                                     \
+        { 1, { 42 },                                                        \
+          0, { 42, NAN, NAN, NAN, 42 } },                                   \
+        { 0, {},                                                            \
+          0, { NAN, NAN, NAN, NAN, NAN } },                                 \
+    };                                                                      \
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);                \
+    unsigned i;                                                             \
+                                                                            \
+    for (i = 0; i < n_tests; i++) {                                         \
+        double actual_quartiles[5];                                         \
+        int q, r;                                                           \
+                                                                            \
+        r = summary5##ftype##v(tests[i].values, tests[i].n_values,          \
+                               actual_quartiles);                           \
+                                                                            \
+        assert_int_equal(r, tests[i].expect_r);                             \
+        for (q = 0; q < 5; q++) {                                           \
+            assert_float_equal(actual_quartiles[q],                         \
+                               tests[i].expect_quartiles[q],                \
+                               FLT_EPSILON);                                \
+        }                                                                   \
+    }                                                                       \
+} while (0)
+
+static void fn_summary5i8v(NO_STATE)
+{
+    do_test_summary5(int8_t, i8);
+}
+
+static void fn_summary5u8v(NO_STATE)
+{
+    do_test_summary5(uint8_t, u8);
+}
+
+static void fn_summary5i16v(NO_STATE)
+{
+    do_test_summary5(int16_t, i16);
+}
+
+static void fn_summary5u16v(NO_STATE)
+{
+    do_test_summary5(uint16_t, u16);
+}
+
+static void fn_summary5i32v(NO_STATE)
+{
+    do_test_summary5(int32_t, i32);
+}
+
+static void fn_summary5u32v(NO_STATE)
+{
+    do_test_summary5(uint32_t, u32);
+}
+
+static void fn_summary5i64v(NO_STATE)
+{
+    do_test_summary5(int64_t, i64);
+}
+
+static void fn_summary5u64v(NO_STATE)
+{
+    do_test_summary5(uint64_t, u64);
+}
+
+static void fn_summary5f32v(NO_STATE)
+{
+    do_test_summary5(float, f32);
+}
+
+static void fn_summary5f64v(NO_STATE)
+{
+    do_test_summary5(double, f64);
+}
+
 const char *const um_group_name = "statsutil";
 const struct CMUnitTest um_group_tests[] =
 {
@@ -249,6 +347,16 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test_setup(fn_statsu64v, um_setup_rbs),
     cmocka_unit_test_setup(fn_statsf32v, um_setup_rbs),
     cmocka_unit_test_setup(fn_statsf64v, um_setup_rbs),
+    cmocka_unit_test(fn_summary5i8v),
+    cmocka_unit_test(fn_summary5u8v),
+    cmocka_unit_test(fn_summary5i16v),
+    cmocka_unit_test(fn_summary5u16v),
+    cmocka_unit_test(fn_summary5i32v),
+    cmocka_unit_test(fn_summary5u32v),
+    cmocka_unit_test(fn_summary5i64v),
+    cmocka_unit_test(fn_summary5u64v),
+    cmocka_unit_test(fn_summary5f32v),
+    cmocka_unit_test(fn_summary5f64v),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);

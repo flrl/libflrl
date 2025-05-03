@@ -101,6 +101,30 @@ extern void statsf64v(const double *values, size_t n_values,
                       double *pmax, size_t *pmax_frequency,
                       double *pmean, double *pvariance);
 
+extern int summary5i8v(const int8_t *values, size_t n_values,
+                       double quartiles[5]);
+extern int summary5u8v(const uint8_t *values, size_t n_values,
+                       double quartiles[5]);
+
+extern int summary5i16v(const int16_t *values, size_t n_values,
+                        double quartiles[5]);
+extern int summary5u16v(const uint16_t *values, size_t n_values,
+                        double quartiles[5]);
+
+extern int summary5i32v(const int32_t *values, size_t n_values,
+                        double quartiles[5]);
+extern int summary5u32v(const uint32_t *values, size_t n_values,
+                        double quartiles[5]);
+
+extern int summary5i64v(const int64_t *values, size_t n_values,
+                        double quartiles[5]);
+extern int summary5u64v(const uint64_t *values, size_t n_values,
+                        double quartiles[5]);
+
+extern int summary5f32v(const float *values, size_t n_values,
+                        double quartiles[5]);
+extern int summary5f64v(const double *values, size_t n_values,
+                        double quartiles[5]);
 struct hist_bucket {
     size_t freq_raw;
     double freq_pc;

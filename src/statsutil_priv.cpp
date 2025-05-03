@@ -71,6 +71,74 @@ static double median(const T *values, std::size_t n_values)
 }
 
 template<typename T>
+static int summary5(const T *values, std::size_t n_values, double quartiles[5])
+{
+    T *copy = NULL;
+    double q0, q1, q2, q3, q4;
+
+    q0 = q1 = q2 = q3 = q4 = statsutil_nan;
+
+    switch (n_values) {
+        case 2:
+            q0 = std::min(values[0], values[1]);
+            q2 = 0.5 * (values[0] + values[1]);
+            q4 = std::max(values[0], values[1]);
+            goto done;
+        case 1:
+            q0 = q4 = values[0];
+            goto done;
+        case 0:
+            goto done;
+    }
+
+    copy = (T*) statsutil_malloc(n_values * sizeof(values[0]));
+    if (!copy) return -1;
+
+    std::copy(values, values + n_values, copy);
+    std::sort(copy, copy + n_values);
+
+    q0 = copy[0];
+    q4 = copy[n_values - 1];
+
+    if (n_values == 3) {
+        q2 = copy[1];
+    }
+    else {
+        /* https://en.wikipedia.org/wiki/Quartile#Method_4 */
+        std::size_t k1, k2, k3;
+        double a1, a2, a3;
+
+        k1 = a1 = 0.25 * (n_values + 1);
+        k2 = a2 = 0.5 * (n_values + 1);
+        k3 = a3 = 0.75 * (n_values + 1);
+
+        a1 -= k1;
+        a2 -= k2;
+        a3 -= k3;
+
+        assert(k1 > 0);
+        k1--;
+        k2--;
+        k3--;
+
+        q1 = copy[k1] + a1 * (copy[k1 + 1] - copy[k1]);
+        q2 = copy[k2] + a2 * (copy[k2 + 1] - copy[k2]);
+        q3 = copy[k3] + a3 * (copy[k3 + 1] - copy[k3]);
+    }
+
+    statsutil_free(copy);
+
+ done:
+    quartiles[0] = q0;
+    quartiles[1] = q1;
+    quartiles[2] = q2;
+    quartiles[3] = q3;
+    quartiles[4] = q4;
+
+    return 0;
+}
+
+template<typename T>
 static T mode(const T *values, std::size_t n_values, std::size_t *pfrequency)
 {
     HashMap counts;
@@ -639,6 +707,56 @@ void statsf64v(const double *values, size_t n_values,
                  pmin, pmin_frequency,
                  pmax, pmax_frequency,
                  pmean, pvariance);
+}
+
+int summary5i8v(const int8_t *values, size_t n_values, double quartiles[5])
+{
+    return summary5(values, n_values, quartiles);
+}
+
+int summary5u8v(const uint8_t *values, size_t n_values, double quartiles[5])
+{
+    return summary5(values, n_values, quartiles);
+}
+
+int summary5i16v(const int16_t *values, size_t n_values, double quartiles[5])
+{
+    return summary5(values, n_values, quartiles);
+}
+
+int summary5u16v(const uint16_t *values, size_t n_values, double quartiles[5])
+{
+    return summary5(values, n_values, quartiles);
+}
+
+int summary5i32v(const int32_t *values, size_t n_values, double quartiles[5])
+{
+    return summary5(values, n_values, quartiles);
+}
+
+int summary5u32v(const uint32_t *values, size_t n_values, double quartiles[5])
+{
+    return summary5(values, n_values, quartiles);
+}
+
+int summary5i64v(const int64_t *values, size_t n_values, double quartiles[5])
+{
+    return summary5(values, n_values, quartiles);
+}
+
+int summary5u64v(const uint64_t *values, size_t n_values, double quartiles[5])
+{
+    return summary5(values, n_values, quartiles);
+}
+
+int summary5f32v(const float *values, size_t n_values, double quartiles[5])
+{
+    return summary5(values, n_values, quartiles);
+}
+
+int summary5f64v(const double *values, size_t n_values, double quartiles[5])
+{
+    return summary5(values, n_values, quartiles);
 }
 
 void histogram_freqi8v(Histogram *hist, const char *title,
