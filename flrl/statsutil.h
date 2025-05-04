@@ -176,4 +176,16 @@ extern void histogram_print(const Histogram *hist, FILE *out);
 
 extern void histogram_fini(Histogram *hist);
 
+struct boxplot5 {
+    const char *label;
+    double quartiles[5];
+};
+
+typedef const char *(boxplot_format_sample_cb)(char label[11], double sample);
+
+extern void boxplot5_print(const char *title,
+                           const struct boxplot5 *boxplots,
+                           size_t n_boxplots,
+                           boxplot_format_sample_cb *formatter,
+                           FILE *out);
 #endif
