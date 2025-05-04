@@ -78,30 +78,35 @@ static int summary5(const T *values, std::size_t n_values, double quartiles[5])
 
     q0 = q1 = q2 = q3 = q4 = statsutil_nan;
 
-    switch (n_values) {
-        case 2:
-            q0 = std::min(values[0], values[1]);
-            q2 = 0.5 * (values[0] + values[1]);
-            q4 = std::max(values[0], values[1]);
-            goto done;
-        case 1:
-            q0 = q4 = values[0];
-            goto done;
-        case 0:
-            goto done;
-    }
+    if (!n_values) goto done;
 
     copy = (T*) statsutil_malloc(n_values * sizeof(values[0]));
     if (!copy) return -1;
 
-    std::copy(values, values + n_values, copy);
+    if constexpr (std::is_floating_point_v<T>) {
+        auto copy_end = std::copy_if(values, values + n_values,
+                                     copy,
+                                     [](T x){ return x == x; });
+        n_values = copy_end - copy;
+        if (!n_values) goto done;
+    }
+    else {
+        std::copy(values, values + n_values, copy);
+    }
     std::sort(copy, copy + n_values);
 
     q0 = copy[0];
     q4 = copy[n_values - 1];
 
-    if (n_values == 3) {
-        q2 = copy[1];
+    if (n_values <= 3) {
+        switch (n_values) {
+        case 3:
+            q2 = copy[1];
+            break;
+        case 2:
+            q2 = 0.5 * (copy[0] + copy[1]);
+            break;
+        }
     }
     else {
         /* https://en.wikipedia.org/wiki/Quartile#Method_4 */
@@ -126,9 +131,9 @@ static int summary5(const T *values, std::size_t n_values, double quartiles[5])
         q3 = copy[k3] + a3 * (copy[k3 + 1] - copy[k3]);
     }
 
+ done:
     statsutil_free(copy);
 
- done:
     quartiles[0] = q0;
     quartiles[1] = q1;
     quartiles[2] = q2;

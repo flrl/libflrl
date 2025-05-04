@@ -330,6 +330,48 @@ static void fn_summary5f64v(NO_STATE)
     do_test_summary5(double, f64);
 }
 
+static void fn_summary5_nan(NO_STATE)
+{
+    const struct {
+        size_t n_values;
+        double values[16];
+        int    expect_r;
+        double expect_quartiles[5];
+    } tests[] = {
+        { 8, { 5, 6, NAN, 7, 8, 9, 10, 11 },
+          0, { 5, 6, 8, 10, 11 } },
+        { 8, { 5, 6, 7, NAN, NAN, NAN, NAN, NAN },
+          0, { 5, NAN, 6, NAN, 7 } },
+        { 8, { 5, 7, NAN, NAN, NAN, NAN, NAN, NAN },
+          0, { 5, NAN, 6, NAN, 7 } },
+        { 8, { 5, NAN, NAN, NAN, NAN, NAN, NAN, NAN },
+          0, { 5, NAN, NAN, NAN, 5 } },
+        { 8, { NAN, NAN, NAN, NAN, NAN, NAN, NAN, NAN },
+          0, { NAN, NAN, NAN, NAN, NAN } },
+        { 2, { NAN, 5 },
+          0, { 5, NAN, NAN, NAN, 5 } },
+        { 1, { NAN },
+          0, { NAN, NAN, NAN, NAN, NAN } },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        double actual_quartiles[5];
+        int q, r;
+
+        r = summary5f64v(tests[i].values, tests[i].n_values, actual_quartiles);
+
+        assert_int_equal(tests[i].expect_r, r);
+
+        for (q = 0; q < 5; q++) {
+            assert_float_equal(tests[i].expect_quartiles[q],
+                               actual_quartiles[q],
+                               FLT_EPSILON);
+        }
+    }
+}
+
 const char *const um_group_name = "statsutil";
 const struct CMUnitTest um_group_tests[] =
 {
@@ -357,6 +399,7 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test(fn_summary5u64v),
     cmocka_unit_test(fn_summary5f32v),
     cmocka_unit_test(fn_summary5f64v),
+    cmocka_unit_test(fn_summary5_nan),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);
