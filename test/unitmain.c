@@ -195,9 +195,12 @@ void my_assert_float_equal(float a, float b,
 {
     const char msgprefix[] = "        --->";
 
+    if (isnan(a) && isnan(b))
+        return; /*  treat two nans as equal */
+
     bool equalish = floats_equalish(a, b, 128 * FLT_EPSILON, FLT_MIN);
 
-    if (!equalish && !(isnan(a) && isnan(b))) {
+    if (!equalish) {
         cm_print_error("%.8g != %.8g (difference: %.8g)\n",
                        a, b, fabsf(a - b));
         _fail(file, line);
