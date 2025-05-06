@@ -13,6 +13,10 @@ typedef LARGE_INTEGER perf_raw_time;
 
 struct perf {
     perf_raw_time started;
+#ifdef _WIN32
+    perf_raw_time accum;
+    size_t n_accum;
+#endif
     char *name;
     size_t alloc;
     size_t count;
@@ -43,6 +47,6 @@ inline void perf_end(struct perf *perf)
     perf_add_sample(perf, ended);
 }
 
-extern void perf_report(const struct perf *perf, FILE *out);
+extern void perf_report(struct perf *perf, FILE *out);
 
 #endif

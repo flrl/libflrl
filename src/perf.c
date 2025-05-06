@@ -7,6 +7,7 @@
 
 #ifdef _WIN32
 static double inv_freq = NAN;
+const int64_t min_ticks = 5;
 #endif
 
 extern inline void perf_start(struct perf *perf);
@@ -37,24 +38,48 @@ void perf_free(struct perf *perf)
     free(perf);
 }
 
-static inline double get_elapsed(perf_raw_time start, perf_raw_time end)
+static inline double get_elapsed(const struct perf *perf)
 {
     double elapsed;
+
 #ifdef _WIN32
-    elapsed = inv_freq * (end.QuadPart - start.QuadPart);
+    elapsed = inv_freq * perf->accum.QuadPart / perf->n_accum;
 #endif
 
-    return elapsed >= 0 ? elapsed : 0.0;
+    return elapsed;
+}
+
+static inline void accumulate(struct perf *perf, perf_raw_time ended)
+{
+    perf_raw_time accum = perf->accum;
+
+#ifdef _WIN32
+    accum.QuadPart += ended.QuadPart - perf->started.QuadPart;
+#endif
+
+    perf->accum = accum;
+    perf->n_accum ++;
+}
+
+static inline void finish_sample(struct perf *perf)
+{
+    size_t next = perf->next;
+    perf->samples[next] = get_elapsed(perf);
+    perf->accum.QuadPart = 0;
+    perf->n_accum = 0;
+
+    next = (next + 1) % perf->alloc;
+    perf->next = next;
+    if (perf->count < perf->alloc) perf->count ++;
 }
 
 void perf_add_sample(struct perf *perf, perf_raw_time ended)
 {
-    size_t next = perf->next;
+    accumulate(perf, ended);
 
-    perf->samples[next] = get_elapsed(perf->started, ended);
-    next = (next + 1) % perf->alloc;
-    perf->next = next;
-    if (perf->count < perf->alloc) perf->count ++;
+    if (perf->accum.QuadPart >= min_ticks) {
+        finish_sample(perf);
+    }
 }
 
 static const char *format_seconds(double seconds)
@@ -86,10 +111,14 @@ static const char *format_seconds(double seconds)
     return buf;
 }
 
-void perf_report(const struct perf *perf, FILE *out)
+void perf_report(struct perf *perf, FILE *out)
 {
     double min, max, mean, variance;
     double median, total;
+
+    if (perf->n_accum) {
+        finish_sample(perf);
+    }
 
     total = kbn_sumf64v(perf->samples, perf->count);
     statsf64v(perf->samples, perf->count,
