@@ -3,6 +3,7 @@
 #include "flrl/fputil.h"
 #include "flrl/statsutil.h"
 
+#include <float.h>
 #include <math.h>
 
 #ifdef _WIN32
@@ -20,6 +21,9 @@ struct perf *perf_new(const char *name, size_t max_samples)
 #ifdef _WIN32
     if (isnan(inv_freq)) {
         LARGE_INTEGER tmp;
+        /* n.b. expected minimum resolution of 100 ns because this always(?)
+         * return 10,000,000 ticks per second
+         */
         QueryPerformanceFrequency(&tmp);
         inv_freq = 1.0 / tmp.QuadPart;
     }
@@ -61,16 +65,18 @@ static inline void accumulate(struct perf *perf, perf_raw_time ended)
     perf->n_accum ++;
 }
 
-static inline void finish_sample(struct perf *perf)
+static inline void finish_sample(const struct perf *perf)
 {
     size_t next = perf->next;
-    perf->samples[next] = get_elapsed(perf);
-    perf->accum.QuadPart = 0;
-    perf->n_accum = 0;
+    struct perf *backdoor = (struct perf *) perf;
 
-    next = (next + 1) % perf->alloc;
-    perf->next = next;
-    if (perf->count < perf->alloc) perf->count ++;
+    backdoor->samples[next] = get_elapsed(backdoor);
+    backdoor->accum.QuadPart = 0;
+    backdoor->n_accum = 0;
+
+    next = (next + 1) % backdoor->alloc;
+    backdoor->next = next;
+    if (backdoor->count < backdoor->alloc) backdoor->count ++;
 }
 
 void perf_add_sample(struct perf *perf, perf_raw_time ended)
@@ -82,14 +88,12 @@ void perf_add_sample(struct perf *perf, perf_raw_time ended)
     }
 }
 
-static const char *format_seconds(double seconds)
+static const wchar_t *format_sample(wchar_t buf[11], double seconds)
 {
-    static char buf[32] = { 0 };
-    const char *const suffix[] = { "ns", "us", "ms", "s", "m", "h", "d" };
-    const int colour[] =         {   92,   32,   93,  33,  37,  31,  91 };
-    const double divisor[] = { 1000.0, 1000.0, 1000.0, 60.0, 60.0, 24.0 };
+    const wchar_t *const suffix[] = { L"ns", L"µs", L"ms", L"s", L"m", L"h", L"d" };
+    const double divisor[] =        { 1000.0, 1000.0, 1000.0, 60.0, 60.0, 24.0 };
     const unsigned n_divisors = sizeof(divisor) / sizeof(divisor[0]);
-    const char *fmt;
+    const wchar_t *fmt;
     unsigned d = 0;
 
     seconds *= 1000000000.0;
@@ -99,44 +103,39 @@ static const char *format_seconds(double seconds)
     }
 
     if (seconds >= 10000.0)
-        fmt = "\e[%dm%.0e %s\e[0m";
+        fmt = L"%.0e%ls";
     else if (seconds >= 1000.0)
-        fmt = "\e[%dm%5.0f %s\e[0m";
+        fmt = L"%5.0f%ls";
     else if (seconds < 1.0)
-        fmt = "\e[%dm%5.3f %s\e[0m";
+        fmt = L"%5.3f%ls";
     else
-        fmt = "\e[%dm%#5.4g %s\e[0m";
+        fmt = L"%#5.4g%ls";
 
-    snprintf(buf, sizeof(buf), fmt, colour[d], seconds, suffix[d]);
+    swprintf(buf, 11, fmt, seconds, suffix[d]);
     return buf;
 }
 
-void perf_report(struct perf *perf, FILE *out)
+void perf_report(FILE *out, const char *title,
+                 struct perf **perfs, size_t n_perfs)
 {
-    double min, max, mean, variance;
-    double median, total;
+    struct boxplot *boxplots = NULL;
+    size_t i;
 
-    if (perf->n_accum) {
-        finish_sample(perf);
+    boxplots = calloc(n_perfs, sizeof(boxplots[0]));
+    if (!boxplots) return;
+
+    for (i = 0; i < n_perfs; i++) {
+        const struct perf *perf = perfs[i];
+        struct boxplot *bp = &boxplots[i];
+
+        if (perf->n_accum) {
+            finish_sample(perf);
+        }
+
+        bp->label = perf->name;
+        summary7f64v(perf->samples, perf->count, bp->quantiles, FENCE_PERC2);
     }
+    boxplot_print(title, boxplots, n_perfs, &format_sample, FENCE_PERC2, out);
 
-    total = kbn_sumf64v(perf->samples, perf->count);
-    statsf64v(perf->samples, perf->count,
-              &min, NULL, &max, NULL, &mean, &variance);
-    median = medianf64v(perf->samples, perf->count);
-
-    fprintf(out, "%s (%zu samples)\n", perf->name, perf->count);
-    fputs("  total: ", out);
-    fputs(format_seconds(total), out);
-    fputs("\n    min: ", out);
-    fputs(format_seconds(min), out);
-    fputs("\n    max: ", out);
-    fputs(format_seconds(max), out);
-    fputs("\n   mean: ", out);
-    fputs(format_seconds(mean), out);
-    fputs("\n median: ", out);
-    fputs(format_seconds(median), out);
-    fputs("\n stddev: ", out);
-    fputs(format_seconds(sqrt(variance)), out);
-    fputs("\n", out);
+    free(boxplots);
 }
