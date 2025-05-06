@@ -232,141 +232,244 @@ static void fn_statsf64v(void **state)
     do_test_stats(double, f64, -DBL_MAX, 0);
 }
 
-#define do_test_summary5(ctype, ftype) do                                   \
+#define do_test_summary7_octile(ctype, ftype) do                            \
 {                                                                           \
     const struct {                                                          \
         size_t n_values;                                                    \
         ctype  values[16];                                                  \
         int    expect_r;                                                    \
-        double expect_quartiles[5];                                         \
+        double expect_quantiles[7];                                         \
     } tests[] = {                                                           \
         { 11, { 6, 7, 15, 36, 39, 40, 41, 42, 43, 47, 49 }, /* 4x + 3 */    \
-          0, { 6, 15, 40, 43, 49 } },                                       \
+          0, { 6, 6.5, 15, 40, 43, 48, 49 } },                              \
         { 11, { 15, 7, 43, 36, 42, 40, 41, 39, 6, 47, 49 }, /* unsorted */  \
-          0, { 6, 15, 40, 43, 49 } },                                       \
+          0, { 6, 6.5, 15, 40, 43, 48, 49 } },                              \
         { 9, { 13, 13, 14, 64, 68, 85, 91, 97, 127 }, /* 4x + 1 */          \
-          0, { 13, 13.5, 68, 94, 127 } },                                   \
+          0, { 13, 13, 13.5, 68, 94, 119.5, 127 } },                        \
         { 6, { 7, 15, 36, 39, 40, 41 }, /* 4x + 2 */                        \
-          0, { 7, 13, 37.5, 40.25, 41 } },                                  \
+          0, { 7, 7, 13, 37.5, 40.25, 41, 41 } },                           \
         { 4, { 6, 10, 17, 22 }, /* 4x + 0 */                                \
-          0, { 6, 7, 13.5, 20.75, 22 } },                                   \
+          0, { 6, 6, 7, 13.5, 20.75, 22, 22 } },                            \
         { 3, { 9, 20, 64 },                                                 \
-          0, { 9, NAN, 20, NAN, 64 } },                                     \
+          0, { 9, 9, 9, 20, 64, 64, 64 } },                                 \
         { 2, { 6, 9 },                                                      \
-          0, { 6, NAN, 7.5, NAN, 9 } },                                     \
+          0, { 6, 6, 6, 7.5, 9, 9, 9 } },                                   \
         { 2, { 9, 6 },                                                      \
-          0, { 6, NAN, 7.5, NAN, 9 } },                                     \
+          0, { 6, 6, 6, 7.5, 9, 9, 9 } },                                   \
         { 1, { 42 },                                                        \
-          0, { 42, NAN, NAN, NAN, 42 } },                                   \
+          0, { 42, NAN, NAN, NAN, NAN, NAN, 42 } },                         \
         { 0, {},                                                            \
-          0, { NAN, NAN, NAN, NAN, NAN } },                                 \
+          0, { NAN, NAN, NAN, NAN, NAN, NAN, NAN } },                       \
     };                                                                      \
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);                \
     unsigned i;                                                             \
                                                                             \
     for (i = 0; i < n_tests; i++) {                                         \
-        double actual_quartiles[5];                                         \
+        double actual_quantiles[7];                                         \
         int q, r;                                                           \
                                                                             \
-        r = summary5##ftype##v(tests[i].values, tests[i].n_values,          \
-                               actual_quartiles);                           \
+        r = summary7##ftype##v(tests[i].values, tests[i].n_values,          \
+                               actual_quantiles, FENCE_OCTILE);             \
                                                                             \
         assert_int_equal(r, tests[i].expect_r);                             \
-        for (q = 0; q < 5; q++) {                                           \
-            assert_float_equal(actual_quartiles[q],                         \
-                               tests[i].expect_quartiles[q],                \
+        for (q = 0; q < 7; q++) {                                           \
+            assert_float_equal(actual_quantiles[q],                         \
+                               tests[i].expect_quantiles[q],                \
                                FLT_EPSILON);                                \
         }                                                                   \
     }                                                                       \
 } while (0)
 
-static void fn_summary5i8v(NO_STATE)
+static void fn_summary7i8v_octile(NO_STATE)
 {
-    do_test_summary5(int8_t, i8);
+    do_test_summary7_octile(int8_t, i8);
 }
 
-static void fn_summary5u8v(NO_STATE)
+static void fn_summary7u8v_octile(NO_STATE)
 {
-    do_test_summary5(uint8_t, u8);
+    do_test_summary7_octile(uint8_t, u8);
 }
 
-static void fn_summary5i16v(NO_STATE)
+static void fn_summary7i16v_octile(NO_STATE)
 {
-    do_test_summary5(int16_t, i16);
+    do_test_summary7_octile(int16_t, i16);
 }
 
-static void fn_summary5u16v(NO_STATE)
+static void fn_summary7u16v_octile(NO_STATE)
 {
-    do_test_summary5(uint16_t, u16);
+    do_test_summary7_octile(uint16_t, u16);
 }
 
-static void fn_summary5i32v(NO_STATE)
+static void fn_summary7i32v_octile(NO_STATE)
 {
-    do_test_summary5(int32_t, i32);
+    do_test_summary7_octile(int32_t, i32);
 }
 
-static void fn_summary5u32v(NO_STATE)
+static void fn_summary7u32v_octile(NO_STATE)
 {
-    do_test_summary5(uint32_t, u32);
+    do_test_summary7_octile(uint32_t, u32);
 }
 
-static void fn_summary5i64v(NO_STATE)
+static void fn_summary7i64v_octile(NO_STATE)
 {
-    do_test_summary5(int64_t, i64);
+    do_test_summary7_octile(int64_t, i64);
 }
 
-static void fn_summary5u64v(NO_STATE)
+static void fn_summary7u64v_octile(NO_STATE)
 {
-    do_test_summary5(uint64_t, u64);
+    do_test_summary7_octile(uint64_t, u64);
 }
 
-static void fn_summary5f32v(NO_STATE)
+static void fn_summary7f32v_octile(NO_STATE)
 {
-    do_test_summary5(float, f32);
+    do_test_summary7_octile(float, f32);
 }
 
-static void fn_summary5f64v(NO_STATE)
+static void fn_summary7f64v_octile(NO_STATE)
 {
-    do_test_summary5(double, f64);
+    do_test_summary7_octile(double, f64);
 }
 
-static void fn_summary5_nan(NO_STATE)
+static void fn_summary7_iqr15(NO_STATE)
 {
     const struct {
         size_t n_values;
-        double values[16];
-        int    expect_r;
-        double expect_quartiles[5];
+        double values[32];
+        int expect_r;
+        double expect_quantiles[7];
     } tests[] = {
-        { 8, { 5, 6, NAN, 7, 8, 9, 10, 11 },
-          0, { 5, 6, 8, 10, 11 } },
-        { 8, { 5, 6, 7, NAN, NAN, NAN, NAN, NAN },
-          0, { 5, NAN, 6, NAN, 7 } },
-        { 8, { 5, 7, NAN, NAN, NAN, NAN, NAN, NAN },
-          0, { 5, NAN, 6, NAN, 7 } },
-        { 8, { 5, NAN, NAN, NAN, NAN, NAN, NAN, NAN },
-          0, { 5, NAN, NAN, NAN, 5 } },
-        { 8, { NAN, NAN, NAN, NAN, NAN, NAN, NAN, NAN },
-          0, { NAN, NAN, NAN, NAN, NAN } },
-        { 2, { NAN, 5 },
-          0, { 5, NAN, NAN, NAN, 5 } },
-        { 1, { NAN },
-          0, { NAN, NAN, NAN, NAN, NAN } },
+        { 24, { 57, 57, 57, 58, 63, 66, 66, 67, 67, 68, 69, 70,
+                70, 70, 70, 72, 73, 75, 75, 76, 76, 78, 79, 81 },
+          0, { 57, 57, 66, 70, 75, 81, 81 } }, /* no outliers */
+        { 24, { 52, 57, 57, 58, 63, 66, 66, 67, 67, 68, 69, 70,
+                70, 70, 70, 72, 73, 75, 75, 76, 76, 78, 79, 89 },
+          0, { 52, 57, 66, 70, 75, 79, 89 } }, /* outliers */
     };
     const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
     unsigned i;
 
     for (i = 0; i < n_tests; i++) {
-        double actual_quartiles[5];
+        double actual_quantiles[7];
         int q, r;
 
-        r = summary5f64v(tests[i].values, tests[i].n_values, actual_quartiles);
+        r = summary7f64v(tests[i].values, tests[i].n_values,
+                         actual_quantiles, FENCE_IQR15);
 
         assert_int_equal(tests[i].expect_r, r);
 
-        for (q = 0; q < 5; q++) {
-            assert_float_equal(tests[i].expect_quartiles[q],
-                               actual_quartiles[q],
+        for (q = 0; q < 7; q++) {
+            assert_float_equal(tests[i].expect_quantiles[q],
+                               actual_quantiles[q],
+                               FLT_EPSILON);
+        }
+    }
+}
+
+static void fn_summary7_octile_inf(NO_STATE)
+{
+    const struct {
+        size_t n_values;
+        double values[16];
+        int    expect_r;
+        double expect_quantiles[7];
+    } tests[] = {
+        { 9, { 7, 15, 36, 39, 40, 42, 49, 51, INFINITY },
+          0, { 7, 9, 25.5, 40, 50, INFINITY, INFINITY } },
+        { 9, { -INFINITY, 15, 36, 39, 40, 42, 49, 51, 69 },
+             /* XXX this nan is correct, but maybe undesirable? */
+          0, { -INFINITY, NAN, 25.5, 40, 50, 64.5, 69 } },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        double actual_quantiles[7];
+        int q, r;
+
+        r = summary7f64v(tests[i].values, tests[i].n_values,
+                         actual_quantiles, FENCE_OCTILE);
+
+        assert_int_equal(tests[i].expect_r, r);
+
+        for (q = 0; q < 7; q++) {
+            assert_float_equal(tests[i].expect_quantiles[q],
+                               actual_quantiles[q],
+                               FLT_EPSILON);
+        }
+    }
+}
+
+static void fn_summary7_iqr15_inf(NO_STATE)
+{
+    const struct {
+        size_t n_values;
+        double values[16];
+        int    expect_r;
+        double expect_quantiles[7];
+    } tests[] = {
+        { 9, { 7, 15, 36, 39, 40, 42, 49, 51, INFINITY },
+          0, { 7, 7, 25.5, 40, 50, 51, INFINITY } },
+        { 9, { -INFINITY, 15, 36, 39, 40, 42, 49, 51, 69 },
+          0, { -INFINITY, 15, 25.5, 40, 50, 69, 69 } },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        double actual_quantiles[7];
+        int q, r;
+
+        r = summary7f64v(tests[i].values, tests[i].n_values,
+                         actual_quantiles, FENCE_IQR15);
+
+        assert_int_equal(tests[i].expect_r, r);
+
+        for (q = 0; q < 7; q++) {
+            assert_float_equal(tests[i].expect_quantiles[q],
+                               actual_quantiles[q],
+                               FLT_EPSILON);
+        }
+    }
+}
+
+static void fn_summary7_nan(NO_STATE)
+{
+    const struct {
+        size_t n_values;
+        double values[16];
+        int    expect_r;
+        double expect_quantiles[7];
+    } tests[] = {
+        { 8, { 5, 6, NAN, 7, 8, 9, 10, 11 },
+          0, { 5, 5, 6, 8, 10, 11, 11 } },
+        { 8, { 5, 6, 7, NAN, NAN, NAN, NAN, NAN },
+          0, { 5, 5, 5, 6, 7, 7, 7 } },
+        { 8, { 5, 7, NAN, NAN, NAN, NAN, NAN, NAN },
+          0, { 5, 5, 5, 6, 7, 7, 7 } },
+        { 8, { 5, NAN, NAN, NAN, NAN, NAN, NAN, NAN },
+          0, { 5, NAN, NAN, NAN, NAN, NAN, 5 } },
+        { 8, { NAN, NAN, NAN, NAN, NAN, NAN, NAN, NAN },
+          0, { NAN, NAN, NAN, NAN, NAN, NAN, NAN } },
+        { 2, { NAN, 5 },
+          0, { 5, NAN, NAN, NAN, NAN, NAN, 5 } },
+        { 1, { NAN },
+          0, { NAN, NAN, NAN, NAN, NAN, NAN, NAN } },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        double actual_quantiles[7];
+        int q, r;
+
+        r = summary7f64v(tests[i].values, tests[i].n_values,
+                         actual_quantiles, FENCE_OCTILE);
+
+        assert_int_equal(tests[i].expect_r, r);
+
+        for (q = 0; q < 7; q++) {
+            assert_float_equal(tests[i].expect_quantiles[q],
+                               actual_quantiles[q],
                                FLT_EPSILON);
         }
     }
@@ -389,17 +492,20 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test_setup(fn_statsu64v, um_setup_rbs),
     cmocka_unit_test_setup(fn_statsf32v, um_setup_rbs),
     cmocka_unit_test_setup(fn_statsf64v, um_setup_rbs),
-    cmocka_unit_test(fn_summary5i8v),
-    cmocka_unit_test(fn_summary5u8v),
-    cmocka_unit_test(fn_summary5i16v),
-    cmocka_unit_test(fn_summary5u16v),
-    cmocka_unit_test(fn_summary5i32v),
-    cmocka_unit_test(fn_summary5u32v),
-    cmocka_unit_test(fn_summary5i64v),
-    cmocka_unit_test(fn_summary5u64v),
-    cmocka_unit_test(fn_summary5f32v),
-    cmocka_unit_test(fn_summary5f64v),
-    cmocka_unit_test(fn_summary5_nan),
+    cmocka_unit_test(fn_summary7i8v_octile),
+    cmocka_unit_test(fn_summary7u8v_octile),
+    cmocka_unit_test(fn_summary7i16v_octile),
+    cmocka_unit_test(fn_summary7u16v_octile),
+    cmocka_unit_test(fn_summary7i32v_octile),
+    cmocka_unit_test(fn_summary7u32v_octile),
+    cmocka_unit_test(fn_summary7i64v_octile),
+    cmocka_unit_test(fn_summary7u64v_octile),
+    cmocka_unit_test(fn_summary7f32v_octile),
+    cmocka_unit_test(fn_summary7f64v_octile),
+    cmocka_unit_test(fn_summary7_iqr15),
+    cmocka_unit_test(fn_summary7_octile_inf),
+    cmocka_unit_test(fn_summary7_iqr15_inf),
+    cmocka_unit_test(fn_summary7_nan),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);
