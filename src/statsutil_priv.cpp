@@ -71,6 +71,28 @@ static double median(const T *values, std::size_t n_values)
 }
 
 template<typename T>
+static inline double percentile(const T *values, std::size_t n_values,
+                                double p)
+{
+    /* https://en.wikipedia.org/wiki/Quartile#Method_4 */
+    std::size_t k;
+    double a;
+    T vk, vk1;
+
+    k = a = p * (n_values + 1);
+    a -= k;
+
+    assert(k > 0);
+    k--;
+    assert(k < n_values - 1);
+
+    vk = values[k];
+    vk1 = values[k + 1];
+
+    return vk + a * (vk1 - vk);
+}
+
+template<typename T>
 static int summary5(const T *values, std::size_t n_values, double quartiles[5])
 {
     T *copy = NULL;
@@ -109,26 +131,9 @@ static int summary5(const T *values, std::size_t n_values, double quartiles[5])
         }
     }
     else {
-        /* https://en.wikipedia.org/wiki/Quartile#Method_4 */
-        std::size_t k1, k2, k3;
-        double a1, a2, a3;
-
-        k1 = a1 = 0.25 * (n_values + 1);
-        k2 = a2 = 0.5 * (n_values + 1);
-        k3 = a3 = 0.75 * (n_values + 1);
-
-        a1 -= k1;
-        a2 -= k2;
-        a3 -= k3;
-
-        assert(k1 > 0);
-        k1--;
-        k2--;
-        k3--;
-
-        q1 = copy[k1] + a1 * (copy[k1 + 1] - copy[k1]);
-        q2 = copy[k2] + a2 * (copy[k2 + 1] - copy[k2]);
-        q3 = copy[k3] + a3 * (copy[k3 + 1] - copy[k3]);
+        q1 = percentile(copy, n_values, 0.25);
+        q2 = percentile(copy, n_values, 0.5);
+        q3 = percentile(copy, n_values, 0.75);
     }
 
  done:
