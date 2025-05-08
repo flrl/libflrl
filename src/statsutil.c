@@ -266,7 +266,7 @@ static void boxplot_print_header(const char *title,
 
     ansi_colour_256(out, grid_colour);
     fputws(L"─────────────┼──────────┼──────────┼────"
-           L"──────┼──────────┼──────────┼──────────┐\n",
+           L"──────┼──────────┼──────────┼──────────┤\n",
            out);
     ansi_reset(out);
 }
@@ -293,9 +293,8 @@ static void boxplot_print_one(const struct boxplot *bp,
     swprintf(min_label, 32, L"min: %ls", formatter(buf, bp->quantiles[0]));
     swprintf(max_label, 32, L"max: %ls", formatter(buf, bp->quantiles[6]));
 
-    ansi_bgcolour_256(out, bucket_bgcolours[is_odd]);
-
     // first line
+    ansi_bgcolour_256(out, bucket_bgcolours[is_odd]);
     ansi_colour_256(out, bucket_colours[is_odd]);
     fprintf(out, "%-3.3ls%10.10ls", lower_fence[fence], formatter(buf, bp->quantiles[1]));
     i = 14;
@@ -312,9 +311,11 @@ static void boxplot_print_one(const struct boxplot *bp,
     fputws(min_label, out);
     ansi_colour_256(out, grid_colour);
     fputwc(L'│', out);
+    ansi_reset(out);
     fputc('\n', out);
 
     // second line
+    ansi_bgcolour_256(out, bucket_bgcolours[is_odd]);
     ansi_colour_256(out, bucket_colours[is_odd]);
     fprintf(out, "%-3.3ls%10.10ls", L"25%", formatter(buf, bp->quantiles[2]));
     i = 14;
@@ -331,35 +332,23 @@ static void boxplot_print_one(const struct boxplot *bp,
         i++;
         for (; i < 14 + meta->pos[3]; i++)
             fputwc(L'─', out);
-    }
-    else {
-        ansi_colour_256(out, grid_colour);
-        for (; i < 14 + meta->pos[3]; i++)
-            fputwc((i - 14) % 11 ? L' ' : L'│', out);
-    }
-    if (meta->show[3] && meta->show[2]) {
-        ansi_colour_256(out, bucket_colours[is_odd]);
-        fputwc(L'┬', out);
-        i++;
+        if (meta->show[3]) {
+            fputwc(L'┬', out);
+            i++;
+        }
         for (; i < 14 + meta->pos[4]; i++)
             fputwc(L'─', out);
-    }
-    else {
-        ansi_colour_256(out, grid_colour);
-        for (; i < 14 + meta->pos[4]; i++)
-            fputwc((i - 14) % 11 ? L' ' : L'│', out);
-    }
-    if (meta->show[4]) {
-        ansi_colour_256(out, bucket_colours[is_odd]);
         fputwc(L'┐', out);
         i++;
     }
     ansi_colour_256(out, grid_colour);
     for (; i <= 80; i++)
         fputwc((i - 14) % 11 ? L' ' : L'│', out);
+    ansi_reset(out);
     fputc('\n', out);
 
     // third line
+    ansi_bgcolour_256(out, bucket_bgcolours[is_odd]);
     ansi_colour_256(out, bucket_colours[is_odd]);
     fprintf(out, "%-3.3ls%10.10ls", L"50%", formatter(buf, bp->quantiles[3]));
     i = 14;
@@ -424,9 +413,11 @@ static void boxplot_print_one(const struct boxplot *bp,
     ansi_colour_256(out, grid_colour);
     for (; i <= 80; i++)
         fputwc((i - 14) % 11 ? L' ' : L'│', out);
+    ansi_reset(out);
     fputc('\n', out);
 
     // fourth line
+    ansi_bgcolour_256(out, bucket_bgcolours[is_odd]);
     ansi_colour_256(out, bucket_colours[is_odd]);
     fprintf(out, "%-3.3ls%10.10ls", L"75%", formatter(buf, bp->quantiles[4]));
     i = 14;
@@ -443,35 +434,23 @@ static void boxplot_print_one(const struct boxplot *bp,
         i++;
         for (; i < 14 + meta->pos[3]; i++)
             fputwc(L'─', out);
-    }
-    else {
-        ansi_colour_256(out, grid_colour);
-        for (; i < 14 + meta->pos[3]; i++)
-            fputwc((i - 14) % 11 ? L' ' : L'│', out);
-    }
-    if (meta->show[3] && meta->show[2]) {
-        ansi_colour_256(out, bucket_colours[is_odd]);
-        fputwc(L'┴', out);
-        i++;
+        if (meta->show[3]) {
+            fputwc(L'┴', out);
+            i++;
+        }
         for (; i < 14 + meta->pos[4]; i++)
             fputwc(L'─', out);
-    }
-    else {
-        ansi_colour_256(out, grid_colour);
-        for (; i < 14 + meta->pos[4]; i++)
-            fputwc((i - 14) % 11 ? L' ' : L'│', out);
-    }
-    if (meta->show[4]) {
-        ansi_colour_256(out, bucket_colours[is_odd]);
         fputwc(L'┘', out);
         i++;
     }
     ansi_colour_256(out, grid_colour);
     for (; i <= 80; i++)
         fputwc((i - 14) % 11 ? L' ' : L'│', out);
+    ansi_reset(out);
     fputc('\n', out);
 
     // fifth line
+    ansi_bgcolour_256(out, bucket_bgcolours[is_odd]);
     ansi_colour_256(out, bucket_colours[is_odd]);
     fprintf(out, "%-3.3ls%10.10ls", upper_fence[fence], formatter(buf, bp->quantiles[5]));
     i = 14;
@@ -482,9 +461,8 @@ static void boxplot_print_one(const struct boxplot *bp,
     fputws(max_label, out);
     ansi_colour_256(out, grid_colour);
     fputwc(L'│', out);
-    fputc('\n', out);
-
     ansi_reset(out);
+    fputc('\n', out);
 
     // ruler
 //     fputws(L"             <123456789012345678901234567890"
@@ -609,8 +587,16 @@ void boxplot_print(const char *title,
         if (left_quartile)
             meta->show[2] = left_whisker ? L'┤' : L'│';
 
-        if (median)
-            meta->show[3] = left_quartile ? L'│' : L'┼';
+        if (median) {
+            if (left_quartile)
+                meta->show[3] = L'│';
+            else if (left_whisker && !right_whisker)
+                meta->show[3] = L'┤';
+            else if (!left_whisker && right_whisker)
+                meta->show[3] = L'├';
+            else
+                meta->show[3] = L'┼';
+        }
 
         if (right_quartile)
             meta->show[4] = right_whisker ? L'├' : L'│';
