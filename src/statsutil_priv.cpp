@@ -106,7 +106,7 @@ static int summary7(const T *values, std::size_t n_values,
     T *copy = NULL;
     double q0, q1, q2, q3, q4, q5, q6;
 
-    assert(fence >= FENCE_IQR15 && fence <= FENCE_PERC9);
+    assert(fence >= FENCE_IQR15 && fence <= FENCE_PERC2);
 
     q0 = q1 = q2 = q3 = q4 = q5 = q6 = statsutil_nan;
 

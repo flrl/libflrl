@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <wchar.h>
 
 #ifdef __cplusplus
  #define restrict
@@ -105,8 +106,8 @@ enum summary7_fence {
     FENCE_IQR15,
     FENCE_OCTILE,
     FENCE_DECILE,
-    FENCE_PERC2,
     FENCE_PERC9,
+    FENCE_PERC2,
 };
 
 extern int summary7i8v(const int8_t *values, size_t n_values,
@@ -189,11 +190,12 @@ struct boxplot {
     double quantiles[7];
 };
 
-typedef const char *(boxplot_format_sample_cb)(char label[11], double sample);
+typedef const wchar_t *(boxplot_format_sample_cb)(wchar_t buf[11], double sample);
 
 extern void boxplot_print(const char *title,
                           const struct boxplot *boxplots,
                           size_t n_boxplots,
                           boxplot_format_sample_cb *formatter,
+                          enum summary7_fence fence,
                           FILE *out);
 #endif
