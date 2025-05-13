@@ -846,13 +846,10 @@ static void do_load_factor(struct randbs *rbs, double load_factor)
             break;
         case 1:
             /* delete a random existing key */
-            x = randu32(rbs, 0, hm.alloc - 1);
-
-            while (!has_key_at_index(&hm, x))
-                x = (x + 1) & (hm.alloc - 1);
-
-            key = HM_KEY(&hm, x);
-            key_len = hm.key[x].len;
+            r = hashmap_random(&hm, rbs, &x, sizeof(x), NULL);
+            assert_int_equal(HASHMAP_OK, r);
+            key = &x;
+            key_len = sizeof(x);
 
             r = hashmap_del(&hm, key, key_len, NULL);
 
@@ -860,13 +857,10 @@ static void do_load_factor(struct randbs *rbs, double load_factor)
             break;
         case 2:
             /* get a random existing key */
-            x = randu32(rbs, 0, hm.alloc - 1);
-
-            while (!has_key_at_index(&hm, x))
-                x = (x + 1) & (hm.alloc - 1);
-
-            key = HM_KEY(&hm, x);
-            key_len = hm.key[x].len;
+            r = hashmap_random(&hm, rbs, &x, sizeof(x), NULL);
+            assert_int_equal(HASHMAP_OK, r);
+            key = &x;
+            key_len = sizeof(x);
 
             r = hashmap_get(&hm, key, key_len, NULL);
 

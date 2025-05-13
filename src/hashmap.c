@@ -1,6 +1,7 @@
 #include "flrl/hashmap.h"
 
 #include "flrl/fputil.h"
+#include "flrl/randutil.h"
 #include "flrl/statsutil.h"
 
 #include <assert.h>
@@ -539,6 +540,29 @@ void hashmap_get_stats(const HashMap *hm, HashMapStats *hs)
 
     free(bucket_desired_count);
     free(psl);
+}
+
+int hashmap_random(const HashMap *hm, struct randbs *rbs,
+                   void *key, size_t key_len, void **value)
+{
+    uint32_t i;
+
+    if (!hm->count) return HASHMAP_E_NOKEY;
+
+    /* XXX this isn't uniform: keys that follow empty slots will be selected
+     * XXX with higher probability than keys that follow other keys
+     */
+    i = randu32(rbs, 0, hm->alloc - 1);
+
+    while (!has_key_at_index(hm, i))
+        i = (i + 1) & (hm->alloc - 1);
+
+    if (hm->key[i].len != key_len) return HASHMAP_E_INVALID;
+
+    memcpy(key, HM_KEY(hm, i), key_len);
+    if (value) *value = hm->value[i];
+
+    return HASHMAP_OK;
 }
 
 extern inline uint32_t hashmap_hash32(const void *key, size_t key_len,
