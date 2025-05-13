@@ -549,13 +549,10 @@ int hashmap_random(const HashMap *hm, struct randbs *rbs,
 
     if (!hm->count) return HASHMAP_E_NOKEY;
 
-    /* XXX this isn't uniform: keys that follow empty slots will be selected
-     * XXX with higher probability than keys that follow other keys
-     */
-    i = randu32(rbs, 0, hm->alloc - 1);
-
-    while (!has_key_at_index(hm, i))
-        i = (i + 1) & (hm->alloc - 1);
+    /* XXX this is uniform, but might have perverse runtimes if count is low */
+    do {
+        i = randu32(rbs, 0, hm->alloc - 1);
+    } while (!has_key_at_index(hm, i));
 
     if (hm->key[i].len != key_len) return HASHMAP_E_INVALID;
 
