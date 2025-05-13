@@ -56,6 +56,7 @@ enum {
     HASHMAP_OK = 0,
 };
 
+__attribute__((const))
 extern const char *hashmap_strerr(int e);
 
 extern int hashmap_init(HashMap *hm, uint32_t size);
@@ -77,6 +78,7 @@ extern int hashmap_foreach(const HashMap *hm, hashmap_foreach_cb *cb, void *ctx)
 
 extern void hashmap_get_stats(const HashMap *hm, HashMapStats *hs);
 
+__attribute__((pure))
 inline uint32_t hashmap_hash32(const void *key, size_t key_len, uint32_t seed)
 {
     /* bob jenkins' one-at-a-time hash will do for now, but

@@ -58,6 +58,7 @@ static_assert(12 == offsetof(struct hm_key, hash));
 
 static uint32_t next_seed = 1;
 
+__attribute__((const))
 static inline uint32_t nextpow2(uint32_t v)
 {
     /* https://graphics.stanford.edu/%7Eseander/bithacks.html#RoundUpPowerOf2 */
@@ -81,12 +82,14 @@ static inline void *memndup(const void *a, size_t len)
     return p;
 }
 
+__attribute__((pure))
 static inline bool has_key_at_index(const HashMap *hm, uint32_t index)
 {
     return hm->key[index].len != HASHMAP_BUCKET_EMPTY
            && hm->key[index].len != HASHMAP_BUCKET_DELETED;
 }
 
+__attribute__((pure))
 static inline bool should_grow(const HashMap *hm, uint32_t count)
 {
     return hm->alloc < HASHMAP_MAX_SIZE
@@ -94,6 +97,7 @@ static inline bool should_grow(const HashMap *hm, uint32_t count)
            && count >= hm->grow_threshold;
 }
 
+__attribute__((pure))
 static inline bool should_shrink(const HashMap *hm, uint32_t count)
 {
     return hm->alloc > HASHMAP_MIN_SIZE
@@ -101,6 +105,7 @@ static inline bool should_shrink(const HashMap *hm, uint32_t count)
            && count < hm->shrink_threshold;
 }
 
+__attribute__((pure))
 static inline bool should_gc(const HashMap *hm,
                              uint32_t count, uint32_t deleted)
 {
