@@ -980,6 +980,108 @@ static void load_factor_99(void **state)
     do_load_factor(rbs, 0.99);
 }
 
+static void single_final_table(void **state)
+{
+    static const uint8_t permutations[120][5] = {
+        { 0, 1, 2, 3, 4 }, { 0, 1, 2, 4, 3 }, { 0, 1, 3, 2, 4 },
+        { 0, 1, 3, 4, 2 }, { 0, 1, 4, 2, 3 }, { 0, 1, 4, 3, 2 },
+        { 0, 2, 1, 3, 4 }, { 0, 2, 1, 4, 3 }, { 0, 2, 3, 1, 4 },
+        { 0, 2, 3, 4, 1 }, { 0, 2, 4, 1, 3 }, { 0, 2, 4, 3, 1 },
+        { 0, 3, 1, 2, 4 }, { 0, 3, 1, 4, 2 }, { 0, 3, 2, 1, 4 },
+        { 0, 3, 2, 4, 1 }, { 0, 3, 4, 1, 2 }, { 0, 3, 4, 2, 1 },
+        { 0, 4, 1, 2, 3 }, { 0, 4, 1, 3, 2 }, { 0, 4, 2, 1, 3 },
+        { 0, 4, 2, 3, 1 }, { 0, 4, 3, 1, 2 }, { 0, 4, 3, 2, 1 },
+        { 1, 0, 2, 3, 4 }, { 1, 0, 2, 4, 3 }, { 1, 0, 3, 2, 4 },
+        { 1, 0, 3, 4, 2 }, { 1, 0, 4, 2, 3 }, { 1, 0, 4, 3, 2 },
+        { 1, 2, 0, 3, 4 }, { 1, 2, 0, 4, 3 }, { 1, 2, 3, 0, 4 },
+        { 1, 2, 3, 4, 0 }, { 1, 2, 4, 0, 3 }, { 1, 2, 4, 3, 0 },
+        { 1, 3, 0, 2, 4 }, { 1, 3, 0, 4, 2 }, { 1, 3, 2, 0, 4 },
+        { 1, 3, 2, 4, 0 }, { 1, 3, 4, 0, 2 }, { 1, 3, 4, 2, 0 },
+        { 1, 4, 0, 2, 3 }, { 1, 4, 0, 3, 2 }, { 1, 4, 2, 0, 3 },
+        { 1, 4, 2, 3, 0 }, { 1, 4, 3, 0, 2 }, { 1, 4, 3, 2, 0 },
+        { 2, 0, 1, 3, 4 }, { 2, 0, 1, 4, 3 }, { 2, 0, 3, 1, 4 },
+        { 2, 0, 3, 4, 1 }, { 2, 0, 4, 1, 3 }, { 2, 0, 4, 3, 1 },
+        { 2, 1, 0, 3, 4 }, { 2, 1, 0, 4, 3 }, { 2, 1, 3, 0, 4 },
+        { 2, 1, 3, 4, 0 }, { 2, 1, 4, 0, 3 }, { 2, 1, 4, 3, 0 },
+        { 2, 3, 0, 1, 4 }, { 2, 3, 0, 4, 1 }, { 2, 3, 1, 0, 4 },
+        { 2, 3, 1, 4, 0 }, { 2, 3, 4, 0, 1 }, { 2, 3, 4, 1, 0 },
+        { 2, 4, 0, 1, 3 }, { 2, 4, 0, 3, 1 }, { 2, 4, 1, 0, 3 },
+        { 2, 4, 1, 3, 0 }, { 2, 4, 3, 0, 1 }, { 2, 4, 3, 1, 0 },
+        { 3, 0, 1, 2, 4 }, { 3, 0, 1, 4, 2 }, { 3, 0, 2, 1, 4 },
+        { 3, 0, 2, 4, 1 }, { 3, 0, 4, 1, 2 }, { 3, 0, 4, 2, 1 },
+        { 3, 1, 0, 2, 4 }, { 3, 1, 0, 4, 2 }, { 3, 1, 2, 0, 4 },
+        { 3, 1, 2, 4, 0 }, { 3, 1, 4, 0, 2 }, { 3, 1, 4, 2, 0 },
+        { 3, 2, 0, 1, 4 }, { 3, 2, 0, 4, 1 }, { 3, 2, 1, 0, 4 },
+        { 3, 2, 1, 4, 0 }, { 3, 2, 4, 0, 1 }, { 3, 2, 4, 1, 0 },
+        { 3, 4, 0, 1, 2 }, { 3, 4, 0, 2, 1 }, { 3, 4, 1, 0, 2 },
+        { 3, 4, 1, 2, 0 }, { 3, 4, 2, 0, 1 }, { 3, 4, 2, 1, 0 },
+        { 4, 0, 1, 2, 3 }, { 4, 0, 1, 3, 2 }, { 4, 0, 2, 1, 3 },
+        { 4, 0, 2, 3, 1 }, { 4, 0, 3, 1, 2 }, { 4, 0, 3, 2, 1 },
+        { 4, 1, 0, 2, 3 }, { 4, 1, 0, 3, 2 }, { 4, 1, 2, 0, 3 },
+        { 4, 1, 2, 3, 0 }, { 4, 1, 3, 0, 2 }, { 4, 1, 3, 2, 0 },
+        { 4, 2, 0, 1, 3 }, { 4, 2, 0, 3, 1 }, { 4, 2, 1, 0, 3 },
+        { 4, 2, 1, 3, 0 }, { 4, 2, 3, 0, 1 }, { 4, 2, 3, 1, 0 },
+        { 4, 3, 0, 1, 2 }, { 4, 3, 0, 2, 1 }, { 4, 3, 1, 0, 2 },
+        { 4, 3, 1, 2, 0 }, { 4, 3, 2, 0, 1 }, { 4, 3, 2, 1, 0 },
+    };
+
+    struct randbs *rbs = *state;
+	uint32_t keys[5];
+    struct hm_key *expect_keys = NULL;
+    size_t expect_alloc;
+    const size_t n_keys = 5, n_permutations = 120;
+    const uint32_t seed = 38;
+    bool keys_are_unique;
+    unsigned i, k, p;
+    int r;
+
+    do {
+        randu32v(rbs, keys, n_keys, 0, 100);
+        qsort(keys, n_keys, sizeof(keys[0]), &cmp_uint32_t);
+        keys_are_unique = true;
+        for (k = 1; k < n_keys; k++) {
+            if (keys[k - 1] == keys[k]) {
+                keys_are_unique = false;
+                break;
+            }
+        }
+    } while (!keys_are_unique);
+
+    for (p = 0; p < n_permutations; p++) {
+        HashMap hm;
+
+        r = hashmap_init(&hm, 0);
+        hm.seed = seed;
+        assert_int_equal(0, r);
+
+        for (i = 0; i < n_keys; i++) {
+            k = permutations[p][i];
+            r = hashmap_put(&hm, &keys[k], sizeof(keys[k]),
+                            (void *)(uintptr_t) k, NULL);
+            assert_int_equal(0, r);
+        }
+        assert_hashmap_invariants(&hm);
+
+        if (p == 0) {
+            assert_int_not_equal(0, hm.alloc);
+
+            expect_alloc = hm.alloc;
+            expect_keys = malloc(hm.alloc * sizeof(hm.key[0]));
+            assert_non_null(expect_keys);
+            memcpy(expect_keys, hm.key, hm.alloc * sizeof(hm.key[0]));
+        }
+        else {
+            assert_int_equal(expect_alloc, hm.alloc);
+            assert_memory_equal(expect_keys, hm.key,
+                                expect_alloc * sizeof(hm.key[0]));
+        }
+
+        hashmap_fini(&hm, NULL);
+    }
+
+    free(expect_keys);
+}
+
 const char *const um_group_name = "hashmap";
 const struct CMUnitTest um_group_tests[] =
 {
@@ -1004,6 +1106,7 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test_setup(load_factor_97, um_setup_rbs),
     cmocka_unit_test_setup(load_factor_98, um_setup_rbs),
     cmocka_unit_test_setup(load_factor_99, um_setup_rbs),
+    cmocka_unit_test_setup(single_final_table, um_setup_rbs),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);
