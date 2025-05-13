@@ -16,9 +16,6 @@
 #define HASHMAP_GROW_THRESHOLD      (0.65)
 #define HASHMAP_SHRINK_THRESHOLD    (0.30)
 #define HASHMAP_GC_THRESHOLD        (0.80)
-#define HASHMAP_NO_GROW             UINT32_MAX
-#define HASHMAP_NO_SHRINK           UINT32_C(0)
-#define HASHMAP_NO_GC               UINT32_MAX
 #define HASHMAP_BUCKET_EMPTY        UINT16_C(0)
 #define HASHMAP_BUCKET_DELETED      UINT16_MAX
 #define HASHMAP_INLINE_KEYLEN       (10)

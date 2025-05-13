@@ -6,6 +6,9 @@
 #include <stdlib.h>
 
 #define HASHMAP_KEY_MAXLEN  (UINT16_MAX - 1)
+#define HASHMAP_NO_GROW     UINT32_MAX
+#define HASHMAP_NO_SHRINK   UINT32_C(0)
+#define HASHMAP_NO_GC       UINT32_MAX
 
 typedef struct __attribute__((aligned(64))) {
     struct hm_key *key;
