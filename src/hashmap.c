@@ -430,7 +430,7 @@ int hashmap_put(HashMap *hm,
         return hashmap_put(hm, key, key_len, new_value, old_value);
     }
     else {
-        struct hm_key new_key;
+        struct hm_key new_key = {0};
 
         r = hm_key_init(&new_key, h, key, key_len);
         if (r) return r;
