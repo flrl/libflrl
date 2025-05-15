@@ -3,6 +3,7 @@
 #include "flrl/fputil.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -281,9 +282,9 @@ static void boxplot_print_one(const struct boxplot *bp,
     const wchar_t *lower_fence[5] = { L"lno", L"⅛", L"10%", L" 9%", L" 2%" };
     const wchar_t *upper_fence[5] = { L"hno", L"⅞", L"90%", L"91%", L"98%" };
     const int label_len = strlen(bp->label);
-    wchar_t buf[11];
+    wchar_t buf[32];
     wchar_t min_label[32], max_label[32];
-    int i;
+    int i, r;
 
 //     for (i = 0; i < 7; i++) {
 //         fprintf(stderr, "meta[%d]: pos=%d show=%lc\n",
@@ -454,6 +455,16 @@ static void boxplot_print_one(const struct boxplot *bp,
     ansi_colour_256(out, bucket_colours[is_odd]);
     fprintf(out, "%-3.3ls%10.10ls", upper_fence[fence], formatter(buf, bp->quantiles[5]));
     i = 14;
+    ansi_colour_256(out, grid_colour);
+    fputwc(L'│', out);
+    i++;
+    r = swprintf(buf, sizeof(buf) / sizeof(buf[0]), L"n=%" PRIu64,
+                 (uint64_t) bp->n_samples);
+    if (r > 0) {
+        ansi_colour_256(out, bucket_colours[is_odd]);
+        fputws(buf, out);
+        i += r;
+    }
     ansi_colour_256(out, grid_colour);
     for (; i < 80 - (int) wcslen(max_label); i++)
         fputwc((i - 14) % 11 ? L' ' : L'│', out);

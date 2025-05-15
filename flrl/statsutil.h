@@ -187,6 +187,7 @@ extern void histogram_fini(Histogram *hist);
 
 struct boxplot {
     const char *label;
+    size_t n_samples;
     double quantiles[7];
 };
 
