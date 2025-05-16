@@ -576,21 +576,21 @@ void hashmap_get_stats(const HashMap *hm, HashMapStats *hs)
 }
 
 int hashmap_random(const HashMap *hm, struct randbs *rbs,
-                   void *key, size_t key_len, void **value)
+                   void **pkey, size_t *pkey_len, void **pvalue)
 {
     uint32_t i;
 
     if (!hm->count) return HASHMAP_E_NOKEY;
+    if (!pkey || !pkey_len) return HASHMAP_E_INVALID;
 
     /* XXX this is uniform, but might have perverse runtimes if count is low */
     do {
         i = randu32(rbs, 0, hm->alloc - 1);
     } while (!has_key_at_index(hm, i));
 
-    if (hm->key[i].len != key_len) return HASHMAP_E_INVALID;
-
-    memcpy(key, HM_KEY(hm, i), key_len);
-    if (value) *value = hm->value[i];
+    *pkey = memndup(HM_KEY(hm, i), hm->key[i].len);
+    *pkey_len = hm->key[i].len;
+    if (pvalue) *pvalue = hm->value[i];
 
     return HASHMAP_OK;
 }

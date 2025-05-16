@@ -833,7 +833,7 @@ static void do_load_factor(struct randbs *rbs, double load_factor)
     HashMap hm;
     const unsigned size = 262144;
     const unsigned n_ops = 10000;
-    unsigned i, x, y;
+    unsigned i;
     int r;
 
     assert(load_factor >= 0.5);
@@ -856,15 +856,14 @@ static void do_load_factor(struct randbs *rbs, double load_factor)
     assert_hashmap_invariants(&hm);
 
     /* alternating random operations */
-    for (i = x = y = 0; i < n_ops; i++) {
-        const void *key;
+    for (i = 0; i < n_ops; i++) {
+        void *key = NULL;
         size_t key_len;
-        uint32_t x;
 
         switch ((i & 3)) {
         case 0:
             /* insert a random new (probably) key */
-            key = random_printable(rbs);
+            key = (void *) random_printable(rbs);
             key_len = strlen((const char *) key);
 
             r = hashmap_put(&hm, key, key_len, (void *)(uintptr_t) i, NULL);
@@ -873,29 +872,29 @@ static void do_load_factor(struct randbs *rbs, double load_factor)
             break;
         case 1:
             /* delete a random existing key */
-            r = hashmap_random(&hm, rbs, &x, sizeof(x), NULL);
+            r = hashmap_random(&hm, rbs, &key, &key_len, NULL);
             assert_int_equal(HASHMAP_OK, r);
-            key = &x;
-            key_len = sizeof(x);
+            if (r) continue;
 
             r = hashmap_del(&hm, key, key_len, NULL);
 
             assert_int_equal(HASHMAP_OK, r);
+            free(key);
             break;
         case 2:
             /* get a random existing key */
-            r = hashmap_random(&hm, rbs, &x, sizeof(x), NULL);
+            r = hashmap_random(&hm, rbs, &key, &key_len, NULL);
             assert_int_equal(HASHMAP_OK, r);
-            key = &x;
-            key_len = sizeof(x);
+            if (r) continue;
 
             r = hashmap_get(&hm, key, key_len, NULL);
 
             assert_int_equal(HASHMAP_OK, r);
+            free(key);
             break;
         case 3:
             /* get a random probably nonexistent key */
-            key = random_printable(rbs);
+            key = (void *) random_printable(rbs);
             key_len = strlen((const char *) key);
 
             r = hashmap_get(&hm, key, key_len, NULL);

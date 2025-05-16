@@ -82,8 +82,9 @@ extern int hashmap_foreach(const HashMap *hm, hashmap_foreach_cb *cb, void *ctx)
 extern void hashmap_get_stats(const HashMap *hm, HashMapStats *hs);
 
 struct randbs;
+/* pkey will be assigned a malloced copy of the chosen key, caller must free */
 extern int hashmap_random(const HashMap *hm, struct randbs *rbs,
-                          void *key, size_t key_len, void **value);
+                          void **pkey, size_t *pkey_len, void **pvalue);
 
 __attribute__((pure))
 inline uint32_t hashmap_hash32(const void *key, size_t key_len, uint32_t seed)
