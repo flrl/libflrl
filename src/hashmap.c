@@ -132,14 +132,45 @@ static inline int hm_key_init(struct hm_key *hm_key,
     return HASHMAP_OK;
 }
 
+static inline int keycmp4(const struct hm_key *a,
+                          const void *b_key, size_t b_len, uint32_t b_hash)
+{
+    if (a->hash != b_hash) {
+        /* smallest hash goes first */
+        return (a->hash > b_hash) - (a->hash < b_hash);
+    }
+    else if (a->len != b_len) {
+        /* smallest len goes first -- tombstones sort rightward */
+        return (a->len > b_len) - (a->len < b_len);
+    }
+    else if (a->len == HASHMAP_BUCKET_DELETED) {
+        /* both are tombstones; no keys to compare */
+        return 0;
+    }
+    else if (a->len <= HASHMAP_INLINE_KEYLEN) {
+        return memcmp(a->kval, b_key, b_len);
+    }
+    else {
+        return memcmp(a->kptr, b_key, b_len);
+    }
+}
+
+static inline int keycmp(const struct hm_key *a, const struct hm_key *b)
+{
+    return keycmp4(a,
+                   b->len <= HASHMAP_INLINE_KEYLEN ? b->kval : b->kptr,
+                   b->len,
+                   b->hash);
+}
+
 static int find(const HashMap *hm,
                 uint32_t known_hash,
                 const void *key, size_t key_len,
                 uint32_t *phash,
                 uint32_t *pindex)
 {
-    uint32_t dist, h, i, deleted, mask;
-    bool found_deleted = false;
+    uint32_t dist, h, i, pip, mask;
+    bool found_pip = false;
 
     if (!key || !key_len)
         return HASHMAP_E_INVALID;
@@ -156,20 +187,20 @@ static int find(const HashMap *hm,
         if (hm->key[i].len == HASHMAP_BUCKET_EMPTY
             || dist > HM_PSL(hm, i))
         {
-            *pindex = found_deleted ? deleted : i;
+            *pindex = found_pip ? pip : i;
             return HASHMAP_E_NOKEY;
         }
         else if (dist == HM_PSL(hm, i)
-                 && hm->key[i].len == HASHMAP_BUCKET_DELETED
-                 && !found_deleted)
+                 && !found_pip
+                 && keycmp4(&hm->key[i], key, key_len, h) > 0)
         {
-            deleted = i;
-            found_deleted = true;
+            /* don't yet know if the key exists, but if in the end it doesn't,
+             * here's a possible insertion point
+             */
+            pip = i;
+            found_pip = true;
         }
-        else if (hm->key[i].len == key_len
-                 && hm->key[i].hash == h
-                 && 0 == memcmp(HM_KEY(hm, i), key, key_len))
-        {
+        else if (0 == keycmp4(&hm->key[i], key, key_len, h)) {
             *pindex = i;
             return HASHMAP_OK;
         }
@@ -206,8 +237,12 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
     i = pos;
     dist = (hm->alloc + i - (hash & mask)) & mask;
     while (has_key_at_index(hm, i)) {
-        if (dist > HM_PSL(hm, i)) {
-            dist = HM_PSL(hm, i);
+        uint32_t psl = HM_PSL(hm, i);
+
+        if (dist > psl
+            || (dist == psl && keycmp(&new_key, &hm->key[i]) < 0))
+        {
+            dist = psl;
             SWAP(&new_key, &hm->key[i]);
             SWAP(&new_value, &hm->value[i]);
         }
@@ -422,7 +457,8 @@ int hashmap_put(HashMap *hm,
     else if (r != HASHMAP_E_NOKEY) {
         return r;
     }
-    else if (hm->key[i].len == HASHMAP_BUCKET_EMPTY
+    else if (r == HASHMAP_E_NOKEY
+             && hm->key[i].len != HASHMAP_BUCKET_DELETED
              && should_grow(hm, hm->count))
     {
         rehash(hm, hm->alloc * 2);

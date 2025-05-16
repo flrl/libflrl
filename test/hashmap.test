@@ -127,12 +127,7 @@ static void assert_hashmap_invariants(const HashMap *hm)
 
     count = empty = deleted = 0;
     for (i = 0; i < hm->alloc; i++) {
-        if (hm->key[i].len == HASHMAP_BUCKET_DELETED) {
-            deleted ++;
-            assert_null(hm->key[i].kptr);
-            assert_null(hm->value[i]);
-        }
-        else if (hm->key[i].len == HASHMAP_BUCKET_EMPTY) {
+        if (hm->key[i].len == HASHMAP_BUCKET_EMPTY) {
             empty ++;
             assert_int_equal(0, hm->key[i].hash);
             assert_null(hm->key[i].kptr);
@@ -141,18 +136,46 @@ static void assert_hashmap_invariants(const HashMap *hm)
         else {
             uint32_t prev_i, psl, prev_psl;
 
-            count ++;
-
-            assert_non_null(hm->key[i].kptr);
-            assert_int_equal(true, has_key_at_index(hm, i));
+            if (hm->key[i].len == HASHMAP_BUCKET_DELETED) {
+                deleted ++;
+                assert_null(hm->key[i].kptr);
+                assert_null(hm->value[i]);
+            }
+            else {
+                count ++;
+                if (hm->key[i].len > HASHMAP_INLINE_KEYLEN) {
+                    assert_non_null(hm->key[i].kptr);
+                    assert_int_equal(0, hm->key[i].pad__);
+                }
+                assert_int_equal(true, has_key_at_index(hm, i));
+            }
 
             prev_i = (hm->alloc + i - 1) & mask;
             if (hm->key[prev_i].len != HASHMAP_BUCKET_EMPTY) {
+                bool have_one_tombstone = hm->key[prev_i].len != hm->key[i].len
+                                          && (hm->key[prev_i].len == HASHMAP_BUCKET_DELETED
+                                              || hm->key[i].len == HASHMAP_BUCKET_DELETED);
                 psl = HM_PSL(hm, i);
                 prev_psl = HM_PSL(hm, prev_i);
+
                 if (psl > prev_psl) {
+                    /* these two keys wanted the same bucket */
+                    assert_int_equal(psl, prev_psl + 1);
                     assert_int_equal(hm->key[i].hash & mask,
                                      hm->key[prev_i].hash & mask);
+
+                    /* keys in comparison order, unless they hash identically
+                     * and one is a tombstone (in which case the order will
+                     * depend on the key that was deleted, which we can no
+                     * longer compare)
+                     */
+                    if (hm->key[prev_i].hash != hm->key[i].hash
+                        || !have_one_tombstone)
+                    {
+                        assert_int_in_range(keycmp(&hm->key[prev_i],
+                                                   &hm->key[i]),
+                                            INT_MIN, 0);
+                    }
                 }
                 else {
                     assert_int_not_equal(hm->key[i].hash & mask,
@@ -586,8 +609,8 @@ static void put_del_collide(NO_STATE)
         "cupcake",
         "furies",
         "lived",
-        "ember",
         "equiv",
+        "ember",
         "Appenzell",
         "rabbinical",
     };
