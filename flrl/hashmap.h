@@ -51,7 +51,7 @@ typedef struct {
 enum {
     HASHMAP_E_NOKEY = INT_MIN,
     HASHMAP_E_KEYTOOBIG,
-    HASHMAP_E_REHASH,
+    HASHMAP_E_RESIZE,
     HASHMAP_E_NOMEM,
     HASHMAP_E_INVALID,
     HASHMAP_E_UNKNOWN,
@@ -64,6 +64,7 @@ extern const char *hashmap_strerr(int e);
 
 extern int hashmap_init(HashMap *hm, uint32_t size);
 extern void hashmap_fini(HashMap *hm, void (*value_destructor)(void *));
+extern int hashmap_resize(HashMap *hm, uint32_t new_size);
 
 extern int hashmap_get(const HashMap *hm, const void *key, size_t key_len,
                        void **value);

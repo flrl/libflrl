@@ -209,8 +209,8 @@ static int find(const HashMap *hm,
         dist++;
     }
 
-    /* map is full, we ought to have rehashed earlier! */
-    return HASHMAP_E_REHASH;
+    /* map is full, we ought to have resized earlier! */
+    return HASHMAP_E_RESIZE;
 }
 
 static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
@@ -224,7 +224,7 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
 
     assert(hm->count <= hm->alloc);
     if (hm->count >= hm->alloc)
-        return HASHMAP_E_REHASH;
+        return HASHMAP_E_RESIZE;
     
     /* XXX */
     assert(hash == new_key.hash);
@@ -260,26 +260,23 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
     return HASHMAP_OK;
 }
 
-static int rehash(HashMap *hm, uint32_t new_size)
+int hashmap_resize(HashMap *hm, uint32_t new_size)
 {
     HashMap new_hm;
     uint32_t i;
     int r;
 
+    new_size = nextpow2(new_size);
+
+    if (new_size > HASHMAP_MAX_SIZE)
+        return HASHMAP_E_INVALID;
+
+    if (new_size < HASHMAP_MIN_SIZE)
+        new_size = HASHMAP_MIN_SIZE;
+
     assert(new_size >= hm->count);
-    if (new_size < hm->count) return HASHMAP_E_INVALID;
-
-    if (new_size < HASHMAP_MIN_SIZE && hm->alloc == HASHMAP_MIN_SIZE)
-        return HASHMAP_OK;
-
-    if (hm->grow_threshold == HASHMAP_NO_GROW && new_size > hm->alloc)
-        return HASHMAP_E_REHASH;
-
-    if (hm->shrink_threshold == HASHMAP_NO_SHRINK && new_size < hm->alloc)
-        return HASHMAP_E_REHASH;
-
-    if (hm->gc_threshold == HASHMAP_NO_GC && new_size == hm->alloc)
-        return HASHMAP_E_REHASH;
+    if (new_size < hm->count)
+        return HASHMAP_E_INVALID;
 
     r = hashmap_init(&new_hm, new_size);
     if (r) return r;
@@ -330,7 +327,7 @@ const char *hashmap_strerr(int e)
         return "key not found";
     case HASHMAP_E_KEYTOOBIG:
         return "key too long";
-    case HASHMAP_E_REHASH:
+    case HASHMAP_E_RESIZE:
         return "map is full";
     case HASHMAP_E_NOMEM:
         return "memory allocation failed";
@@ -415,7 +412,7 @@ int hashmap_get(const HashMap *hm, const void *key, size_t key_len,
     case HASHMAP_OK:
         if (value) *value = hm->value[i];
         return HASHMAP_OK;
-    case HASHMAP_E_REHASH:
+    case HASHMAP_E_RESIZE:
         r = HASHMAP_E_NOKEY;
         /* fall through */
     default:
@@ -434,9 +431,9 @@ int hashmap_put(HashMap *hm,
 
     r = find(hm, 0, key, key_len, &h, &i);
 
-    if (r == HASHMAP_E_REHASH) {
+    if (r == HASHMAP_E_RESIZE) {
         if (hm->grow_threshold == HASHMAP_NO_GROW
-            || (r = rehash(hm, hm->alloc * 2)))
+            || (r = hashmap_resize(hm, hm->alloc * 2)))
         {
             return r;
         }
@@ -461,11 +458,11 @@ int hashmap_put(HashMap *hm,
              && hm->key[i].len != HASHMAP_BUCKET_DELETED
              && should_grow(hm, hm->count))
     {
-        rehash(hm, hm->alloc * 2);
+        hashmap_resize(hm, hm->alloc * 2);
         return hashmap_put(hm, key, key_len, new_value, old_value);
     }
     else if (should_gc(hm, hm->count, hm->deleted)) {
-        rehash(hm, hm->alloc);
+        hashmap_resize(hm, hm->alloc);
         return hashmap_put(hm, key, key_len, new_value, old_value);
     }
     else {
@@ -501,13 +498,13 @@ int hashmap_del(HashMap *hm, const void *key, size_t key_len, void **old_value)
         hm->count --;
 
         if (should_shrink(hm, hm->count))
-            rehash(hm, hm->alloc / 2);
+            hashmap_resize(hm, hm->alloc / 2);
         else if (should_gc(hm, hm->count, hm->deleted))
-            rehash(hm, hm->alloc);
+            hashmap_resize(hm, hm->alloc);
     }
     else {
         if (old_value) *old_value = NULL;
-        if (r == HASHMAP_E_REHASH) r = HASHMAP_E_NOKEY;
+        if (r == HASHMAP_E_RESIZE) r = HASHMAP_E_NOKEY;
     }
 
     return r;

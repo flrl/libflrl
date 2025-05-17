@@ -255,7 +255,7 @@ static void fn_hashmap_strerr(NO_STATE)
     } tests[] = {
         { HASHMAP_E_NOKEY,      "key not found" },
         { HASHMAP_E_KEYTOOBIG,  "key too long" },
-        { HASHMAP_E_REHASH,     "map is full" },
+        { HASHMAP_E_RESIZE,     "map is full" },
         { HASHMAP_E_NOMEM,      "memory allocation failed" },
         { HASHMAP_E_INVALID,    "invalid argument" },
         { HASHMAP_E_UNKNOWN,    "unknown error" },
@@ -756,7 +756,7 @@ static void full(NO_STATE)
         i++;
     } while (i < n_keys && r == HASHMAP_OK);
 
-    assert_int_equal(HASHMAP_E_REHASH, r);
+    assert_int_equal(HASHMAP_E_RESIZE, r);
 
     assert_int_equal(expect_alloc, hm.alloc);
     assert_int_equal(expect_count, hm.count);
