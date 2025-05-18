@@ -12,7 +12,11 @@
 #include <stdlib.h>
 #include <time.h>
 
-static const unsigned lf_n_ops = 40000;
+static const unsigned lf_n_ops = 1000000;
+
+static bool want_csv = false;
+static bool want_graph = false;
+static bool want_perf = false;
 
 static int usage(void)
 {
@@ -140,46 +144,55 @@ static int do_load_factors(struct randbs *rbs,
     if (r) return usage();
 
     n_load_factors = strlen((char*) load_factors);
-    perf = calloc(n_load_factors * 5, sizeof(perf[0]));
-    if (!perf) return 71; /* EX_OSERR */
 
-    if (!group_by)
-        group_by = n_load_factors == 1 ? 'l' : 'f';
+    if (want_perf) {
+        perf = calloc(n_load_factors * 5, sizeof(perf[0]));
+        if (!perf) return 71; /* EX_OSERR */
+
+        if (!group_by)
+            group_by = n_load_factors == 1 ? 'l' : 'f';
+    }
 
     for (i = 0; !r && i < n_load_factors; i++) {
-        if (group_by == 'l') {
-            perf[i * 5 + 0] = perf_new("hashmap_put",
-                                                    lf_n_ops / 4);
-            perf[i * 5 + 1] = perf_new("hashmap_del (existing key)",
-                                                    lf_n_ops / 4);
-            perf[i * 5 + 2] = perf_new("hashmap_get (existing key)",
-                                                    lf_n_ops / 4);
-            perf[i * 5 + 3] = perf_new("hashmap_get (random key)",
-                                                    lf_n_ops / 4);
-            perf[i * 5 + 4] = perf_new("hashmap_random",
-                                                    lf_n_ops / 4);
+        if (want_perf) {
+            if (group_by == 'l') {
+                perf[i * 5 + 0] = perf_new("hashmap_put",
+                                                        lf_n_ops / 4);
+                perf[i * 5 + 1] = perf_new("hashmap_del (existing key)",
+                                                        lf_n_ops / 4);
+                perf[i * 5 + 2] = perf_new("hashmap_get (existing key)",
+                                                        lf_n_ops / 4);
+                perf[i * 5 + 3] = perf_new("hashmap_get (random key)",
+                                                        lf_n_ops / 4);
+                perf[i * 5 + 4] = perf_new("hashmap_random",
+                                                        lf_n_ops / 4);
 
-            r = do_one_load_factor(rbs, 0.01 * load_factors[i],
-                                   perf[i * 5 + 0],
-                                   perf[i * 5 + 1],
-                                   perf[i * 5 + 2],
-                                   perf[i * 5 + 3],
-                                   perf[i * 5 + 4]);
+                r = do_one_load_factor(rbs, 0.01 * load_factors[i],
+                                    perf[i * 5 + 0],
+                                    perf[i * 5 + 1],
+                                    perf[i * 5 + 2],
+                                    perf[i * 5 + 3],
+                                    perf[i * 5 + 4]);
+            }
+            else {
+                snprintf(buf, sizeof(buf), "load factor %d%%", load_factors[i]);
+                perf[0 * n_load_factors + i] = perf_new(buf, lf_n_ops / 4);
+                perf[1 * n_load_factors + i] = perf_new(buf, lf_n_ops / 4);
+                perf[2 * n_load_factors + i] = perf_new(buf, lf_n_ops / 4);
+                perf[3 * n_load_factors + i] = perf_new(buf, lf_n_ops / 4);
+                perf[4 * n_load_factors + i] = perf_new(buf, lf_n_ops / 4);
+
+                r = do_one_load_factor(rbs, 0.01 * load_factors[i],
+                                    perf[0 * n_load_factors + i],
+                                    perf[1 * n_load_factors + i],
+                                    perf[2 * n_load_factors + i],
+                                    perf[3 * n_load_factors + i],
+                                    perf[4 * n_load_factors + i]);
+            }
         }
         else {
-            snprintf(buf, sizeof(buf), "load factor %d%%", load_factors[i]);
-            perf[0 * n_load_factors + i] = perf_new(buf, lf_n_ops / 4);
-            perf[1 * n_load_factors + i] = perf_new(buf, lf_n_ops / 4);
-            perf[2 * n_load_factors + i] = perf_new(buf, lf_n_ops / 4);
-            perf[3 * n_load_factors + i] = perf_new(buf, lf_n_ops / 4);
-            perf[4 * n_load_factors + i] = perf_new(buf, lf_n_ops / 4);
-
             r = do_one_load_factor(rbs, 0.01 * load_factors[i],
-                                   perf[0 * n_load_factors + i],
-                                   perf[1 * n_load_factors + i],
-                                   perf[2 * n_load_factors + i],
-                                   perf[3 * n_load_factors + i],
-                                   perf[4 * n_load_factors + i]);
+                                   NULL, NULL, NULL, NULL, NULL);
         }
 
         if (r)
@@ -187,33 +200,37 @@ static int do_load_factors(struct randbs *rbs,
                             hashmap_strerr(r));
     }
 
-    if (group_by == 'l') {
-        for (i = 0; i < n_load_factors; i++) {
-            snprintf(buf, sizeof(buf), "load factor %d%%", load_factors[i]);
-            perf_report(stderr, buf, perf + i * 5, 5);
+    if (want_graph) {
+        if (group_by == 'l') {
+            for (i = 0; i < n_load_factors; i++) {
+                snprintf(buf, sizeof(buf), "load factor %d%%", load_factors[i]);
+                perf_report(stderr, buf, perf + i * 5, 5);
+            }
+        }
+        else {
+            perf_report(stderr, "hashmap_put",
+                        perf + 0 * n_load_factors, n_load_factors);
+
+            perf_report(stderr, "hashmap_del (existing key)",
+                        perf + 1 * n_load_factors, n_load_factors);
+
+            perf_report(stderr, "hashmap_get (existing key)",
+                        perf + 2 * n_load_factors, n_load_factors);
+
+            perf_report(stderr, "hashmap_get (random key)",
+                        perf + 3 * n_load_factors, n_load_factors);
+
+            perf_report(stderr, "hashmap_random",
+                        perf + 4 * n_load_factors, n_load_factors);
         }
     }
-    else {
-        perf_report(stderr, "hashmap_put",
-                    perf + 0 * n_load_factors, n_load_factors);
 
-        perf_report(stderr, "hashmap_del (existing key)",
-                    perf + 1 * n_load_factors, n_load_factors);
-
-        perf_report(stderr, "hashmap_get (existing key)",
-                    perf + 2 * n_load_factors, n_load_factors);
-
-        perf_report(stderr, "hashmap_get (random key)",
-                    perf + 3 * n_load_factors, n_load_factors);
-
-        perf_report(stderr, "hashmap_random",
-                    perf + 4 * n_load_factors, n_load_factors);
+    if (want_perf) {
+        for (i = 0; i < n_load_factors * 5; i++) {
+            free(perf[i]);
+        }
+        free(perf);
     }
-
-    for (i = 0; i < n_load_factors * 5; i++) {
-        free(perf[i]);
-    }
-    free(perf);
 
     return r;
 }
@@ -228,16 +245,12 @@ int main(int argc, char **argv)
         { NULL,                   0,                 NULL,  0  },
     };
     int c, r = 0;
-    bool want_csv = false, want_graph = false;
     struct randbs rbs = RANDBS_INITIALIZER(&xoshiro128plusplus_next);
     char *load_factor_string = NULL;
     int load_factor_group_by = 0;
 
     setlocale(LC_ALL, ".utf8");
     randbs_seed64(&rbs, time(NULL));
-
-    (void) want_csv;
-    (void) want_graph;
 
     while (-1 != (c = getopt_long(argc, argv, "L:cgl:", long_options, NULL))) {
         switch (c) {
@@ -248,9 +261,11 @@ int main(int argc, char **argv)
             break;
         case 'c':
             want_csv = true;
+            want_perf = true;
             break;
         case 'g':
             want_graph = true;
+            want_perf = true;
             break;
         case 'l':
             load_factor_string = strdup(optarg);
