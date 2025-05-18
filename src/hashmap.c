@@ -235,6 +235,7 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
 //              && memcmp(HM_KEY(hm, pos), key, key_len) == 0));
 
     i = pos;
+    __builtin_prefetch(&hm->value[i]);
     dist = (hm->alloc + i - (hash & mask)) & mask;
     while (has_key_at_index(hm, i)) {
         uint32_t psl = HM_PSL(hm, i);
