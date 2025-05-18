@@ -29,22 +29,26 @@ extern void perf_free(struct perf *perf);
 
 inline void perf_start(struct perf *perf)
 {
+    if (perf) {
 #ifdef _WIN32
-    QueryPerformanceCounter(&perf->started);
+        QueryPerformanceCounter(&perf->started);
 #endif
+    }
 }
 
 extern void perf_add_sample(struct perf *perf, perf_raw_time ended);
 
 inline void perf_end(struct perf *perf)
 {
-    perf_raw_time ended;
+    if (perf) {
+        perf_raw_time ended;
 
 #ifdef _WIN32
-    QueryPerformanceCounter(&ended);
+        QueryPerformanceCounter(&ended);
 #endif
 
-    perf_add_sample(perf, ended);
+        perf_add_sample(perf, ended);
+    }
 }
 
 extern void perf_report(FILE *out, const char *title,
