@@ -235,12 +235,46 @@ static int do_load_factors(struct randbs *rbs,
     return r;
 }
 
+static int do_grow(struct randbs *rbs)
+{
+    HashMap hm;
+    struct perf *perf_put = NULL;
+    const uint32_t initial_size = 1000000, target_size = 100000000;
+    uintptr_t i = 0;
+
+    hashmap_init(&hm, initial_size);
+
+    if (want_perf)
+        perf_put = perf_new("hashmap_put", target_size);
+
+    while (hm.count < target_size) {
+        uint32_t k;
+
+        k = randu32(rbs, 0, UINT32_MAX);
+
+        perf_start(perf_put);
+        hashmap_put(&hm, &k, sizeof(k), (void *) i, NULL);
+        perf_end(perf_put);
+    }
+
+    if (want_graph) {
+        perf_report(stdout, "growing hash", &perf_put, 1);
+    }
+
+    free(perf_put);
+
+    hashmap_fini(&hm, NULL);
+
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     static const struct option long_options[] = {
         { "load-factor-group-by", required_argument, NULL, 'L' },
-        { "csv",                  no_argument,       NULL, 'c' },
-        { "graph",                no_argument,       NULL, 'g' },
+        { "csv",                  no_argument,       NULL, 'C' },
+        { "graph",                no_argument,       NULL, 'G' },
+        { "grow",                 no_argument,       NULL, 'g' },
         { "load-factor",          required_argument, NULL, 'l' },
         { NULL,                   0,                 NULL,  0  },
     };
@@ -248,24 +282,28 @@ int main(int argc, char **argv)
     struct randbs rbs = RANDBS_INITIALIZER(&xoshiro128plusplus_next);
     char *load_factor_string = NULL;
     int load_factor_group_by = 0;
+    bool want_grow = false;
 
     setlocale(LC_ALL, ".utf8");
     randbs_seed64(&rbs, UINT64_C(11226047971600110276));
 
-    while (-1 != (c = getopt_long(argc, argv, "L:cgl:", long_options, NULL))) {
+    while (-1 != (c = getopt_long(argc, argv, "L:CGgl:", long_options, NULL))) {
         switch (c) {
         case 'L':
             load_factor_group_by = optarg[0];
             if (load_factor_group_by != 'l' && load_factor_group_by != 'f')
                 r = usage();
             break;
-        case 'c':
+        case 'C':
             want_csv = true;
             want_perf = true;
             break;
-        case 'g':
+        case 'G':
             want_graph = true;
             want_perf = true;
+            break;
+        case 'g':
+            want_grow = true;
             break;
         case 'l':
             load_factor_string = strdup(optarg);
@@ -280,6 +318,10 @@ int main(int argc, char **argv)
         r = do_load_factors(&rbs, load_factor_string, load_factor_group_by);
     }
     free(load_factor_string);
+
+    if (!r && want_grow) {
+        r = do_grow(&rbs);
+    }
 
     return r;
 }
