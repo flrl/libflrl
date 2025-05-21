@@ -268,6 +268,54 @@ static int do_grow(struct randbs *rbs)
     return 0;
 }
 
+static int do_shrink(struct randbs *rbs)
+{
+    HashMap hm;
+    struct perf *perf_del = NULL;
+    uint32_t *keys = NULL;
+    const uint32_t target_size = 100000000;
+    uint32_t k;
+    uintptr_t i = 0;
+    int r;
+
+    keys = calloc(target_size, sizeof(uint32_t));
+    if (!keys) return 71; /* EX_OSERR */
+
+    r = hashmap_init(&hm, target_size);
+    if (r) goto done;
+
+    for (i = 0; i < target_size; i++) {
+        do {
+            k = randu32(rbs, 0, UINT32_MAX);
+        } while (HASHMAP_OK == hashmap_get(&hm, &k, sizeof(k), NULL));
+        keys[i] = k;
+        r = hashmap_put(&hm, &k, sizeof(k), (void *) i, NULL);
+        if (r) goto done;
+    }
+
+    shuffle(rbs, keys, target_size, sizeof(keys[0]));
+
+    if (want_perf)
+        perf_del = perf_new("hashmap_del", target_size);
+
+    for (i = 0; i < target_size; i++) {
+        perf_start(perf_del);
+        r = hashmap_del(&hm, &keys[i], sizeof(keys[i]), NULL);
+        perf_end(perf_del);
+
+        if (r) goto done;
+    }
+
+    if (want_graph) {
+        perf_report(stdout, "shrinking hash", &perf_del, 1);
+    }
+
+ done:
+    free(keys);
+    hashmap_fini(&hm, NULL);
+    return r;
+}
+
 int main(int argc, char **argv)
 {
     static const struct option long_options[] = {
@@ -276,18 +324,19 @@ int main(int argc, char **argv)
         { "graph",                no_argument,       NULL, 'G' },
         { "grow",                 no_argument,       NULL, 'g' },
         { "load-factor",          required_argument, NULL, 'l' },
+        { "shrink",               no_argument,       NULL, 's' },
         { NULL,                   0,                 NULL,  0  },
     };
     int c, r = 0;
     struct randbs rbs = RANDBS_INITIALIZER(&xoshiro128plusplus_next);
     char *load_factor_string = NULL;
     int load_factor_group_by = 0;
-    bool want_grow = false;
+    bool want_grow = false, want_shrink = false;
 
     setlocale(LC_ALL, ".utf8");
     randbs_seed64(&rbs, UINT64_C(11226047971600110276));
 
-    while (-1 != (c = getopt_long(argc, argv, "L:CGgl:", long_options, NULL))) {
+    while (-1 != (c = getopt_long(argc, argv, "L:CGgl:s", long_options, NULL))) {
         switch (c) {
         case 'L':
             load_factor_group_by = optarg[0];
@@ -308,6 +357,9 @@ int main(int argc, char **argv)
         case 'l':
             load_factor_string = strdup(optarg);
             break;
+        case 's':
+            want_shrink = true;
+            break;
         default:
             r = usage();
             break;
@@ -321,6 +373,10 @@ int main(int argc, char **argv)
 
     if (!r && want_grow) {
         r = do_grow(&rbs);
+    }
+
+    if (!r && want_shrink) {
+        r = do_shrink(&rbs);
     }
 
     return r;
