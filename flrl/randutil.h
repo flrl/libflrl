@@ -239,6 +239,11 @@ inline bool coin(struct randbs *bs, float p_true)
     return randf32(bs, 0.0, 1.0) <= p_true;
 }
 
+extern void shuffle(struct randbs *rbs,
+                    void *base,
+                    size_t n_elems,
+                    size_t elem_size);
+
 extern void wrandi32v(struct wrandbs *bs,
                       int32_t *out,
                       size_t count,

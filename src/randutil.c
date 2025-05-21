@@ -60,6 +60,28 @@ void state_seed_sm64(void *state, size_t state_len, uint64_t seed)
     memcpy(state, buf, state_len);
 }
 
+void shuffle(struct randbs *rbs, void *base, size_t n_elems, size_t elem_size)
+{
+    unsigned char *array = base, *tmp;
+    size_t i, j;
+
+    tmp = malloc(elem_size);
+
+    assert(tmp);
+    if (!tmp) return;
+
+    for (i = 0; i < n_elems - 1; i++) {
+        j = randu64(rbs, i, n_elems - 1);
+        if (i != j) {
+            memcpy(tmp, array + i * elem_size, elem_size);
+            memcpy(array + i * elem_size, array + j * elem_size, elem_size);
+            memcpy(array + j * elem_size, tmp, elem_size);
+        }
+    }
+
+    free(tmp);
+}
+
 extern inline void state128_seed(struct state128 *restrict state,
                                  const struct state128 *seed);
 extern inline void state128_seed64(struct state128 *state, uint64_t seed);
