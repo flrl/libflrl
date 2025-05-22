@@ -281,7 +281,7 @@ static void boxplot_print_one(const struct boxplot *bp,
 {
     const wchar_t *lower_fence[5] = { L"lno", L"⅛", L"10%", L" 9%", L" 2%" };
     const wchar_t *upper_fence[5] = { L"hno", L"⅞", L"90%", L"91%", L"98%" };
-    const int label_len = strlen(bp->label);
+    const int label_len = bp->label ? strlen(bp->label) : 0;
     wchar_t buf[32];
     wchar_t min_label[32], max_label[32];
     int i, r;
