@@ -2,14 +2,15 @@ CC := gcc
 AR := ar
 WARNINGS := -Wall -Wextra -Werror -Wsuggest-attribute=format -Wwrite-strings
 FEATURES := -fstrict-aliasing
+O := 3
 LCOVEXCLUDE := misc/* src/xoshiro*.c src/splitmix64.c
 UTMUX := $(shell which utmux 2>/dev/null)
 COVERAGE :=
 
 REQUIRES := cmocka
 
-FLRL_CFLAGS := -Og -ggdb3 $(WARNINGS) $(FEATURES) $(COVERAGE) $(CFLAGS)
-FLRL_CXXFLAGS := -Og -ggdb3 -std=c++2b -ffreestanding -fno-exceptions \
+FLRL_CFLAGS := -O$(O) -ggdb3 $(WARNINGS) $(FEATURES) $(COVERAGE) $(CFLAGS)
+FLRL_CXXFLAGS := -O$(O) -ggdb3 -std=c++2b -ffreestanding -fno-exceptions \
 				 $(WARNINGS) $(FEATURES) $(COVERAGE) $(CXXFLAGS)
 FLRL_LDFLAGS := $(LDFLAGS)
 FLRL_CPPFLAGS := $(shell pkg-config --cflags $(REQUIRES)) $(CPPFLAGS)
