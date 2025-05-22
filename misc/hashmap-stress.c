@@ -6,7 +6,9 @@
 
 #include <assert.h>
 #include <getopt.h>
+#include <inttypes.h>
 #include <locale.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,11 +19,51 @@ static const unsigned lf_n_ops = 100000000;
 static bool want_csv = false;
 static bool want_graph = false;
 static bool want_perf = false;
+static bool want_summary = false;
 
 static int usage(void)
 {
     fputs("Usage: hashmap-stress [options]\n", stderr);
     return 64; /* XXX EX_USAGE -- mingw doesn't have sysexits.h */
+}
+
+static void do_summary(const HashMap *hm, const char *title)
+{
+    HashMapStats stats = {0};
+
+    hashmap_get_stats(hm, &stats);
+
+    printf("%" PRIu32 " + %" PRIu32 " / %" PRIu32 " buckets in use\n",
+           hm->count, hm->deleted, hm->alloc);
+    printf("load factor: %g%% (%g%%)\n", 100.0 * stats.load,
+                                         100.0 * (hm->count + hm->deleted) / hm->alloc);
+
+    if (hm->alloc) {
+        char bp_title[80];
+        const struct boxplot boxplots[] = {
+            { .label = "probe sequence length",
+              .n_samples = stats.psl.n_samples,
+              .summary7 = stats.psl.summary7 },
+            { .label = "bucket desired count",
+              .n_samples = stats.bdc.n_samples,
+              .summary7 = stats.bdc.summary7 },
+        };
+        const size_t n_boxplots = sizeof(boxplots) / sizeof(boxplots[0]);
+
+        snprintf(bp_title, sizeof(bp_title),
+                "%s%sload factor %g%% (%g%%)",
+                title ? title : "",
+                title ? " ": "",
+                100.0 * stats.load,
+                100.0 * (hm->count + hm->deleted) / hm->alloc);
+
+        boxplot_print(bp_title, boxplots, n_boxplots, NULL, stdout);
+    }
+
+    printf("psl mean: %g\n", stats.psl.mean);
+    printf("psl stddev: %g\n", sqrt(stats.psl.variance));
+    printf("bdc mean: %g\n", stats.bdc.mean);
+    printf("bdc stddev: %g\n", sqrt(stats.bdc.variance));
 }
 
 static int do_one_load_factor(struct randbs *rbs, double load_factor,
@@ -114,6 +156,8 @@ static int do_one_load_factor(struct randbs *rbs, double load_factor,
     }
 
 done:
+    if (want_summary)
+        do_summary(&hm, NULL);
     hashmap_fini(&hm, NULL);
 
     return r;
@@ -263,6 +307,8 @@ static int do_grow(struct randbs *rbs)
 
     free(perf_put);
 
+    if (want_summary)
+        do_summary(&hm, "grow");
     hashmap_fini(&hm, NULL);
 
     return 0;
@@ -312,7 +358,11 @@ static int do_shrink(struct randbs *rbs)
 
  done:
     free(keys);
+
+    if (want_summary)
+        do_summary(&hm, "shrink");
     hashmap_fini(&hm, NULL);
+
     return r;
 }
 
@@ -322,6 +372,7 @@ int main(int argc, char **argv)
         { "load-factor-group-by", required_argument, NULL, 'L' },
         { "csv",                  no_argument,       NULL, 'C' },
         { "graph",                no_argument,       NULL, 'G' },
+        { "summary",              no_argument,       NULL, 'S' },
         { "grow",                 no_argument,       NULL, 'g' },
         { "load-factor",          required_argument, NULL, 'l' },
         { "shrink",               no_argument,       NULL, 's' },
@@ -336,7 +387,7 @@ int main(int argc, char **argv)
     setlocale(LC_ALL, ".utf8");
     randbs_seed64(&rbs, UINT64_C(11226047971600110276));
 
-    while (-1 != (c = getopt_long(argc, argv, "L:CGgl:s", long_options, NULL))) {
+    while (-1 != (c = getopt_long(argc, argv, "L:CGSgl:s", long_options, NULL))) {
         switch (c) {
         case 'L':
             load_factor_group_by = optarg[0];
@@ -350,6 +401,9 @@ int main(int argc, char **argv)
         case 'G':
             want_graph = true;
             want_perf = true;
+            break;
+        case 'S':
+            want_summary = true;
             break;
         case 'g':
             want_grow = true;
