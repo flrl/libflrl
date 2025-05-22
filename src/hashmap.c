@@ -13,15 +13,16 @@
 
 #define HASHMAP_MIN_SIZE            (8)
 #define HASHMAP_MAX_SIZE            (UINT32_C(1) << 31)
-#define HASHMAP_GROW_THRESHOLD      (0.65)
+#define HASHMAP_GROW_THRESHOLD      (0.84)
 #define HASHMAP_SHRINK_THRESHOLD    (0.30)
-#define HASHMAP_GC_THRESHOLD        (0.80)
+#define HASHMAP_GC_THRESHOLD        (0.95)
 #define HASHMAP_BUCKET_EMPTY        UINT16_C(0)
 #define HASHMAP_BUCKET_DELETED      UINT16_MAX
 #define HASHMAP_INLINE_KEYLEN       (10)
 
 static_assert(1 == __builtin_popcount(HASHMAP_MIN_SIZE));
 static_assert(1 == __builtin_popcount(HASHMAP_MAX_SIZE));
+static_assert(HASHMAP_GC_THRESHOLD > HASHMAP_GROW_THRESHOLD);
 
 struct hm_key {
     union {

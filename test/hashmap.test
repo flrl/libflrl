@@ -710,7 +710,7 @@ static void full(NO_STATE)
     }
 
     /* from full, the first few deletions should gc each time */
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < 3; i++) {
         expect_count --;
         expect_deleted = 0;
 
