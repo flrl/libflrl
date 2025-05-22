@@ -26,24 +26,18 @@ static void dump_hashmap_stats(const HashMap *hm)
 
     fprintf(stderr, "%" PRIu32 " + %" PRIu32 " / %" PRIu32 " buckets in use\n",
                     hm->count, hm->deleted, hm->alloc);
-    fprintf(stderr, "load factor: %g\n", stats.load);
-    fprintf(stderr, "psl min: %" PRIu32 " (%g%%)\n",
-                    stats.psl.min, 100.0 * stats.psl.min_frequency / hm->count);
-    fprintf(stderr, "psl max: %" PRIu32 " (%g%%)\n",
-                    stats.psl.max, 100.0 * stats.psl.max_frequency / hm->count);
+    fprintf(stderr, "load factor: %g%% (%g%%)\n",
+                    100.0 * stats.load,
+                    100.0 * (hm->count + hm->deleted) / hm->alloc);
+    fprintf(stderr, "psl min: %g\n", stats.psl.summary7.min);
+    fprintf(stderr, "psl median: %g\n", stats.psl.summary7.med);
+    fprintf(stderr, "psl max: %g\n", stats.psl.summary7.max);
     fprintf(stderr, "psl mean: %g\n", stats.psl.mean);
-    fprintf(stderr, "psl median: %g\n", stats.psl.median);
-    fprintf(stderr, "psl mode: %" PRIu32 " (%g%%)\n",
-                    stats.psl.mode, 100.0 * stats.psl.mode_frequency / hm->count);
     fprintf(stderr, "psl stddev: %g\n", sqrt(stats.psl.variance));
-    fprintf(stderr, "bdc min: %" PRIu32 " (%g%%)\n",
-                    stats.bdc.min, 100.0 * stats.bdc.min_frequency / hm->alloc);
-    fprintf(stderr, "bdc max: %" PRIu32 " (%g%%)\n",
-                    stats.bdc.max, 100.0 * stats.bdc.max_frequency / hm->alloc);
+    fprintf(stderr, "bdc min: %g\n", stats.bdc.summary7.min);
+    fprintf(stderr, "bdc median: %g\n", stats.bdc.summary7.med);
+    fprintf(stderr, "bdc max: %g\n", stats.bdc.summary7.max);
     fprintf(stderr, "bdc mean: %g\n", stats.bdc.mean);
-    fprintf(stderr, "bdc median: %g\n", stats.bdc.median);
-    fprintf(stderr, "bdc mode: %" PRIu32 " (%g%%)\n",
-                    stats.bdc.mode, 100.0 * stats.bdc.mode_frequency / hm->alloc);
     fprintf(stderr, "bdc stddev: %g\n", sqrt(stats.bdc.variance));
 }
 

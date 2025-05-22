@@ -1,6 +1,8 @@
 #ifndef FLRL_HASHMAP_H
 #define FLRL_HASHMAP_H
 
+#include "flrl/statsutil.h"
+
 #include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -24,26 +26,16 @@ typedef struct __attribute__((aligned(64))) {
 
 typedef struct {
     struct {
-        uint32_t min;
-        uint32_t max;
-        size_t   min_frequency;
-        size_t   max_frequency;
-        double   mean;
-        double   median;
-        uint32_t mode;
-        size_t   mode_frequency;
-        double   variance;
+        struct summary7 summary7;
+        double mean;
+        double variance;
+        size_t n_samples;
     } psl;
     struct {
-        uint32_t min;
-        uint32_t max;
-        size_t   min_frequency;
-        size_t   max_frequency;
-        double   mean;
-        double   median;
-        uint32_t mode;
-        size_t   mode_frequency;
-        double   variance;
+        struct summary7 summary7;
+        double mean;
+        double variance;
+        size_t n_samples;
     } bdc;
     double load;
 } HashMapStats;

@@ -556,19 +556,15 @@ void hashmap_get_stats(const HashMap *hm, HashMapStats *hs)
 
     hs->load = 1.0 * hm->count / hm->alloc;
 
-    statsu32v(psl, hm->alloc,
-              &hs->psl.min, &hs->psl.min_frequency,
-              &hs->psl.max, &hs->psl.max_frequency,
-              &hs->psl.mean, &hs->psl.variance);
-    hs->psl.median = medianu32v(psl, hm->alloc);
-    hs->psl.mode = modeu32v(psl, n_psl, &hs->psl.mode_frequency);
+    summary7u32v(&hs->psl.summary7, psl, n_psl, FENCE_PERC2);
+    hs->psl.mean = meanu32v(psl, n_psl);
+    hs->psl.variance = varianceu32v(psl, n_psl, hs->psl.mean);
+    hs->psl.n_samples = n_psl;
 
-    statsu32v(bucket_desired_count, hm->alloc,
-              &hs->bdc.min, &hs->bdc.min_frequency,
-              &hs->bdc.max, &hs->bdc.max_frequency,
-              &hs->bdc.mean, &hs->bdc.variance);
-    hs->bdc.median = medianu32v(bucket_desired_count, hm->alloc);
-    hs->bdc.mode = modeu32v(bucket_desired_count, hm->alloc, &hs->bdc.mode_frequency);
+    summary7u32v(&hs->bdc.summary7, bucket_desired_count, hm->alloc, FENCE_PERC2);
+    hs->bdc.mean = meanu32v(bucket_desired_count, hm->alloc);
+    hs->bdc.variance = varianceu32v(bucket_desired_count, hm->alloc, hs->bdc.mean);
+    hs->bdc.n_samples = hm->alloc;
 
     free(bucket_desired_count);
     free(psl);
