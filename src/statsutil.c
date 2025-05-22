@@ -275,7 +275,6 @@ static void boxplot_print_header(const char *title,
 static void boxplot_print_one(const struct boxplot *bp,
                               const struct boxplot_meta *meta,
                               boxplot_format_sample_cb *formatter,
-                              enum summary7_fence fence,
                               bool is_odd,
                               FILE *out)
 {
@@ -291,13 +290,15 @@ static void boxplot_print_one(const struct boxplot *bp,
 //                         i, meta->pos[i], meta->show[i]);
 //     }
 
-    swprintf(min_label, 32, L"min: %ls", formatter(buf, bp->quantiles[0]));
-    swprintf(max_label, 32, L"max: %ls", formatter(buf, bp->quantiles[6]));
+    swprintf(min_label, 32, L"min: %ls", formatter(buf, bp->summary7.min));
+    swprintf(max_label, 32, L"max: %ls", formatter(buf, bp->summary7.max));
 
     // first line
     ansi_bgcolour_256(out, bucket_bgcolours[is_odd]);
     ansi_colour_256(out, bucket_colours[is_odd]);
-    fprintf(out, "%-3.3ls%10.10ls", lower_fence[fence], formatter(buf, bp->quantiles[1]));
+    fprintf(out, "%-3.3ls%10.10ls",
+                 lower_fence[bp->summary7.fence],
+                 formatter(buf, bp->summary7.lno));
     i = 14;
     ansi_colour_256(out, grid_colour);
     fputwc(L'│', out);
@@ -318,7 +319,7 @@ static void boxplot_print_one(const struct boxplot *bp,
     // second line
     ansi_bgcolour_256(out, bucket_bgcolours[is_odd]);
     ansi_colour_256(out, bucket_colours[is_odd]);
-    fprintf(out, "%-3.3ls%10.10ls", L"25%", formatter(buf, bp->quantiles[2]));
+    fprintf(out, "%-3.3ls%10.10ls", L"25%", formatter(buf, bp->summary7.q25));
     i = 14;
     ansi_colour_256(out, grid_colour);
     if (meta->pos[2] > 0) {
@@ -351,7 +352,7 @@ static void boxplot_print_one(const struct boxplot *bp,
     // third line
     ansi_bgcolour_256(out, bucket_bgcolours[is_odd]);
     ansi_colour_256(out, bucket_colours[is_odd]);
-    fprintf(out, "%-3.3ls%10.10ls", L"50%", formatter(buf, bp->quantiles[3]));
+    fprintf(out, "%-3.3ls%10.10ls", L"50%", formatter(buf, bp->summary7.med));
     i = 14;
     ansi_colour_256(out, grid_colour);
     if (meta->pos[0] != 0 && meta->pos[1] > 0) {
@@ -420,7 +421,7 @@ static void boxplot_print_one(const struct boxplot *bp,
     // fourth line
     ansi_bgcolour_256(out, bucket_bgcolours[is_odd]);
     ansi_colour_256(out, bucket_colours[is_odd]);
-    fprintf(out, "%-3.3ls%10.10ls", L"75%", formatter(buf, bp->quantiles[4]));
+    fprintf(out, "%-3.3ls%10.10ls", L"75%", formatter(buf, bp->summary7.q75));
     i = 14;
     ansi_colour_256(out, grid_colour);
     if (meta->pos[2] > 0) {
@@ -453,7 +454,9 @@ static void boxplot_print_one(const struct boxplot *bp,
     // fifth line
     ansi_bgcolour_256(out, bucket_bgcolours[is_odd]);
     ansi_colour_256(out, bucket_colours[is_odd]);
-    fprintf(out, "%-3.3ls%10.10ls", upper_fence[fence], formatter(buf, bp->quantiles[5]));
+    fprintf(out, "%-3.3ls%10.10ls",
+                 upper_fence[bp->summary7.fence],
+                 formatter(buf, bp->summary7.hno));
     i = 14;
     ansi_colour_256(out, grid_colour);
     fputwc(L'│', out);
@@ -497,7 +500,6 @@ void boxplot_print(const char *title,
                    const struct boxplot *boxplots,
                    size_t n_boxplots,
                    boxplot_format_sample_cb *formatter,
-                   enum summary7_fence fence,
                    FILE *out)
 {
     size_t i;
@@ -518,16 +520,16 @@ void boxplot_print(const char *title,
         const struct boxplot *bp = &boxplots[i];
 
         for (q = 1; q < 7; q++) {
-            if (isfinite(bp->quantiles[q])) {
-                if (bp->quantiles[q] < overall_min)
-                    overall_min = bp->quantiles[q];
+            if (isfinite(bp->summary7.quantiles[q])) {
+                if (bp->summary7.quantiles[q] < overall_min)
+                    overall_min = bp->summary7.quantiles[q];
                 break;
             }
         }
         for (q = 5; q >= 0; q++) {
-            if (isfinite(bp->quantiles[q])) {
-                if (bp->quantiles[q] > overall_max)
-                    overall_max = bp->quantiles[q];
+            if (isfinite(bp->summary7.quantiles[q])) {
+                if (bp->summary7.quantiles[q] > overall_max)
+                    overall_max = bp->summary7.quantiles[q];
                 break;
             }
         }
@@ -565,11 +567,11 @@ void boxplot_print(const char *title,
         for (q = 0; q < 7; q++) {
             int pos = -1;
 
-            if (isfinite(bp->quantiles[q]))
-                pos = round((bp->quantiles[q] - left_value) / vpp);
-            else if (bp->quantiles[q] == -INFINITY)
+            if (isfinite(bp->summary7.quantiles[q]))
+                pos = round((bp->summary7.quantiles[q] - left_value) / vpp);
+            else if (bp->summary7.quantiles[q] == -INFINITY)
                 pos = 0;
-            else if (bp->quantiles[q] == INFINITY)
+            else if (bp->summary7.quantiles[q] == INFINITY)
                 pos = 66;
 
             meta->pos[q] = pos;
@@ -593,7 +595,7 @@ void boxplot_print(const char *title,
             meta->show[0] = meta->pos[0] >= 0 ? L'◊' : 0;
 
         if (left_whisker)
-            meta->show[1] = isfinite(bp->quantiles[0]) ? L'├' : L'←';
+            meta->show[1] = isfinite(bp->summary7.quantiles[0]) ? L'├' : L'←';
 
         if (left_quartile)
             meta->show[2] = left_whisker ? L'┤' : L'│';
@@ -613,7 +615,7 @@ void boxplot_print(const char *title,
             meta->show[4] = right_whisker ? L'├' : L'│';
 
         if (right_whisker)
-            meta->show[5] = isfinite(bp->quantiles[6]) ? L'┤' : L'→';
+            meta->show[5] = isfinite(bp->summary7.quantiles[6]) ? L'┤' : L'→';
 
         if (right_outlier)
             meta->show[6] = meta->pos[6] <= 66 ? L'◊' : 0;
@@ -622,8 +624,7 @@ void boxplot_print(const char *title,
     boxplot_print_header(title, grid_lines, formatter, out);
     for (i = 0; i < n_boxplots; i++) {
         boxplot_print_one(&boxplots[i], &bp_meta[i],
-                          formatter, fence,
-                          i & 1, out);
+                          formatter, i & 1, out);
     }
     boxplot_print_footer(out);
     // examine all boxplots to find non-infinite min and max

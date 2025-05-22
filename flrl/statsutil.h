@@ -110,30 +110,57 @@ enum summary7_fence {
     FENCE_PERC2,
 };
 
-extern int summary7i8v(const int8_t *values, size_t n_values,
-                       double quantiles[7], enum summary7_fence fence);
-extern int summary7u8v(const uint8_t *values, size_t n_values,
-                       double quantiles[7], enum summary7_fence fence);
+typedef struct summary7 {
+    union {
+        struct {
+            double min;
+            double lno;
+            double q25;
+            double med;
+            double q75;
+            double hno;
+            double max;
+        };
+        double quantiles[7];
+    };
+    enum summary7_fence fence;
+} Summary7;
 
-extern int summary7i16v(const int16_t *values, size_t n_values,
-                        double quantiles[7], enum summary7_fence fence);
-extern int summary7u16v(const uint16_t *values, size_t n_values,
-                        double quantiles[7], enum summary7_fence fence);
+extern int summary7i8v(Summary7 *summary7,
+                       const int8_t *values, size_t n_values,
+                       enum summary7_fence fence);
+extern int summary7u8v(Summary7 *summary7,
+                       const uint8_t *values, size_t n_values,
+                       enum summary7_fence fence);
 
-extern int summary7i32v(const int32_t *values, size_t n_values,
-                        double quantiles[7], enum summary7_fence fence);
-extern int summary7u32v(const uint32_t *values, size_t n_values,
-                        double quantiles[7], enum summary7_fence fence);
+extern int summary7i16v(Summary7 *summary7,
+                        const int16_t *values, size_t n_values,
+                        enum summary7_fence fence);
+extern int summary7u16v(Summary7 *summary7,
+                        const uint16_t *values, size_t n_values,
+                        enum summary7_fence fence);
 
-extern int summary7i64v(const int64_t *values, size_t n_values,
-                        double quantiles[7], enum summary7_fence fence);
-extern int summary7u64v(const uint64_t *values, size_t n_values,
-                        double quantiles[7], enum summary7_fence fence);
+extern int summary7i32v(Summary7 *summary7,
+                        const int32_t *values, size_t n_values,
+                        enum summary7_fence fence);
+extern int summary7u32v(Summary7 *summary7,
+                        const uint32_t *values, size_t n_values,
+                        enum summary7_fence fence);
 
-extern int summary7f32v(const float *values, size_t n_values,
-                        double quantiles[7], enum summary7_fence fence);
-extern int summary7f64v(const double *values, size_t n_values,
-                        double quantiles[7], enum summary7_fence fence);
+extern int summary7i64v(Summary7 *summary7,
+                        const int64_t *values, size_t n_values,
+                        enum summary7_fence fence);
+extern int summary7u64v(Summary7 *summary7,
+                        const uint64_t *values, size_t n_values,
+                        enum summary7_fence fence);
+
+extern int summary7f32v(Summary7 *summary7,
+                        const float *values, size_t n_values,
+                        enum summary7_fence fence);
+extern int summary7f64v(Summary7 *summary7,
+                        const double *values, size_t n_values,
+                        enum summary7_fence fence);
+
 struct hist_bucket {
     size_t freq_raw;
     double freq_pc;
@@ -188,7 +215,7 @@ extern void histogram_fini(Histogram *hist);
 struct boxplot {
     const char *label;
     size_t n_samples;
-    double quantiles[7];
+    struct summary7 summary7;
 };
 
 typedef const wchar_t *(boxplot_format_sample_cb)(wchar_t buf[11], double sample);
@@ -197,6 +224,5 @@ extern void boxplot_print(const char *title,
                           const struct boxplot *boxplots,
                           size_t n_boxplots,
                           boxplot_format_sample_cb *formatter,
-                          enum summary7_fence fence,
                           FILE *out);
 #endif

@@ -100,15 +100,16 @@ static inline double percentile(const T *values, std::size_t n_values,
 }
 
 template<typename T>
-static int summary7(const T *values, std::size_t n_values,
-                    double quantiles[7], summary7_fence fence)
+static int summary7(Summary7 *s7,
+                    const T *values, std::size_t n_values,
+                    summary7_fence fence)
 {
     T *copy = NULL;
-    double q0, q1, q2, q3, q4, q5, q6;
+    double min, lno, q25, med, q75, hno, max;
 
     assert(fence >= FENCE_IQR15 && fence <= FENCE_PERC2);
 
-    q0 = q1 = q2 = q3 = q4 = q5 = q6 = statsutil_nan;
+    min = lno = q25 = med = q75 = hno = max = statsutil_nan;
 
     if (!n_values) goto done;
     /* n.b. can't short-circuit for tiny sets, haven't filtered nans yet */
@@ -128,69 +129,72 @@ static int summary7(const T *values, std::size_t n_values,
     }
     std::sort(copy, copy + n_values);
 
-    q0 = copy[0];
-    q6 = copy[n_values - 1];
+    min = copy[0];
+    max = copy[n_values - 1];
 
     if (n_values == 1) goto done;
 
-    q2 = percentile(copy, n_values, 0.25);
-    q3 = percentile(copy, n_values, 0.5);
-    q4 = percentile(copy, n_values, 0.75);
+    q25 = percentile(copy, n_values, 0.25);
+    med = percentile(copy, n_values, 0.5);
+    q75 = percentile(copy, n_values, 0.75);
 
     if (fence == FENCE_IQR15) {
-        double f1, f5, iqr15;
+        double flno, fhno, iqr15;
         std::size_t i;
 
-        iqr15 = 1.5 * (q4 - q2);
-        f1 = q2 - iqr15;
-        f5 = q4 + iqr15;
+        iqr15 = 1.5 * (q75 - q25);
+        flno = q25 - iqr15;
+        fhno = q75 + iqr15;
 
         i = 0;
-        while (i < n_values && copy[i] < f1)
+        while (i < n_values && copy[i] < flno)
             i++;
-        q1 = copy[i];
+        lno = copy[i];
 
         i = n_values - 1;
-        while (i > 0 && copy[i] > f5)
+        while (i > 0 && copy[i] > fhno)
             i--;
-        q5 = copy[i];
+        hno = copy[i];
     }
     else {
-        double p1, p5;
+        double plno, phno;
 
         switch (fence) {
         case FENCE_OCTILE:
-            p1 = 0.125;
+            plno = 0.125;
             break;
         case FENCE_DECILE:
-            p1 = 0.1;
+            plno = 0.1;
             break;
         case FENCE_PERC2:
-            p1 = 0.02;
+            plno = 0.02;
             break;
         case FENCE_PERC9:
-            p1 = 0.09;
+            plno = 0.09;
             break;
         case FENCE_IQR15:
         default:
             abort(); /* unreachable */
         }
 
-        p5 = 1.0 - p1;
-        q1 = percentile(copy, n_values, p1);
-        q5 = percentile(copy, n_values, p5);
+        phno = 1.0 - plno;
+        lno = percentile(copy, n_values, plno);
+        hno = percentile(copy, n_values, phno);
     }
 
  done:
     statsutil_free(copy);
 
-    quantiles[0] = q0;
-    quantiles[1] = q1;
-    quantiles[2] = q2;
-    quantiles[3] = q3;
-    quantiles[4] = q4;
-    quantiles[5] = q5;
-    quantiles[6] = q6;
+    *s7 = {
+        .min = min,
+        .lno = lno,
+        .q25 = q25,
+        .med = med,
+        .q75 = q75,
+        .hno = hno,
+        .max = max,
+        .fence = fence,
+    };
 
     return 0;
 }
@@ -766,64 +770,74 @@ void statsf64v(const double *values, size_t n_values,
                  pmean, pvariance);
 }
 
-int summary7i8v(const int8_t *values, size_t n_values,
-                double quantiles[7], enum summary7_fence fence)
+int summary7i8v(Summary7 *s7,
+                const int8_t *values, size_t n_values,
+                enum summary7_fence fence)
 {
-    return summary7(values, n_values, quantiles, fence);
+    return summary7(s7, values, n_values, fence);
 }
 
-int summary7u8v(const uint8_t *values, size_t n_values,
-                double quantiles[7], enum summary7_fence fence)
+int summary7u8v(Summary7 *s7,
+                const uint8_t *values, size_t n_values,
+                enum summary7_fence fence)
 {
-    return summary7(values, n_values, quantiles, fence);
+    return summary7(s7, values, n_values, fence);
 }
 
-int summary7i16v(const int16_t *values, size_t n_values,
-                 double quantiles[7], enum summary7_fence fence)
+int summary7i16v(Summary7 *s7,
+                 const int16_t *values, size_t n_values,
+                 enum summary7_fence fence)
 {
-    return summary7(values, n_values, quantiles, fence);
+    return summary7(s7, values, n_values, fence);
 }
 
-int summary7u16v(const uint16_t *values, size_t n_values,
-                 double quantiles[7], enum summary7_fence fence)
+int summary7u16v(Summary7 *s7,
+                 const uint16_t *values, size_t n_values,
+                 enum summary7_fence fence)
 {
-    return summary7(values, n_values, quantiles, fence);
+    return summary7(s7, values, n_values, fence);
 }
 
-int summary7i32v(const int32_t *values, size_t n_values,
-                 double quantiles[7], enum summary7_fence fence)
+int summary7i32v(Summary7 *s7,
+                 const int32_t *values, size_t n_values,
+                 enum summary7_fence fence)
 {
-    return summary7(values, n_values, quantiles, fence);
+    return summary7(s7, values, n_values, fence);
 }
 
-int summary7u32v(const uint32_t *values, size_t n_values,
-                 double quantiles[7], enum summary7_fence fence)
+int summary7u32v(Summary7 *s7,
+                 const uint32_t *values, size_t n_values,
+                 enum summary7_fence fence)
 {
-    return summary7(values, n_values, quantiles, fence);
+    return summary7(s7, values, n_values, fence);
 }
 
-int summary7i64v(const int64_t *values, size_t n_values,
-                 double quantiles[7], enum summary7_fence fence)
+int summary7i64v(Summary7 *s7,
+                 const int64_t *values, size_t n_values,
+                 enum summary7_fence fence)
 {
-    return summary7(values, n_values, quantiles, fence);
+    return summary7(s7, values, n_values, fence);
 }
 
-int summary7u64v(const uint64_t *values, size_t n_values,
-                 double quantiles[7], enum summary7_fence fence)
+int summary7u64v(Summary7 *s7,
+                 const uint64_t *values, size_t n_values,
+                 enum summary7_fence fence)
 {
-    return summary7(values, n_values, quantiles, fence);
+    return summary7(s7, values, n_values, fence);
 }
 
-int summary7f32v(const float *values, size_t n_values,
-                 double quantiles[7], enum summary7_fence fence)
+int summary7f32v(Summary7 *s7,
+                 const float *values, size_t n_values,
+                 enum summary7_fence fence)
 {
-    return summary7(values, n_values, quantiles, fence);
+    return summary7(s7, values, n_values, fence);
 }
 
-int summary7f64v(const double *values, size_t n_values,
-                 double quantiles[7], enum summary7_fence fence)
+int summary7f64v(Summary7 *s7,
+                 const double *values, size_t n_values,
+                 enum summary7_fence fence)
 {
-    return summary7(values, n_values, quantiles, fence);
+    return summary7(s7, values, n_values, fence);
 }
 
 void histogram_freqi8v(Histogram *hist, const char *title,

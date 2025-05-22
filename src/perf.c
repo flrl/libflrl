@@ -134,9 +134,9 @@ void perf_report(FILE *out, const char *title,
 
         bp->label = perf->name;
         bp->n_samples = perf->count;
-        summary7f64v(perf->samples, perf->count, bp->quantiles, FENCE_PERC2);
+        summary7f64v(&bp->summary7, perf->samples, perf->count, FENCE_PERC2);
     }
-    boxplot_print(title, boxplots, n_perfs, &format_sample, FENCE_PERC2, out);
+    boxplot_print(title, boxplots, n_perfs, &format_sample, out);
 
     free(boxplots);
 }

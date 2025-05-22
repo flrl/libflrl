@@ -265,18 +265,20 @@ static void fn_statsf64v(void **state)
     unsigned i;                                                             \
                                                                             \
     for (i = 0; i < n_tests; i++) {                                         \
-        double actual_quantiles[7];                                         \
+        Summary7 actual_s7;                                                 \
         int q, r;                                                           \
                                                                             \
-        r = summary7##ftype##v(tests[i].values, tests[i].n_values,          \
-                               actual_quantiles, FENCE_OCTILE);             \
+        r = summary7##ftype##v(&actual_s7,                                  \
+                               tests[i].values, tests[i].n_values,          \
+                               FENCE_OCTILE);                               \
                                                                             \
         assert_int_equal(r, tests[i].expect_r);                             \
         for (q = 0; q < 7; q++) {                                           \
-            assert_float_equal(actual_quantiles[q],                         \
+            assert_float_equal(actual_s7.quantiles[q],                      \
                                tests[i].expect_quantiles[q],                \
                                FLT_EPSILON);                                \
         }                                                                   \
+        assert_int_equal(FENCE_OCTILE, actual_s7.fence);                    \
     }                                                                       \
 } while (0)
 
@@ -349,19 +351,21 @@ static void fn_summary7_iqr15(NO_STATE)
     unsigned i;
 
     for (i = 0; i < n_tests; i++) {
-        double actual_quantiles[7];
+        Summary7 actual_s7;
         int q, r;
 
-        r = summary7f64v(tests[i].values, tests[i].n_values,
-                         actual_quantiles, FENCE_IQR15);
+        r = summary7f64v(&actual_s7, tests[i].values, tests[i].n_values,
+                         FENCE_IQR15);
 
         assert_int_equal(tests[i].expect_r, r);
 
         for (q = 0; q < 7; q++) {
             assert_float_equal(tests[i].expect_quantiles[q],
-                               actual_quantiles[q],
+                               actual_s7.quantiles[q],
                                FLT_EPSILON);
         }
+
+        assert_int_equal(FENCE_IQR15, actual_s7.fence);
     }
 }
 
@@ -383,19 +387,21 @@ static void fn_summary7_octile_inf(NO_STATE)
     unsigned i;
 
     for (i = 0; i < n_tests; i++) {
-        double actual_quantiles[7];
+        Summary7 actual_s7;
         int q, r;
 
-        r = summary7f64v(tests[i].values, tests[i].n_values,
-                         actual_quantiles, FENCE_OCTILE);
+        r = summary7f64v(&actual_s7, tests[i].values, tests[i].n_values,
+                         FENCE_OCTILE);
 
         assert_int_equal(tests[i].expect_r, r);
 
         for (q = 0; q < 7; q++) {
             assert_float_equal(tests[i].expect_quantiles[q],
-                               actual_quantiles[q],
+                               actual_s7.quantiles[q],
                                FLT_EPSILON);
         }
+
+        assert_int_equal(FENCE_OCTILE, actual_s7.fence);
     }
 }
 
@@ -416,19 +422,21 @@ static void fn_summary7_iqr15_inf(NO_STATE)
     unsigned i;
 
     for (i = 0; i < n_tests; i++) {
-        double actual_quantiles[7];
+        Summary7 actual_s7;
         int q, r;
 
-        r = summary7f64v(tests[i].values, tests[i].n_values,
-                         actual_quantiles, FENCE_IQR15);
+        r = summary7f64v(&actual_s7, tests[i].values, tests[i].n_values,
+                         FENCE_IQR15);
 
         assert_int_equal(tests[i].expect_r, r);
 
         for (q = 0; q < 7; q++) {
             assert_float_equal(tests[i].expect_quantiles[q],
-                               actual_quantiles[q],
+                               actual_s7.quantiles[q],
                                FLT_EPSILON);
         }
+
+        assert_int_equal(FENCE_IQR15, actual_s7.fence);
     }
 }
 
@@ -459,19 +467,21 @@ static void fn_summary7_nan(NO_STATE)
     unsigned i;
 
     for (i = 0; i < n_tests; i++) {
-        double actual_quantiles[7];
+        Summary7 actual_s7;
         int q, r;
 
-        r = summary7f64v(tests[i].values, tests[i].n_values,
-                         actual_quantiles, FENCE_OCTILE);
+        r = summary7f64v(&actual_s7, tests[i].values, tests[i].n_values,
+                         FENCE_OCTILE);
 
         assert_int_equal(tests[i].expect_r, r);
 
         for (q = 0; q < 7; q++) {
             assert_float_equal(tests[i].expect_quantiles[q],
-                               actual_quantiles[q],
+                               actual_s7.quantiles[q],
                                FLT_EPSILON);
         }
+
+        assert_int_equal(FENCE_OCTILE, actual_s7.fence);
     }
 }
 
