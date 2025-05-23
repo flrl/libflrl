@@ -511,11 +511,6 @@ void boxplot_print(const char *title,
 
     if (!formatter) formatter = &default_format_sample_cb;
 
-// struct boxplot {
-//     char *label;
-//     double quantiles[5];
-// };
-
     for (i = 0; i < n_boxplots; i++) {
         const struct boxplot *bp = &boxplots[i];
 
@@ -526,7 +521,7 @@ void boxplot_print(const char *title,
                 break;
             }
         }
-        for (q = 5; q >= 0; q++) {
+        for (q = 5; q >= 0; q--) {
             if (isfinite(bp->summary7.quantiles[q])) {
                 if (bp->summary7.quantiles[q] > overall_max)
                     overall_max = bp->summary7.quantiles[q];
@@ -537,7 +532,9 @@ void boxplot_print(const char *title,
 
     assert(isfinite(overall_min));
     assert(isfinite(overall_max));
-    assert(overall_max > overall_min);
+    assert(overall_max >= overall_min);
+    if (overall_min == overall_max)
+        overall_max = overall_min + 1;
 
     vpp = niceceil((overall_max - overall_min) / 66.0);
     range = 66.0 * vpp;
