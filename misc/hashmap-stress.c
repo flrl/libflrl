@@ -250,7 +250,7 @@ int main(int argc, char **argv)
     int load_factor_group_by = 0;
 
     setlocale(LC_ALL, ".utf8");
-    randbs_seed64(&rbs, time(NULL));
+    randbs_seed64(&rbs, UINT64_C(11226047971600110276));
 
     while (-1 != (c = getopt_long(argc, argv, "L:cgl:", long_options, NULL))) {
         switch (c) {
