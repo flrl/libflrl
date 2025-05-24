@@ -244,27 +244,30 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
 
 static int delete_robinhood(HashMap *hm, uint32_t pos, void **old_value)
 {
-    uint32_t mask = hm->alloc - 1;
-    uint32_t next;
+    const uint32_t mask = hm->alloc - 1;
+    uint32_t next = (pos + 1) & mask;
+    void *freeme = hm->key[pos].len > HASHMAP_INLINE_KEYLEN
+                 ? hm->key[pos].kptr
+                 : NULL;
 
     assert(hm->count > 0);
     assert(hm->alloc > 0);
     assert(has_key_at_index(hm, pos));
 
-    if (hm->key[pos].len > HASHMAP_INLINE_KEYLEN)
-        free(hm->key[pos].kptr);
-    if (old_value)
-        *old_value = hm->value[pos];
+    __builtin_prefetch(&hm->value[pos]);
+    __builtin_prefetch(&hm->key[next]);
 
     hm->key[pos] = (struct hm_key) {
         .kval = { 0 },
         .len = HASHMAP_BUCKET_EMPTY,
         .hash = 0,
     };
+    if (old_value) *old_value = hm->value[pos];
     hm->value[pos] = NULL;
     hm->count --;
 
-    next = (pos + 1) & mask;
+    __builtin_prefetch(&hm->value[next]);
+
     while (has_key_at_index(hm, next)) {
         uint32_t psl = HM_PSL(hm, next);
 
@@ -277,6 +280,7 @@ static int delete_robinhood(HashMap *hm, uint32_t pos, void **old_value)
         next = (pos + 1) & mask;
     }
 
+    free(freeme);
     return HASHMAP_OK;
 }
 
