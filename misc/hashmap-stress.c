@@ -94,10 +94,9 @@ static void do_summary(const HashMap *hm, const char *title)
 
     hashmap_get_stats(hm, &stats);
 
-    printf("%" PRIu32 " + %" PRIu32 " / %" PRIu32 " buckets in use\n",
-           hm->count, hm->deleted, hm->alloc);
-    printf("load factor: %g%% (%g%%)\n", 100.0 * stats.load,
-                                         100.0 * (hm->count + hm->deleted) / hm->alloc);
+    printf("%" PRIu32 " / %" PRIu32 " buckets in use\n",
+           hm->count, hm->alloc);
+    printf("load factor: %g%%\n", 100.0 * stats.load);
 
     if (hm->alloc) {
         char bp_title[80];
@@ -115,11 +114,10 @@ static void do_summary(const HashMap *hm, const char *title)
         const size_t n_boxplots = sizeof(boxplots) / sizeof(boxplots[0]);
 
         snprintf(bp_title, sizeof(bp_title),
-                "%s%sload factor %g%% (%g%%)",
+                "%s%sload factor %g%%",
                 title ? title : "",
                 title ? " ": "",
-                100.0 * stats.load,
-                100.0 * (hm->count + hm->deleted) / hm->alloc);
+                100.0 * stats.load);
 
         boxplot_print(bp_title, boxplots, n_boxplots, NULL, stdout);
     }
@@ -150,7 +148,6 @@ static int do_one_load_factor(struct randbs *rbs, double load_factor,
     hashmap_init(&hm, size);
     hm.grow_threshold = HASHMAP_NO_GROW;
     hm.shrink_threshold = HASHMAP_NO_SHRINK;
-    hm.gc_threshold = HASHMAP_NO_GC;
 
 // typedef void (keygen_fn)(struct randbs *, void **, size_t *);
     /* fill up to load factor */

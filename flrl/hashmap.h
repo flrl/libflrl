@@ -10,18 +10,15 @@
 #define HASHMAP_KEY_MAXLEN  (UINT16_MAX - 1)
 #define HASHMAP_NO_GROW     UINT32_MAX
 #define HASHMAP_NO_SHRINK   UINT32_C(0)
-#define HASHMAP_NO_GC       UINT32_MAX
 
 typedef struct __attribute__((aligned(64))) {
     struct hm_key *key;
     void **value;
     uint32_t alloc;
     uint32_t count;
-    uint32_t deleted;
     uint32_t seed;
     uint32_t grow_threshold;
     uint32_t shrink_threshold;
-    uint32_t gc_threshold;
 } HashMap;
 
 typedef struct {

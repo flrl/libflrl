@@ -15,14 +15,11 @@
 #define HASHMAP_MAX_SIZE            (UINT32_C(1) << 31)
 #define HASHMAP_GROW_THRESHOLD      (0.84)
 #define HASHMAP_SHRINK_THRESHOLD    (0.30)
-#define HASHMAP_GC_THRESHOLD        (0.95)
 #define HASHMAP_BUCKET_EMPTY        UINT16_C(0)
-#define HASHMAP_BUCKET_DELETED      UINT16_MAX
 #define HASHMAP_INLINE_KEYLEN       (10)
 
 static_assert(1 == __builtin_popcount(HASHMAP_MIN_SIZE));
 static_assert(1 == __builtin_popcount(HASHMAP_MAX_SIZE));
-static_assert(HASHMAP_GC_THRESHOLD > HASHMAP_GROW_THRESHOLD);
 
 struct hm_key {
     union {
@@ -84,8 +81,7 @@ static inline void *memndup(const void *a, size_t len)
 __attribute__((pure))
 static inline bool has_key_at_index(const HashMap *hm, uint32_t index)
 {
-    return hm->key[index].len != HASHMAP_BUCKET_EMPTY
-           && hm->key[index].len != HASHMAP_BUCKET_DELETED;
+    return hm->key[index].len != HASHMAP_BUCKET_EMPTY;
 }
 
 __attribute__((pure))
@@ -104,20 +100,10 @@ static inline bool should_shrink(const HashMap *hm, uint32_t count)
            && count < hm->shrink_threshold;
 }
 
-__attribute__((pure))
-static inline bool should_gc(const HashMap *hm,
-                             uint32_t count, uint32_t deleted)
-{
-    return hm->gc_threshold != HASHMAP_NO_GC
-           && deleted > 0
-           && count + deleted >= hm->gc_threshold;
-}
-
 static inline int hm_key_init(struct hm_key *hm_key,
                               uint32_t hash, const void *key, size_t key_len)
 {
     assert(key_len != HASHMAP_BUCKET_EMPTY);
-    assert(key_len != HASHMAP_BUCKET_DELETED);
 
     if (key_len > HASHMAP_INLINE_KEYLEN) {
         hm_key->kptr = memndup(key, key_len);
@@ -141,12 +127,8 @@ static inline int keycmp4(const struct hm_key *a,
         return (a->hash > b_hash) - (a->hash < b_hash);
     }
     else if (a->len != b_len) {
-        /* smallest len goes first -- tombstones sort rightward */
+        /* smallest len goes first */
         return (a->len > b_len) - (a->len < b_len);
-    }
-    else if (a->len == HASHMAP_BUCKET_DELETED) {
-        /* both are tombstones; no keys to compare */
-        return 0;
     }
     else if (a->len <= HASHMAP_INLINE_KEYLEN) {
         return memcmp(a->kval, b_key, b_len);
@@ -253,8 +235,6 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
         dist++;
     }
 
-    if (hm->key[i].len == HASHMAP_BUCKET_DELETED)
-        hm->deleted --;
     SWAP(&new_key, &hm->key[i]);
     SWAP(&new_value, &hm->value[i]);
 
@@ -326,9 +306,6 @@ int hashmap_resize(HashMap *hm, uint32_t new_size)
 
     if (hm->shrink_threshold == HASHMAP_NO_SHRINK)
         new_hm.shrink_threshold = HASHMAP_NO_SHRINK;
-
-    if (hm->gc_threshold == HASHMAP_NO_GC)
-        new_hm.gc_threshold = HASHMAP_NO_GC;
 
     /* reuse the existing seed so we don't have to literally rehash */
     new_hm.seed = hm->seed;
@@ -406,7 +383,7 @@ int hashmap_init(HashMap *hm, uint32_t size)
     }
 
     hm->alloc = size;
-    hm->count = hm->deleted = 0;
+    hm->count = 0;
     hm->seed = next_seed ++;
 
     hm->grow_threshold = size < HASHMAP_MAX_SIZE
@@ -415,7 +392,6 @@ int hashmap_init(HashMap *hm, uint32_t size)
     hm->shrink_threshold = size > HASHMAP_MIN_SIZE
                          ? (uint32_t) (size * HASHMAP_SHRINK_THRESHOLD) - 1
                          : HASHMAP_NO_SHRINK;
-    hm->gc_threshold = (uint32_t) (size * HASHMAP_GC_THRESHOLD) - 1;
 
     return HASHMAP_OK;
 }
@@ -494,15 +470,8 @@ int hashmap_put(HashMap *hm,
     else if (r != HASHMAP_E_NOKEY) {
         return r;
     }
-    else if (r == HASHMAP_E_NOKEY
-             && hm->key[i].len != HASHMAP_BUCKET_DELETED
-             && should_grow(hm, hm->count))
-    {
+    else if (should_grow(hm, hm->count)) {
         hashmap_resize(hm, hm->alloc * 2);
-        return hashmap_put(hm, key, key_len, new_value, old_value);
-    }
-    else if (should_gc(hm, hm->count, hm->deleted)) {
-        hashmap_resize(hm, hm->alloc);
         return hashmap_put(hm, key, key_len, new_value, old_value);
     }
     else {
