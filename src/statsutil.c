@@ -11,6 +11,8 @@
 #include <string.h>
 #include <wchar.h>
 
+#define BOXPLOT_DEBUG 0
+
 const double statsutil_nan = NAN;
 
 static const uint8_t grid_colour = 236;
@@ -285,10 +287,12 @@ static void boxplot_print_one(const struct boxplot *bp,
     wchar_t min_label[32], max_label[32];
     int i, r;
 
-//     for (i = 0; i < 7; i++) {
-//         fprintf(stderr, "meta[%d]: pos=%d show=%lc\n",
-//                         i, meta->pos[i], meta->show[i]);
-//     }
+#if BOXPLOT_DEBUG
+    for (i = 0; i < 7; i++) {
+        fprintf(stderr, "meta[%d]: pos=%d show=%lc\n",
+                        i, meta->pos[i], meta->show[i]);
+    }
+#endif
 
     swprintf(min_label, 32, L"min: %ls", formatter(buf, bp->summary7.min));
     swprintf(max_label, 32, L"max: %ls", formatter(buf, bp->summary7.max));
@@ -478,13 +482,14 @@ static void boxplot_print_one(const struct boxplot *bp,
     ansi_reset(out);
     fputc('\n', out);
 
-    // ruler
-//     fputws(L"             <123456789012345678901234567890"
-//            L"12345678901234567890123456789012345>\n",
-//            out);
-//     fputws(L"             <         1         2         3"
-//            L"         4         5         6     >\n",
-//            out);
+#if BOXPLOT_DEBUG
+    fputws(L"             <123456789012345678901234567890"
+           L"12345678901234567890123456789012345>\n",
+           out);
+    fputws(L"             <         1         2         3"
+           L"         4         5         6     >\n",
+           out);
+#endif
 }
 
 static void boxplot_print_footer(FILE *out)
@@ -504,7 +509,7 @@ void boxplot_print(const char *title,
 {
     size_t i;
     double overall_min = INFINITY, overall_max = -INFINITY;
-    double range, vpp, left_value, right_value;
+    double range, vpp, left_value;
     double grid_lines[7];
     struct boxplot_meta *bp_meta = NULL;
     int q;
@@ -541,13 +546,15 @@ void boxplot_print(const char *title,
     left_value = overall_min - (range - (overall_max - overall_min)) / 2;
     if (left_value < 0 && overall_min >= 0)
         left_value = 0;
-    right_value = left_value + range;
 
+#if BOXPLOT_DEBUG
+    double right_value = left_value + range;
     fprintf(stderr, "overall_min=%g overall_max=%g overall_range=%g\n",
                     overall_min, overall_max, overall_max - overall_min);
     fprintf(stderr, "left_value=%g right_value=%g range=%g\n",
                     left_value, right_value, range);
     fprintf(stderr, "vpp=%g\n", vpp);
+#endif
 
     for (i = 0; i < 7; i++) {
         grid_lines[i] = left_value + i * vpp * 11.0;
@@ -577,7 +584,7 @@ void boxplot_print(const char *title,
         left_outlier = meta->pos[0] >= 0 && meta->pos[0] < meta->pos[1];
         left_whisker = meta->pos[1] >= 0 && meta->pos[1] < meta->pos[2];
         left_quartile = meta->pos[2] >= 0 && meta->pos[2] < meta->pos[4];
-        median = meta->pos[3] >= 0 && ((meta->pos[3] > meta->pos[2] 
+        median = meta->pos[3] >= 0 && ((meta->pos[3] > meta->pos[2]
                                         && meta->pos[3] < meta->pos[4])
                                        || meta->pos[2] == meta->pos[4]);
         right_quartile = meta->pos[4] >= 0 && meta->pos[2] < meta->pos[4];
@@ -624,14 +631,6 @@ void boxplot_print(const char *title,
                           formatter, i & 1, out);
     }
     boxplot_print_footer(out);
-    // examine all boxplots to find non-infinite min and max
-    // adjust for 7 grid labels like histogram
-    // compute value-per-pip
-    // compute pip position for quantiles
-
-    // print header
-    // print each boxplot
-    // print footer
 
     free(bp_meta);
 }
