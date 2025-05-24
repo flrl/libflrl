@@ -345,8 +345,10 @@ static int do_shrink(struct randbs *rbs)
         perf_del = perf_new("hashmap_del", target_size);
 
     for (i = 0; i < target_size; i++) {
+        void *old_value;
+
         perf_start(perf_del);
-        r = hashmap_del(&hm, &keys[i], sizeof(keys[i]), NULL);
+        r = hashmap_del(&hm, &keys[i], sizeof(keys[i]), &old_value);
         perf_end(perf_del);
 
         if (r) goto done;
