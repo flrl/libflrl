@@ -262,6 +262,44 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
     return HASHMAP_OK;
 }
 
+static int delete_robinhood(HashMap *hm, uint32_t pos, void **old_value)
+{
+    uint32_t mask = hm->alloc - 1;
+    uint32_t next;
+
+    assert(hm->count > 0);
+    assert(hm->alloc > 0);
+    assert(has_key_at_index(hm, pos));
+
+    if (hm->key[pos].len > HASHMAP_INLINE_KEYLEN)
+        free(hm->key[pos].kptr);
+    if (old_value)
+        *old_value = hm->value[pos];
+
+    hm->key[pos] = (struct hm_key) {
+        .kval = { 0 },
+        .len = HASHMAP_BUCKET_EMPTY,
+        .hash = 0,
+    };
+    hm->value[pos] = NULL;
+    hm->count --;
+
+    next = (pos + 1) & mask;
+    while (has_key_at_index(hm, next)) {
+        uint32_t psl = HM_PSL(hm, next);
+
+        if (0 == psl) break;
+
+        SWAP(&hm->key[pos], &hm->key[next]);
+        SWAP(&hm->value[pos], &hm->value[next]);
+
+        pos = next;
+        next = (pos + 1) & mask;
+    }
+
+    return HASHMAP_OK;
+}
+
 int hashmap_resize(HashMap *hm, uint32_t new_size)
 {
     HashMap new_hm;
@@ -486,23 +524,10 @@ int hashmap_del(HashMap *hm, const void *key, size_t key_len, void **old_value)
     r = find(hm, 0, key, key_len, NULL, &i);
 
     if (r == HASHMAP_OK) {
-        if (old_value) *old_value = hm->value[i];
-
-        if (hm->key[i].len > HASHMAP_INLINE_KEYLEN)
-            free(hm->key[i].kptr);
-
-        /* n.b. leave hash in place for psl computations */
-        hm->key[i].len = HASHMAP_BUCKET_DELETED;
-        hm->key[i].kptr = NULL;
-        hm->value[i] = NULL;
-
-        hm->deleted ++;
-        hm->count --;
+        r = delete_robinhood(hm, i, old_value);
 
         if (should_shrink(hm, hm->count))
             hashmap_resize(hm, hm->alloc / 2);
-        else if (should_gc(hm, hm->count, hm->deleted))
-            hashmap_resize(hm, hm->alloc);
     }
     else {
         if (old_value) *old_value = NULL;

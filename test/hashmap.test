@@ -108,6 +108,8 @@ static void assert_hashmap_invariants(const HashMap *hm)
     assert_non_null(hm->key);
     assert_non_null(hm->value);
 
+    assert_int_equal(0, hm->deleted);
+
     assert_in_range(hm->alloc, HASHMAP_MIN_SIZE, HASHMAP_MAX_SIZE);
     assert_int_equal(1, __builtin_popcount(hm->alloc));
     assert_in_range(hm->count + hm->deleted, 0, hm->alloc);
@@ -126,6 +128,8 @@ static void assert_hashmap_invariants(const HashMap *hm)
 
     count = empty = deleted = 0;
     for (i = 0; i < hm->alloc; i++) {
+        assert_int_not_equal(HASHMAP_BUCKET_DELETED, hm->key[i].len);
+
         if (hm->key[i].len == HASHMAP_BUCKET_EMPTY) {
             empty ++;
             assert_int_equal(0, hm->key[i].hash);
@@ -430,7 +434,7 @@ static void do_put_del(const char *const keys[], size_t n_keys, uint32_t seed)
         void *old_value = SENTINEL;
 
         expect_count --;
-        expect_deleted ++;
+//         expect_deleted ++;
 
         r = hashmap_del(&hm, keys[i], strlen(keys[i]),
                         &old_value);
@@ -463,7 +467,7 @@ static void do_put_del(const char *const keys[], size_t n_keys, uint32_t seed)
         void *old_value = SENTINEL;
 
         expect_count ++;
-        expect_deleted --;
+//         expect_deleted --;
 
         r = hashmap_put(&hm,
                         keys[i],
@@ -541,14 +545,14 @@ static void do_put_del(const char *const keys[], size_t n_keys, uint32_t seed)
     for (i = 0; i < n_keys; i++) {
         if (should_shrink(&hm, hm.count - 1)) {
             expect_alloc /= 2;
-            expect_deleted = 0;
+//             expect_deleted = 0;
         }
-        else if (should_gc(&hm, hm.count - 1, hm.deleted + 1)) {
-            expect_deleted = 0;
-        }
-        else {
-            expect_deleted ++;
-        }
+//         else if (should_gc(&hm, hm.count - 1, hm.deleted + 1)) {
+//             expect_deleted = 0;
+//         }
+//         else {
+//             expect_deleted ++;
+//         }
         expect_count --;
 
         r = hashmap_del(&hm,
@@ -727,7 +731,7 @@ static void full(NO_STATE)
     /* the next should leave tombstones */
     for (; i < HASHMAP_MIN_SIZE; i++) {
         expect_count --;
-        expect_deleted ++;
+//         expect_deleted ++;
 
         value = SENTINEL;
         r = hashmap_del(&hm, keys[i], strlen(keys[i]), &value);
@@ -741,7 +745,7 @@ static void full(NO_STATE)
 
         r = find(&hm, 0, keys[i], strlen(keys[i]), NULL, &index);
         assert_int_equal(HASHMAP_E_NOKEY, r);
-        assert_int_equal(HASHMAP_BUCKET_DELETED, hm.key[index].len);
+//         assert_int_equal(HASHMAP_BUCKET_DELETED, hm.key[index].len);
     }
 
     /* fill it back up */
