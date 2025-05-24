@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-static const unsigned lf_n_ops = 1000000;
+static const unsigned lf_n_ops = 100000000;
 
 static bool want_csv = false;
 static bool want_graph = false;
@@ -32,7 +32,7 @@ static int do_one_load_factor(struct randbs *rbs, double load_factor,
                               struct perf *perf_random)
 {
     HashMap hm;
-    const unsigned size = 262144;
+    const unsigned size = 524288; /* 8MB key array, greater than L3 cache */
     unsigned i;
     int r = 0;
 
