@@ -27,6 +27,59 @@ static int usage(void)
     return 64; /* XXX EX_USAGE -- mingw doesn't have sysexits.h */
 }
 
+typedef void (keygen_fn)(struct randbs *, void **, size_t *);
+
+static void keygen_u32_rand(struct randbs *rbs, void **pkey, size_t *plen)
+{
+    static uint32_t key;
+
+    key = randu32(rbs, 0, UINT32_MAX);
+    *pkey = &key;
+    *plen = sizeof(key);
+}
+
+static void keygen_u32_seq(struct randbs *rbs __attribute__((unused)),
+                           void **pkey, size_t *plen)
+{
+    static uint32_t next_key = 0;
+
+    *pkey = &next_key;
+    *plen = sizeof(next_key);
+    next_key ++;
+}
+
+static void keygen_vp16_rand(struct randbs *rbs, void **pkey, size_t *plen)
+{
+    static char word[16];
+    unsigned len;
+
+    len = randu32(rbs, 6, sizeof(word));
+    randi8v(rbs, (int8_t *) word, len, ' ', '~');
+
+    *pkey = word;
+    *plen = len;
+}
+
+enum keygen_id {
+    KEYGEN_U32_RAND = 0,
+    KEYGEN_U32_SEQ,
+    KEYGEN_VP16_RAND,
+
+    N_KEYGENS,
+};
+
+static const struct keygen {
+    const char *name;
+    size_t buf_size;
+    keygen_fn *keygen;
+} keygens[] = {
+    { "u32r", sizeof(uint32_t), &keygen_u32_rand },
+    { "u32s", sizeof(uint32_t), &keygen_u32_seq },
+    { "vp16r", 16, &keygen_vp16_rand },
+};
+static_assert(N_KEYGENS == sizeof(keygens) / sizeof(keygens[0]));
+static const struct keygen *keygen = &keygens[KEYGEN_U32_RAND];
+
 static void do_summary(const HashMap *hm, const char *title)
 {
     HashMapStats stats = {0};
@@ -78,6 +131,8 @@ static int do_one_load_factor(struct randbs *rbs, double load_factor,
 {
     HashMap hm;
     const unsigned size = 524288; /* 8MB key array, greater than L3 cache */
+    void *key = NULL;
+    size_t key_len = 0;
     unsigned i;
     int r = 0;
 
@@ -89,25 +144,20 @@ static int do_one_load_factor(struct randbs *rbs, double load_factor,
     hm.shrink_threshold = HASHMAP_NO_SHRINK;
     hm.gc_threshold = HASHMAP_NO_GC;
 
+// typedef void (keygen_fn)(struct randbs *, void **, size_t *);
     /* fill up to load factor */
     for (i = 0; i < load_factor * size; i++) {
-        uint32_t key = randu32(rbs, 0, UINT32_MAX);
-        r = hashmap_put(&hm, &key, sizeof(key), (void *)(uintptr_t) i, NULL);
+        keygen->keygen(rbs, &key, &key_len);
+        r = hashmap_put(&hm, key, key_len, (void *)(uintptr_t) i, NULL);
         if (r) goto done;
     }
 
     /* alternating random operations */
     for (i = 0; i < lf_n_ops; i++) {
-        void *key;
-        size_t key_len;
-        uint32_t x;
-
         switch ((i & 3)) {
         case 0:
             /* insert a random new (probably) key */
-            x = randu32(rbs, 0, UINT32_MAX);
-            key = &x;
-            key_len = sizeof(x);
+            keygen->keygen(rbs, &key, &key_len);
 
             perf_start(perf_put);
             r = hashmap_put(&hm, key, key_len, (void *)(uintptr_t) i, NULL);
@@ -145,9 +195,7 @@ static int do_one_load_factor(struct randbs *rbs, double load_factor,
             break;
         case 3:
             /* get a random probably nonexistent key */
-            x = randu32(rbs, 0, UINT32_MAX);
-            key = &x;
-            key_len = sizeof(x);
+            keygen->keygen(rbs, &key, &key_len);
 
             perf_start(perf_get_random);
             r = hashmap_get(&hm, key, key_len, NULL);
@@ -204,22 +252,22 @@ static int do_load_factors(struct randbs *rbs,
         if (want_perf) {
             if (group_by == 'l') {
                 perf[i * 5 + 0] = perf_new("hashmap_put",
-                                                        lf_n_ops / 4);
+                                           lf_n_ops / 4);
                 perf[i * 5 + 1] = perf_new("hashmap_del (existing key)",
-                                                        lf_n_ops / 4);
+                                           lf_n_ops / 4);
                 perf[i * 5 + 2] = perf_new("hashmap_get (existing key)",
-                                                        lf_n_ops / 4);
+                                           lf_n_ops / 4);
                 perf[i * 5 + 3] = perf_new("hashmap_get (random key)",
-                                                        lf_n_ops / 4);
+                                           lf_n_ops / 4);
                 perf[i * 5 + 4] = perf_new("hashmap_random",
-                                                        lf_n_ops / 4);
+                                           lf_n_ops / 4);
 
                 r = do_one_load_factor(rbs, 0.01 * load_factors[i],
-                                    perf[i * 5 + 0],
-                                    perf[i * 5 + 1],
-                                    perf[i * 5 + 2],
-                                    perf[i * 5 + 3],
-                                    perf[i * 5 + 4]);
+                                       perf[i * 5 + 0],
+                                       perf[i * 5 + 1],
+                                       perf[i * 5 + 2],
+                                       perf[i * 5 + 3],
+                                       perf[i * 5 + 4]);
             }
             else {
                 snprintf(buf, sizeof(buf), "load factor %d%%", load_factors[i]);
@@ -230,11 +278,11 @@ static int do_load_factors(struct randbs *rbs,
                 perf[4 * n_load_factors + i] = perf_new(buf, lf_n_ops / 4);
 
                 r = do_one_load_factor(rbs, 0.01 * load_factors[i],
-                                    perf[0 * n_load_factors + i],
-                                    perf[1 * n_load_factors + i],
-                                    perf[2 * n_load_factors + i],
-                                    perf[3 * n_load_factors + i],
-                                    perf[4 * n_load_factors + i]);
+                                       perf[0 * n_load_factors + i],
+                                       perf[1 * n_load_factors + i],
+                                       perf[2 * n_load_factors + i],
+                                       perf[3 * n_load_factors + i],
+                                       perf[4 * n_load_factors + i]);
             }
         }
         else {
@@ -295,12 +343,13 @@ static int do_grow(struct randbs *rbs)
         perf_put = perf_new("hashmap_put", target_size);
 
     while (hm.count < target_size) {
-        uint32_t k;
+        void *key;
+        size_t key_len;
 
-        k = randu32(rbs, 0, UINT32_MAX);
+        keygen->keygen(rbs, &key, &key_len);
 
         perf_start(perf_put);
-        hashmap_put(&hm, &k, sizeof(k), (void *) i, NULL);
+        hashmap_put(&hm, key, key_len, (void *) i, NULL);
         perf_end(perf_put);
     }
 
@@ -321,37 +370,46 @@ static int do_shrink(struct randbs *rbs)
 {
     HashMap hm;
     struct perf *perf_del = NULL;
-    uint32_t *keys = NULL;
-    const uint32_t target_size = 100000000;
-    uint32_t k;
+    uint8_t *keys = NULL;
+    const uint32_t n_keys = 100000000;
     uintptr_t i = 0;
     int r;
 
-    keys = calloc(target_size, sizeof(uint32_t));
+    assert(keygen->buf_size <= 255);
+
+    keys = calloc(n_keys, 1 + keygen->buf_size);
     if (!keys) return 71; /* EX_OSERR */
 
-    r = hashmap_init(&hm, target_size);
+    r = hashmap_init(&hm, n_keys);
     if (r) goto done;
 
-    for (i = 0; i < target_size; i++) {
+    for (i = 0; i < n_keys; i++) {
+        void *key;
+        size_t key_len;
+
         do {
-            k = randu32(rbs, 0, UINT32_MAX);
-        } while (HASHMAP_OK == hashmap_get(&hm, &k, sizeof(k), NULL));
-        keys[i] = k;
-        r = hashmap_put(&hm, &k, sizeof(k), (void *) i, NULL);
+            keygen->keygen(rbs, &key, &key_len);
+        } while (HASHMAP_OK == hashmap_get(&hm, key, key_len, NULL));
+
+        keys[i * (1 + keygen->buf_size)] = key_len;
+        memcpy(&keys[i * (1 + keygen->buf_size) + 1], key, key_len);
+
+        r = hashmap_put(&hm, key, key_len, (void *) i, NULL);
         if (r) goto done;
     }
 
-    shuffle(rbs, keys, target_size, sizeof(keys[0]));
+    shuffle(rbs, keys, n_keys, 1 + keygen->buf_size);
 
     if (want_perf)
-        perf_del = perf_new("hashmap_del", target_size);
+        perf_del = perf_new("hashmap_del", n_keys);
 
-    for (i = 0; i < target_size; i++) {
+    for (i = 0; i < n_keys; i++) {
+        void *key = &keys[i * (1 + keygen->buf_size) + 1];
+        size_t key_len = keys[i * (1 + keygen->buf_size)];
         void *old_value;
 
         perf_start(perf_del);
-        r = hashmap_del(&hm, &keys[i], sizeof(keys[i]), &old_value);
+        r = hashmap_del(&hm, key, key_len, &old_value);
         perf_end(perf_del);
 
         if (r) goto done;
@@ -377,16 +435,19 @@ int main(int argc, char **argv)
         { "load-factor-group-by", required_argument, NULL, 'L' },
         { "csv",                  no_argument,       NULL, 'C' },
         { "graph",                no_argument,       NULL, 'G' },
+        { "keygen",               required_argument, NULL, 'K' },
         { "summary",              no_argument,       NULL, 'S' },
         { "grow",                 no_argument,       NULL, 'g' },
         { "load-factor",          required_argument, NULL, 'l' },
         { "shrink",               no_argument,       NULL, 's' },
         { NULL,                   0,                 NULL,  0  },
     };
-    int c, r = 0;
     struct randbs rbs = RANDBS_INITIALIZER(&xoshiro128plusplus_next);
     char *load_factor_string = NULL;
+    const char *want_keygen = NULL;
+    unsigned i;
     int load_factor_group_by = 0;
+    int c, r = 0;
     bool want_grow = false, want_shrink = false;
 
     setlocale(LC_ALL, ".utf8");
@@ -407,6 +468,9 @@ int main(int argc, char **argv)
             want_graph = true;
             want_perf = true;
             break;
+        case 'K':
+            want_keygen = optarg;
+            break;
         case 'S':
             want_summary = true;
             break;
@@ -423,6 +487,22 @@ int main(int argc, char **argv)
             r = usage();
             break;
         }
+    }
+
+    if (want_keygen) {
+        const struct keygen *found = NULL;
+
+        for (i = 0; i < N_KEYGENS; i++) {
+            if (0 == strcmp(keygens[i].name, want_keygen)) {
+                found = &keygens[i];
+                break;
+            }
+        }
+
+        if (found)
+            keygen = found;
+        else
+            r = usage();
     }
 
     if (!r && load_factor_string) {
