@@ -238,20 +238,22 @@ static void boxplot_print_header(const char *title,
                                  boxplot_format_sample_cb *formatter,
                                  FILE *out)
 {
-    int title_len = strlen(title);
+    int title_len = title ? strlen(title) : 0;
     int i;
 
-    ansi_colour_256(out, grid_colour);
-    fputws(L"════════════════════════════════════════"
-           L"════════════════════════════════════════\n",
-           out);
-    ansi_reset(out);
+    if (title_len) {
+        ansi_colour_256(out, grid_colour);
+        fputws(L"════════════════════════════════════════"
+               L"════════════════════════════════════════\n",
+               out);
+        ansi_reset(out);
 
-    if (title_len > 78) title_len = 78;
-    fprintf(out, "%*.*s\n",
-                 title_len + (80 - title_len) / 2,
-                 title_len,
-                 title);
+        if (title_len > 78) title_len = 78;
+        fprintf(out, "%*.*s\n",
+                     title_len + (80 - title_len) / 2,
+                     title_len,
+                     title);
+    }
 
     ansi_colour_256(out, grid_colour);
     fputws(L"════════════════════════════════════════"
