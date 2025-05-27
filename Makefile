@@ -9,12 +9,23 @@ COVERAGE :=
 
 REQUIRES := cmocka
 
+ifneq ($(VTUNE_ITTAPI),)
+ITT_CPPFLAGS := -DHAVE_VTUNE_ITTAPI -I "$(VTUNE_ITTAPI)/include"
+ITT_LDFLAGS  := -L "$(VTUNE_ITTAPI)/lib64"
+ITT_LDLIBS   := -littnotify
+else
+ITT_CPPFLAGS :=
+ITT_LDFLAGS  :=
+ITT_LDLIBS   :=
+endif
+
 FLRL_CFLAGS := -O$(O) -ggdb3 $(WARNINGS) $(FEATURES) $(COVERAGE) $(CFLAGS)
 FLRL_CXXFLAGS := -O$(O) -ggdb3 -std=c++2b -ffreestanding -fno-exceptions \
 				 $(WARNINGS) $(FEATURES) $(COVERAGE) $(CXXFLAGS)
-FLRL_LDFLAGS := $(LDFLAGS)
-FLRL_CPPFLAGS := $(shell pkg-config --cflags $(REQUIRES)) $(CPPFLAGS)
-FLRL_LDLIBS := $(shell pkg-config --libs $(REQUIRES)) $(LDLIBS)
+FLRL_LDFLAGS := $(ITT_LDFLAGS) $(LDFLAGS)
+FLRL_CPPFLAGS := $(shell pkg-config --cflags $(REQUIRES)) \
+				 $(ITT_CPPFLAGS) $(CPPFLAGS)
+FLRL_LDLIBS := $(shell pkg-config --libs $(REQUIRES)) $(ITT_LDLIBS) $(LDLIBS)
 
 .PHONY: all check clean
 .PHONY: coverage coverage-setup coverage-report
@@ -102,7 +113,7 @@ $(TESTTARGETS): $(TESTDIR)/%: $(BUILDDIR)/test-%.o $(TESTCOMMONOBJS) $(LIBCOBJS)
 	$(CC) $(FLRL_CFLAGS) $(FLRL_LDFLAGS) -o $@ $(call filt_flrl,$*,$^) $(FLRL_LDLIBS)
 
 $(MISCTARGETS): $(MISCDIR)/%: $(BUILDDIR)/misc-%.o $(TARGET)
-	$(CC) $(FLRL_CFLAGS) $(FLRL_LDFLAGS) -o $@ $+
+	$(CC) $(FLRL_CFLAGS) $(FLRL_LDFLAGS) -o $@ $+ $(FLRL_LDLIBS)
 
 $(OBJS) $(DEPS): | $(BUILDDIR)
 
