@@ -47,6 +47,9 @@ static void do_summary(const HashMap *hm, const char *title)
             { .label = "bucket desired count",
               .n_samples = stats.bdc.n_samples,
               .summary7 = stats.bdc.summary7 },
+            { .label = "key length",
+              .n_samples = stats.keylen.n_samples,
+              .summary7 = stats.keylen.summary7 },
         };
         const size_t n_boxplots = sizeof(boxplots) / sizeof(boxplots[0]);
 

@@ -37,6 +37,12 @@ typedef struct {
         double variance;
         size_t n_samples;
     } bdc;
+    struct {
+        struct summary7 summary7;
+        double mean;
+        double variance;
+        size_t n_samples;
+    } keylen;
     double load;
 } HashMapStats;
 

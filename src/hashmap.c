@@ -530,10 +530,12 @@ int hashmap_foreach(const HashMap *hm, hashmap_foreach_cb *cb, void *ctx)
 void hashmap_get_stats(const HashMap *hm, HashMapStats *hs)
 {
     uint32_t *psl, *bucket_desired_count;
-    uint32_t i, n_psl;
+    uint16_t *keylen;
+    uint32_t i, n_keys;
 
     bucket_desired_count = calloc(hm->alloc, sizeof(bucket_desired_count[0]));
     psl = calloc(hm->alloc, sizeof(psl[0]));
+    keylen = calloc(hm->alloc, sizeof(keylen[0]));
 
     if (!bucket_desired_count || !psl) {
         memset(hs, 0, sizeof(*hs));
@@ -542,7 +544,7 @@ void hashmap_get_stats(const HashMap *hm, HashMapStats *hs)
         return;
     }
 
-    for (i = 0, n_psl = 0; i < hm->alloc; i++) {
+    for (i = 0, n_keys = 0; i < hm->alloc; i++) {
         uint32_t db;
 
         if (!has_key_at_index(hm, i)) continue;
@@ -550,24 +552,32 @@ void hashmap_get_stats(const HashMap *hm, HashMapStats *hs)
         db = hm->key[i].hash & (hm->alloc - 1);
         bucket_desired_count[db] ++;
 
-        psl[n_psl++] = HM_PSL(hm, i);
+        psl[n_keys] = HM_PSL(hm, i);
+        keylen[n_keys] = hm->key[i].len;
+        n_keys ++;
     }
-    assert(n_psl == hm->count);
+    assert(n_keys == hm->count);
 
     hs->load = 1.0 * hm->count / hm->alloc;
 
-    summary7u32v(&hs->psl.summary7, psl, n_psl, FENCE_PERC2);
-    hs->psl.mean = meanu32v(psl, n_psl);
-    hs->psl.variance = varianceu32v(psl, n_psl, hs->psl.mean);
-    hs->psl.n_samples = n_psl;
+    summary7u32v(&hs->psl.summary7, psl, n_keys, FENCE_PERC2);
+    hs->psl.mean = meanu32v(psl, n_keys);
+    hs->psl.variance = varianceu32v(psl, n_keys, hs->psl.mean);
+    hs->psl.n_samples = n_keys;
 
     summary7u32v(&hs->bdc.summary7, bucket_desired_count, hm->alloc, FENCE_PERC2);
     hs->bdc.mean = meanu32v(bucket_desired_count, hm->alloc);
     hs->bdc.variance = varianceu32v(bucket_desired_count, hm->alloc, hs->bdc.mean);
     hs->bdc.n_samples = hm->alloc;
 
+    summary7u16v(&hs->keylen.summary7, keylen, n_keys, FENCE_PERC2);
+    hs->keylen.mean = meanu16v(keylen, n_keys);
+    hs->keylen.variance = varianceu16v(keylen, n_keys, hs->keylen.mean);
+    hs->keylen.n_samples = n_keys;
+
     free(bucket_desired_count);
     free(psl);
+    free(keylen);
 }
 
 int hashmap_random(const HashMap *hm, struct randbs *rbs,

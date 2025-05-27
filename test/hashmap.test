@@ -39,6 +39,11 @@ static void dump_hashmap_stats(const HashMap *hm)
     fprintf(stderr, "bdc max: %g\n", stats.bdc.summary7.max);
     fprintf(stderr, "bdc mean: %g\n", stats.bdc.mean);
     fprintf(stderr, "bdc stddev: %g\n", sqrt(stats.bdc.variance));
+    fprintf(stderr, "keylen min: %g\n", stats.keylen.summary7.min);
+    fprintf(stderr, "keylen median: %g\n", stats.keylen.summary7.med);
+    fprintf(stderr, "keylen max: %g\n", stats.keylen.summary7.max);
+    fprintf(stderr, "keylen mean: %g\n", stats.keylen.mean);
+    fprintf(stderr, "keylen stddev: %g\n", sqrt(stats.keylen.variance));
 }
 
 __attribute__((unused))
