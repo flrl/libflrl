@@ -14,6 +14,14 @@
 #include <stdlib.h>
 #include <time.h>
 
+#ifdef HAVE_VTUNE_ITTAPI
+#include <ittnotify.h>
+#else
+#define __itt_pause() do {} while (0)
+#define __itt_resume() do {} while (0)
+#define __itt_detach() do {}  while (0)
+#endif
+
 static const unsigned lf_n_ops = 100000000;
 
 static bool want_csv = false;
@@ -153,6 +161,7 @@ static int do_one_load_factor(struct randbs *rbs, double load_factor,
     }
 
     /* alternating random operations */
+    __itt_resume();
     for (i = 0; i < lf_n_ops; i++) {
         switch ((i & 3)) {
         case 0:
@@ -205,6 +214,7 @@ static int do_one_load_factor(struct randbs *rbs, double load_factor,
             break;
         }
     }
+    __itt_pause();
 
 done:
     if (want_summary)
@@ -342,6 +352,7 @@ static int do_grow(struct randbs *rbs)
     if (want_perf)
         perf_put = perf_new("hashmap_put", target_size);
 
+    __itt_resume();
     while (hm.count < target_size) {
         void *key;
         size_t key_len;
@@ -352,6 +363,7 @@ static int do_grow(struct randbs *rbs)
         hashmap_put(&hm, key, key_len, (void *) i, NULL);
         perf_end(perf_put);
     }
+    __itt_pause();
 
     if (want_graph) {
         perf_report(stdout, "growing hash", &perf_put, 1);
@@ -403,6 +415,7 @@ static int do_shrink(struct randbs *rbs)
     if (want_perf)
         perf_del = perf_new("hashmap_del", n_keys);
 
+    __itt_resume();
     for (i = 0; i < n_keys; i++) {
         void *key = &keys[i * (1 + keygen->buf_size) + 1];
         size_t key_len = keys[i * (1 + keygen->buf_size)];
@@ -414,6 +427,7 @@ static int do_shrink(struct randbs *rbs)
 
         if (r) goto done;
     }
+    __itt_pause();
 
     if (want_graph) {
         perf_report(stdout, "shrinking hash", &perf_del, 1);
@@ -449,6 +463,8 @@ int main(int argc, char **argv)
     int load_factor_group_by = 0;
     int c, r = 0;
     bool want_grow = false, want_shrink = false;
+
+    __itt_pause();
 
     setlocale(LC_ALL, ".utf8");
     randbs_seed64(&rbs, UINT64_C(11226047971600110276));
@@ -518,5 +534,6 @@ int main(int argc, char **argv)
         r = do_shrink(&rbs);
     }
 
+    __itt_detach();
     return r;
 }
