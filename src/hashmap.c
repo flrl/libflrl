@@ -44,9 +44,9 @@ static_assert(15 == offsetof(struct hm_key, psl));
                        : (hm)->key[i].kptr)
 
 #define SWAP(pa, pb) do {   \
-    __auto_type _t = *(pa); \
-    *(pa) = *(pb);          \
-    *(pb) = _t;             \
+    __auto_type _t = pa;    \
+    pa = pb;                \
+    pb = _t;                \
 } while(0)
 
 static uint32_t next_seed = 1;
@@ -210,9 +210,9 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
             || (dist == psl && keycmp(&new_key, &hm->key[i]) < 0))
         {
             new_key.psl = dist;
-            SWAP(&new_key, &hm->key[i]);
-            SWAP(&new_value, &hm->value[i]);
-            SWAP(&new_hash, &hm->hash[i]);
+            SWAP(new_key, hm->key[i]);
+            SWAP(new_value, hm->value[i]);
+            SWAP(new_hash, hm->hash[i]);
             dist = psl;
         }
 
@@ -221,9 +221,9 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
     }
 
     new_key.psl = dist;
-    SWAP(&new_key, &hm->key[i]);
-    SWAP(&new_value, &hm->value[i]);
-    SWAP(&new_hash, &hm->hash[i]);
+    SWAP(new_key, hm->key[i]);
+    SWAP(new_value, hm->value[i]);
+    SWAP(new_hash, hm->hash[i]);
 
     hm->count ++;
     return HASHMAP_OK;
@@ -261,9 +261,9 @@ static int delete_robinhood(HashMap *hm, uint32_t pos, void **old_value)
     while (has_key_at_index(hm, next)) {
         if (0 == hm->key[next].psl) break;
 
-        SWAP(&hm->key[pos], &hm->key[next]);
-        SWAP(&hm->value[pos], &hm->value[next]);
-        SWAP(&hm->hash[pos], &hm->hash[next]);
+        SWAP(hm->key[pos], hm->key[next]);
+        SWAP(hm->value[pos], hm->value[next]);
+        SWAP(hm->hash[pos], hm->hash[next]);
 
         hm->key[pos].psl --;
 
