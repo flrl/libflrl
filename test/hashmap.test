@@ -94,6 +94,7 @@ static void assert_hashmap_invariants(const HashMap *hm)
     if (!hm->alloc) {
         assert_null(hm->key);
         assert_null(hm->value);
+        assert_null(hm->hash);
         assert_int_equal(0, hm->count);
         assert_int_equal(0, hm->seed);
         assert_int_equal(0, hm->grow_threshold);
@@ -103,6 +104,7 @@ static void assert_hashmap_invariants(const HashMap *hm)
 
     assert_non_null(hm->key);
     assert_non_null(hm->value);
+    assert_non_null(hm->hash);
 
     assert_in_range(hm->alloc, HASHMAP_MIN_SIZE, HASHMAP_MAX_SIZE);
     assert_int_equal(1, __builtin_popcount(hm->alloc));
@@ -121,12 +123,13 @@ static void assert_hashmap_invariants(const HashMap *hm)
     for (i = 0; i < hm->alloc; i++) {
         if (hm->key[i].len == HASHMAP_BUCKET_EMPTY) {
             empty ++;
-            assert_int_equal(0, hm->key[i].psl);
             assert_null(hm->key[i].kptr);
+            assert_int_equal(0, hm->key[i].psl);
             assert_null(hm->value[i]);
+            assert_int_equal(0, hm->hash[i]);
         }
         else {
-            uint32_t prev_i, hash, prev_hash;
+            uint32_t prev_i, hash;
 
             count ++;
             if (hm->key[i].len > HASHMAP_INLINE_KEYLEN) {
@@ -141,21 +144,21 @@ static void assert_hashmap_invariants(const HashMap *hm)
             prev_i = (hm->alloc + i - 1) & mask;
             if (hm->key[prev_i].len != HASHMAP_BUCKET_EMPTY) {
                 hash = hashmap_hash32(HM_KEY(hm, i), hm->key[i].len, hm->seed);
-                prev_hash = hashmap_hash32(HM_KEY(hm, prev_i),
-                                           hm->key[prev_i].len,
-                                           hm->seed);
+
+                assert_int_equal(hash, hm->hash[i]);
 
                 if (hm->key[i].psl > hm->key[prev_i].psl) {
                     /* these two keys wanted the same bucket */
                     assert_int_equal(hm->key[i].psl, hm->key[prev_i].psl + 1);
-                    assert_int_equal(hash & mask, prev_hash & mask);
+                    assert_int_equal(hm->hash[i] & mask, hm->hash[prev_i] & mask);
 
                     /* keys in comparison order */
                     assert_int_in_range(keycmp(&hm->key[prev_i], &hm->key[i]),
                                         INT_MIN, 0);
                 }
                 else {
-                    assert_int_not_equal(hash & mask, prev_hash & mask);
+                    assert_int_not_equal(hm->hash[i] & mask,
+                                         hm->hash[prev_i] & mask);
                 }
             }
         }

@@ -190,6 +190,7 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
 {
     struct hm_key new_key = *key;
     void *new_value = value;
+    uint32_t new_hash = hash;
     uint32_t mask = hm->alloc - 1;
     uint32_t dist, i;
 
@@ -197,8 +198,10 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
     if (hm->count >= hm->alloc)
         return HASHMAP_E_RESIZE;
     
+    __builtin_prefetch(&hm->value[pos]);
+    __builtin_prefetch(&hm->hash[pos]);
+
     i = pos;
-    __builtin_prefetch(&hm->value[i]);
     dist = (hm->alloc + i - (hash & mask)) & mask;
     while (has_key_at_index(hm, i)) {
         uint32_t psl = hm->key[i].psl;
@@ -209,6 +212,7 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
             new_key.psl = dist;
             SWAP(&new_key, &hm->key[i]);
             SWAP(&new_value, &hm->value[i]);
+            SWAP(&new_hash, &hm->hash[i]);
             dist = psl;
         }
 
@@ -219,6 +223,7 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
     new_key.psl = dist;
     SWAP(&new_key, &hm->key[i]);
     SWAP(&new_value, &hm->value[i]);
+    SWAP(&new_hash, &hm->hash[i]);
 
     hm->count ++;
     return HASHMAP_OK;
@@ -237,6 +242,7 @@ static int delete_robinhood(HashMap *hm, uint32_t pos, void **old_value)
     assert(has_key_at_index(hm, pos));
 
     __builtin_prefetch(&hm->value[pos]);
+    __builtin_prefetch(&hm->hash[pos]);
     __builtin_prefetch(&hm->key[next]);
 
     hm->key[pos] = (struct hm_key) {
@@ -246,15 +252,18 @@ static int delete_robinhood(HashMap *hm, uint32_t pos, void **old_value)
     };
     if (old_value) *old_value = hm->value[pos];
     hm->value[pos] = NULL;
+    hm->hash[pos] = 0;
     hm->count --;
 
     __builtin_prefetch(&hm->value[next]);
+    __builtin_prefetch(&hm->hash[next]);
 
     while (has_key_at_index(hm, next)) {
         if (0 == hm->key[next].psl) break;
 
         SWAP(&hm->key[pos], &hm->key[next]);
         SWAP(&hm->value[pos], &hm->value[next]);
+        SWAP(&hm->hash[pos], &hm->hash[next]);
 
         hm->key[pos].psl --;
 
@@ -293,7 +302,7 @@ int hashmap_resize(HashMap *hm, uint32_t new_size)
     if (hm->shrink_threshold == HASHMAP_NO_SHRINK)
         new_hm.shrink_threshold = HASHMAP_NO_SHRINK;
 
-    /* XXX reuse the existing seed */
+    /* reuse the existing seed so we don't have to literally rehash */
     new_hm.seed = hm->seed;
     next_seed --;
 
@@ -303,7 +312,7 @@ int hashmap_resize(HashMap *hm, uint32_t new_size)
         if (!has_key_at_index(hm, i))
             continue;
 
-        hash = hashmap_hash32(HM_KEY(hm, i), hm->key[i].len, new_hm.seed);
+        hash = hm->hash[i];
         r = find(&new_hm, hash, HM_KEY(hm, i), hm->key[i].len, &new_i);
         assert(r == HASHMAP_E_NOKEY); /* not found, but got a spot for it */
         assert(new_i < new_hm.alloc);
@@ -315,6 +324,7 @@ int hashmap_resize(HashMap *hm, uint32_t new_size)
 
     free(hm->key);
     free(hm->value);
+    free(hm->hash);
     memcpy(hm, &new_hm, sizeof(*hm));
     return HASHMAP_OK;
 }
@@ -359,10 +369,12 @@ int hashmap_init(HashMap *hm, uint32_t size)
 
     hm->key = calloc(size, sizeof(hm->key[0]));
     hm->value = calloc(size, sizeof(hm->value[0]));
+    hm->hash = calloc(size, sizeof(hm->hash[0]));
 
-    if (!hm->key || !hm->value) {
+    if (!hm->key || !hm->value || !hm->hash) {
         free(hm->key);
         free(hm->value);
+        free(hm->hash);
         memset(hm, 0, sizeof(*hm));
         return HASHMAP_E_NOMEM;
     }
@@ -397,6 +409,7 @@ void hashmap_fini(HashMap *hm, void (*value_destructor)(void *))
 
     free(hm->key);
     free(hm->value);
+    free(hm->hash);
 
     memset(hm, 0, sizeof(*hm));
 }
