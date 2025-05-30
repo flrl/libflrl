@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define HASHMAP_KEY_MAXLEN  (UINT16_MAX - 1)
+#define HASHMAP_MAX_KEYLEN  (UINT8_MAX)
 #define HASHMAP_NO_GROW     UINT32_MAX
 #define HASHMAP_NO_SHRINK   UINT32_C(0)
 

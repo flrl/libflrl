@@ -72,7 +72,7 @@ static void hashmap_wc(const char *fname, int fd)
         for (i = 0; i < bytes_read; i++) {
             int c = readbuf[i];
 
-            if ((isalnum(c) || c == '_') && key_len < HASHMAP_KEY_MAXLEN) {
+            if ((isalnum(c) || c == '_') && key_len < HASHMAP_MAX_KEYLEN) {
                 keybuf[key_len++] = c;
             }
             else if (key_len) {

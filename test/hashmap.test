@@ -55,35 +55,39 @@ static void dump_hashmap(const HashMap *hm)
         const char *key;
         char buf[16];
         int key_len;
+        uint32_t hash;
 
         switch (hm->key[i].len) {
         case HASHMAP_BUCKET_EMPTY:
             key = "EMPTY";
             key_len = 5;
+            hash = 0;
             break;
         case sizeof(uint32_t):
             snprintf(buf, sizeof(buf), "%" PRIu32, *(uint32_t *)HM_KEY(hm, i));
             key = buf;
             key_len = strlen(buf);
+            hash = hashmap_hash32(HM_KEY(hm, i), hm->key[i].len, hm->seed);
             break;
         default:
             key = HM_KEY(hm, i);
             key_len = hm->key[i].len;
+            hash = hashmap_hash32(HM_KEY(hm, i), hm->key[i].len, hm->seed);
             break;
         }
 
         fprintf(stderr, "%u: key=%.*s hash=%u want=%u psl=%u\n",
                         i, key_len, key,
-                        hm->key[i].hash, (hm->key[i].hash & mask),
-                        HM_PSL(hm, i));
+                        hash, hash & mask,
+                        hm->key[i].psl);
     }
 }
 
 static void assert_hashmap_invariants(const HashMap *hm)
 {
+    const uint32_t mask = hm->alloc - 1;
     uint32_t i;
     uint32_t count, empty;
-    uint32_t mask = hm->alloc - 1;
 
     assert_ptr_equal(0, (uintptr_t) hm & 63u);
 
@@ -117,38 +121,41 @@ static void assert_hashmap_invariants(const HashMap *hm)
     for (i = 0; i < hm->alloc; i++) {
         if (hm->key[i].len == HASHMAP_BUCKET_EMPTY) {
             empty ++;
-            assert_int_equal(0, hm->key[i].hash);
+            assert_int_equal(0, hm->key[i].psl);
             assert_null(hm->key[i].kptr);
             assert_null(hm->value[i]);
         }
         else {
-            uint32_t prev_i, psl, prev_psl;
+            uint32_t prev_i, hash, prev_hash;
 
             count ++;
             if (hm->key[i].len > HASHMAP_INLINE_KEYLEN) {
+                unsigned j;
+
                 assert_non_null(hm->key[i].kptr);
-                assert_int_equal(0, hm->key[i].pad__);
+                for (j = 0; j < HASHMAP_PAD; j++)
+                    assert_int_equal(0, hm->key[i].pad__[j]);
             }
             assert_int_equal(true, has_key_at_index(hm, i));
 
             prev_i = (hm->alloc + i - 1) & mask;
             if (hm->key[prev_i].len != HASHMAP_BUCKET_EMPTY) {
-                psl = HM_PSL(hm, i);
-                prev_psl = HM_PSL(hm, prev_i);
+                hash = hashmap_hash32(HM_KEY(hm, i), hm->key[i].len, hm->seed);
+                prev_hash = hashmap_hash32(HM_KEY(hm, prev_i),
+                                           hm->key[prev_i].len,
+                                           hm->seed);
 
-                if (psl > prev_psl) {
+                if (hm->key[i].psl > hm->key[prev_i].psl) {
                     /* these two keys wanted the same bucket */
-                    assert_int_equal(psl, prev_psl + 1);
-                    assert_int_equal(hm->key[i].hash & mask,
-                                     hm->key[prev_i].hash & mask);
+                    assert_int_equal(hm->key[i].psl, hm->key[prev_i].psl + 1);
+                    assert_int_equal(hash & mask, prev_hash & mask);
 
                     /* keys in comparison order */
                     assert_int_in_range(keycmp(&hm->key[prev_i], &hm->key[i]),
                                         INT_MIN, 0);
                 }
                 else {
-                    assert_int_not_equal(hm->key[i].hash & mask,
-                                         hm->key[prev_i].hash & mask);
+                    assert_int_not_equal(hash & mask, prev_hash & mask);
                 }
             }
         }
@@ -610,7 +617,7 @@ static void full(NO_STATE)
     static_assert(sizeof(keys) / sizeof(keys[0]) >= 2 * HASHMAP_MIN_SIZE);
     HashMap hm;
     uint32_t expect_alloc, expect_count;
-    uint32_t index;
+    uint32_t hash, index;
     void *value;
     unsigned i;
     int r;
@@ -635,14 +642,16 @@ static void full(NO_STATE)
 
     /* look up keys we know are in there */
     for (i = 0; i < HASHMAP_MIN_SIZE; i++) {
-        r = find(&hm, 0, keys[i], strlen(keys[i]), NULL, &index);
+        hash = hashmap_hash32(keys[i], strlen(keys[i]), hm.seed);
+        r = find(&hm, hash, keys[i], strlen(keys[i]), &index);
         assert_int_equal(HASHMAP_OK, r);
         assert_in_range(index, 0, HASHMAP_MIN_SIZE);
     }
 
     /* look up keys we know are not in there */
     for (; i < 2 * HASHMAP_MIN_SIZE; i++) {
-        r = find(&hm, 0, keys[i], strlen(keys[i]), NULL, &index);
+        hash = hashmap_hash32(keys[i], strlen(keys[i]), hm.seed);
+        r = find(&hm, hash, keys[i], strlen(keys[i]), &index);
         assert_int_equal(HASHMAP_E_NOKEY, r);
         assert_in_range(index, 0, expect_alloc - 1);
 
@@ -670,7 +679,8 @@ static void full(NO_STATE)
         assert_int_equal(expect_count, hm.count);
         assert_hashmap_invariants(&hm);
 
-        r = find(&hm, 0, keys[i], strlen(keys[i]), NULL, &index);
+        hash = hashmap_hash32(keys[i], strlen(keys[i]), hm.seed);
+        r = find(&hm, hash, keys[i], strlen(keys[i]), &index);
         assert_int_equal(HASHMAP_E_NOKEY, r);
     }
 
