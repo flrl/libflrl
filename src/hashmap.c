@@ -17,7 +17,7 @@
 #define HASHMAP_SHRINK_THRESHOLD    (0.30)
 #define HASHMAP_BUCKET_EMPTY        UINT16_C(0)
 #define HASHMAP_INLINE_KEYLEN       (14)
-#define HASHMAP_PAD                 (HASHMAP_INLINE_KEYLEN - sizeof(void*))
+#define HASHMAP_CACHED_KEYLEN       (HASHMAP_INLINE_KEYLEN - sizeof(void*))
 
 static_assert(1 == __builtin_popcount(HASHMAP_MIN_SIZE));
 static_assert(1 == __builtin_popcount(HASHMAP_MAX_SIZE));
@@ -26,7 +26,7 @@ struct hm_key {
     union {
         struct {
             void *kptr;
-            uint8_t pad__[HASHMAP_PAD];
+            uint8_t kcache[HASHMAP_CACHED_KEYLEN];
         } __attribute__((packed));
         uint8_t kval[HASHMAP_INLINE_KEYLEN];
     };
@@ -37,6 +37,7 @@ static_assert(16 == sizeof(struct hm_key));
 static_assert(8 <= alignof(struct hm_key));
 static_assert(0 == offsetof(struct hm_key, kval));
 static_assert(0 == offsetof(struct hm_key, kptr));
+static_assert(8 == offsetof(struct hm_key, kcache));
 static_assert(14 == offsetof(struct hm_key, len));
 static_assert(15 == offsetof(struct hm_key, psl));
 #define HM_KEY(hm, i) ((hm)->key[i].len <= HASHMAP_INLINE_KEYLEN    \
@@ -105,6 +106,7 @@ static inline int hm_key_init(struct hm_key *hm_key,
 
     if (key_len > HASHMAP_INLINE_KEYLEN) {
         hm_key->kptr = memndup(key, key_len);
+        memcpy(hm_key->kcache, key, HASHMAP_CACHED_KEYLEN);
         if (!hm_key->kptr)
             return HASHMAP_E_NOMEM;
     }
@@ -117,26 +119,35 @@ static inline int hm_key_init(struct hm_key *hm_key,
     return HASHMAP_OK;
 }
 
-static inline int keycmp4(const struct hm_key *a,
+static inline int keycmp3(const struct hm_key *a,
                           const void *b_key, size_t b_len)
 {
     if (a->len != b_len) {
         /* smallest len goes first */
         return (a->len > b_len) - (a->len < b_len);
     }
-    else if (a->len <= HASHMAP_INLINE_KEYLEN) {
-        return memcmp(a->kval, b_key, b_len);
+    else if (a->len > HASHMAP_INLINE_KEYLEN) {
+        int c = memcmp(a->kcache, b_key, HASHMAP_CACHED_KEYLEN);
+        return c ? c : memcmp(a->kptr, b_key, b_len);
     }
     else {
-        return memcmp(a->kptr, b_key, b_len);
+        return memcmp(a->kval, b_key, b_len);
     }
 }
 
 static inline int keycmp(const struct hm_key *a, const struct hm_key *b)
 {
-    return keycmp4(a,
-                   b->len <= HASHMAP_INLINE_KEYLEN ? b->kval : b->kptr,
-                   b->len);
+    if (a->len != b->len) {
+        /* smallest len goes first */
+        return (a->len > b->len) - (a->len < b->len);
+    }
+    else if (a->len > HASHMAP_INLINE_KEYLEN) {
+        int c = memcmp(a->kcache, b->kcache, HASHMAP_CACHED_KEYLEN);
+        return c ? c : memcmp(a->kptr, b->kptr, b->len);
+    }
+    else {
+        return memcmp(a->kval, b->kval, b->len);
+    }
 }
 
 static int find(const HashMap *hm,
@@ -164,7 +175,7 @@ static int find(const HashMap *hm,
         }
         else if (dist == hm->key[i].psl
                  && !found_pip
-                 && keycmp4(&hm->key[i], key, key_len) > 0)
+                 && keycmp3(&hm->key[i], key, key_len) > 0)
         {
             /* don't yet know if the key exists, but if in the end it doesn't,
              * here's a possible insertion point
@@ -172,7 +183,7 @@ static int find(const HashMap *hm,
             pip = i;
             found_pip = true;
         }
-        else if (0 == keycmp4(&hm->key[i], key, key_len)) {
+        else if (0 == keycmp3(&hm->key[i], key, key_len)) {
             *pindex = i;
             return HASHMAP_OK;
         }

@@ -133,11 +133,16 @@ static void assert_hashmap_invariants(const HashMap *hm)
 
             count ++;
             if (hm->key[i].len > HASHMAP_INLINE_KEYLEN) {
+                assert_non_null(hm->key[i].kptr);
+                assert_int_equal(0, memcmp(hm->key[i].kptr,
+                                           hm->key[i].kcache,
+                                           HASHMAP_CACHED_KEYLEN));
+            }
+            else {
                 unsigned j;
 
-                assert_non_null(hm->key[i].kptr);
-                for (j = 0; j < HASHMAP_PAD; j++)
-                    assert_int_equal(0, hm->key[i].pad__[j]);
+                for (j = hm->key[i].len; j < HASHMAP_INLINE_KEYLEN; j++)
+                    assert_int_equal(0, hm->key[i].kval[j]);
             }
             assert_int_equal(true, has_key_at_index(hm, i));
 
@@ -150,7 +155,8 @@ static void assert_hashmap_invariants(const HashMap *hm)
                 if (hm->key[i].psl > hm->key[prev_i].psl) {
                     /* these two keys wanted the same bucket */
                     assert_int_equal(hm->key[i].psl, hm->key[prev_i].psl + 1);
-                    assert_int_equal(hm->hash[i] & mask, hm->hash[prev_i] & mask);
+                    assert_int_equal(hm->hash[i] & mask,
+                                     hm->hash[prev_i] & mask);
 
                     /* keys in comparison order */
                     assert_int_in_range(keycmp(&hm->key[prev_i], &hm->key[i]),
