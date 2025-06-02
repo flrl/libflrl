@@ -286,60 +286,6 @@ static int delete_robinhood(HashMap *hm, uint32_t pos, void **old_value)
     return HASHMAP_OK;
 }
 
-int hashmap_resize(HashMap *hm, uint32_t new_size)
-{
-    HashMap new_hm;
-    uint32_t i;
-    int r;
-
-    new_size = nextpow2(new_size);
-
-    if (new_size > HASHMAP_MAX_SIZE)
-        return HASHMAP_E_INVALID;
-
-    if (new_size < HASHMAP_MIN_SIZE)
-        new_size = HASHMAP_MIN_SIZE;
-
-    assert(new_size >= hm->count);
-    if (new_size < hm->count)
-        return HASHMAP_E_INVALID;
-
-    r = hashmap_init(&new_hm, new_size);
-    if (r) return r;
-
-    if (hm->grow_threshold == HASHMAP_NO_GROW)
-        new_hm.grow_threshold = HASHMAP_NO_GROW;
-
-    if (hm->shrink_threshold == HASHMAP_NO_SHRINK)
-        new_hm.shrink_threshold = HASHMAP_NO_SHRINK;
-
-    /* reuse the existing seed so we don't have to literally rehash */
-    new_hm.seed = hm->seed;
-    next_seed --;
-
-    for (i = 0; i < hm->alloc; i++) {
-        uint32_t hash, new_i;
-
-        if (!has_key_at_index(hm, i))
-            continue;
-
-        hash = hm->hash[i];
-        r = find(&new_hm, hash, HM_KEY(hm, i), hm->key[i].len, &new_i);
-        assert(r == HASHMAP_E_NOKEY); /* not found, but got a spot for it */
-        assert(new_i < new_hm.alloc);
-
-        /* steal the internals */
-        r = insert_robinhood(&new_hm, hash, new_i, &hm->key[i], hm->value[i]);
-        assert(r == HASHMAP_OK);
-    }
-
-    free(hm->key);
-    free(hm->value);
-    free(hm->hash);
-    memcpy(hm, &new_hm, sizeof(*hm));
-    return HASHMAP_OK;
-}
-
 const char *hashmap_strerr(int e)
 {
     static char buf[64] = {0};
@@ -423,6 +369,60 @@ void hashmap_fini(HashMap *hm, void (*value_destructor)(void *))
     free(hm->hash);
 
     memset(hm, 0, sizeof(*hm));
+}
+
+int hashmap_resize(HashMap *hm, uint32_t new_size)
+{
+    HashMap new_hm;
+    uint32_t i;
+    int r;
+
+    new_size = nextpow2(new_size);
+
+    if (new_size > HASHMAP_MAX_SIZE)
+        return HASHMAP_E_INVALID;
+
+    if (new_size < HASHMAP_MIN_SIZE)
+        new_size = HASHMAP_MIN_SIZE;
+
+    assert(new_size >= hm->count);
+    if (new_size < hm->count)
+        return HASHMAP_E_INVALID;
+
+    r = hashmap_init(&new_hm, new_size);
+    if (r) return r;
+
+    if (hm->grow_threshold == HASHMAP_NO_GROW)
+        new_hm.grow_threshold = HASHMAP_NO_GROW;
+
+    if (hm->shrink_threshold == HASHMAP_NO_SHRINK)
+        new_hm.shrink_threshold = HASHMAP_NO_SHRINK;
+
+    /* reuse the existing seed so we don't have to literally rehash */
+    new_hm.seed = hm->seed;
+    next_seed --;
+
+    for (i = 0; i < hm->alloc; i++) {
+        uint32_t hash, new_i;
+
+        if (!has_key_at_index(hm, i))
+            continue;
+
+        hash = hm->hash[i];
+        r = find(&new_hm, hash, HM_KEY(hm, i), hm->key[i].len, &new_i);
+        assert(r == HASHMAP_E_NOKEY); /* not found, but got a spot for it */
+        assert(new_i < new_hm.alloc);
+
+        /* steal the internals */
+        r = insert_robinhood(&new_hm, hash, new_i, &hm->key[i], hm->value[i]);
+        assert(r == HASHMAP_OK);
+    }
+
+    free(hm->key);
+    free(hm->value);
+    free(hm->hash);
+    memcpy(hm, &new_hm, sizeof(*hm));
+    return HASHMAP_OK;
 }
 
 int hashmap_get(const HashMap *hm, const void *key, size_t key_len,
