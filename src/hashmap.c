@@ -240,6 +240,25 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
     return HASHMAP_OK;
 }
 
+static inline int insert_helper(HashMap *hm, uint32_t hash, uint32_t index,
+                                const void *key, size_t key_len,
+                                void *new_value)
+{
+    if (should_grow(hm, hm->count)) {
+        hashmap_resize(hm, hm->alloc * 2);
+        return hashmap_put(hm, key, key_len, new_value, NULL);
+    }
+    else {
+        struct hm_key new_key = {0};
+        int r;
+
+        r = hm_key_init(&new_key, key, key_len);
+        if (r) return r;
+
+        return insert_robinhood(hm, hash, index, &new_key, new_value);
+   }
+}
+
 static int delete_robinhood(HashMap *hm, uint32_t pos, void **old_value)
 {
     const uint32_t mask = hm->alloc - 1;
@@ -481,18 +500,9 @@ int hashmap_put(HashMap *hm,
     else if (r != HASHMAP_E_NOKEY) {
         return r;
     }
-    else if (should_grow(hm, hm->count)) {
-        hashmap_resize(hm, hm->alloc * 2);
-        return hashmap_put(hm, key, key_len, new_value, old_value);
-    }
     else {
-        struct hm_key new_key = {0};
-
-        r = hm_key_init(&new_key, key, key_len);
-        if (r) return r;
-
         if (old_value) *old_value = NULL;
-        return insert_robinhood(hm, hash, i, &new_key, new_value);
+        return insert_helper(hm, hash, i, key, key_len, new_value);
     }
 }
 
@@ -516,6 +526,31 @@ int hashmap_del(HashMap *hm, const void *key, size_t key_len, void **old_value)
     }
 
     return r;
+}
+
+int hashmap_mod(HashMap *hm, const void *key, size_t key_len,
+                void *init_value,
+                hashmap_mod_cb *mod_cb, void *mod_ctx)
+{
+    void *new_value;
+    uint32_t hash, i;
+    int r;
+
+    hash = hashmap_hash32(key, key_len, hm->seed);
+    r = find(hm, hash, key, key_len, &i);
+
+    switch (r) {
+    case HASHMAP_E_NOKEY:
+        return insert_helper(hm, hash, i, key, key_len, init_value);
+    case HASHMAP_OK:
+        new_value = hm->value[i];
+        r = mod_cb(hm, key, key_len, &new_value, mod_ctx);
+        if (r) return r;
+        hm->value[i] = new_value;
+        return HASHMAP_OK;
+    default:
+        return r;
+    }
 }
 
 int hashmap_foreach(const HashMap *hm, hashmap_foreach_cb *cb, void *ctx)

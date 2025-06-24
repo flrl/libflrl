@@ -69,6 +69,15 @@ extern int hashmap_put(HashMap *hm, const void *key, size_t key_len,
 extern int hashmap_del(HashMap *hm, const void *key, size_t key_len,
                        void **old_value);
 
+typedef int (hashmap_mod_cb)(const HashMap *hm,
+                             const void *key, size_t key_len,
+                             void **value,
+                             void *ctx);
+
+extern int hashmap_mod(HashMap *hm, const void *key, size_t key_len,
+                       void *init_value,
+                       hashmap_mod_cb *mod_cb, void *mod_ctx);
+
 typedef int (hashmap_foreach_cb)(const HashMap *hm,
                                  const void *key,
                                  size_t key_len,
