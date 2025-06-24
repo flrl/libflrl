@@ -24,6 +24,11 @@ static int find_max_value(const HashMap *hm,
                           size_t key_len,
                           void *value,
                           void *ctx);
+
+static int hashmap_incr(const HashMap *hm,
+                        const void *key, size_t key_len,
+                        void **value,
+                        void *ctx);
 }
 
 #include <algorithm>
@@ -217,13 +222,9 @@ static T mode(const T *values, std::size_t n_values, std::size_t *pfrequency)
     hashmap_init(&counts, n_values / 10);
 
     for (i = 0; i < n_values; i++) {
-        uintptr_t count;
-
-        /* XXX hashmap_mod */
-        hashmap_get(&counts, &values[i], sizeof(values[i]),
-                    reinterpret_cast<void **>(&count));
-        hashmap_put(&counts, &values[i], sizeof(values[i]),
-                    reinterpret_cast<void *>(count + 1), NULL);
+        hashmap_mod(&counts, &values[i], sizeof(values[i]),
+                    reinterpret_cast<void *>(1),
+                    &hashmap_incr, NULL);
     }
 
     hashmap_foreach(&counts, &find_max_value, &fmv_ctx);
@@ -468,6 +469,21 @@ static int find_max_value(const HashMap *hm __attribute__((unused)),
     }
 
     return 0;
+}
+
+static int hashmap_incr(const HashMap *hm __attribute__((unused)),
+                        const void *key __attribute__((unused)),
+                        size_t key_len __attribute__((unused)),
+                        void **value,
+                        void *ctx __attribute__((unused)))
+{
+    uintptr_t v;
+
+    v = *reinterpret_cast<uintptr_t *>(value);
+    v++;
+    *value = reinterpret_cast<void *>(v);
+
+    return HASHMAP_OK;
 }
 
 double meani8v(const int8_t *values, size_t n_values)
