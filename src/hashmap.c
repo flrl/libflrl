@@ -18,6 +18,7 @@
 #define HASHMAP_BUCKET_EMPTY        UINT16_C(0)
 #define HASHMAP_INLINE_KEYLEN       (14)
 #define HASHMAP_CACHED_KEYLEN       (HASHMAP_INLINE_KEYLEN - sizeof(void*))
+#define HASHMAP_MAX_PSL             UINT8_MAX
 
 static_assert(1 == __builtin_popcount(HASHMAP_MIN_SIZE));
 static_assert(1 == __builtin_popcount(HASHMAP_MAX_SIZE));
@@ -87,7 +88,8 @@ static inline bool should_grow(const HashMap *hm, uint32_t count)
 {
     return hm->alloc < HASHMAP_MAX_SIZE
            && hm->grow_threshold != HASHMAP_NO_GROW
-           && count >= hm->grow_threshold;
+           && (count >= hm->grow_threshold
+               || hm->max_psl == HASHMAP_MAX_PSL);
 }
 
 __attribute__((pure))
@@ -117,6 +119,14 @@ static inline int hm_key_init(struct hm_key *hm_key,
     hm_key->psl = 0;
 
     return HASHMAP_OK;
+}
+
+static inline void hm_key_fini(struct hm_key *hm_key)
+{
+    if (hm_key->len > HASHMAP_INLINE_KEYLEN)
+        free(hm_key->kptr);
+
+    memset(hm_key, 0, sizeof(*hm_key));
 }
 
 static inline int keycmp3(const struct hm_key *a,
@@ -206,7 +216,7 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
     uint32_t dist, i;
 
     assert(hm->count <= hm->alloc);
-    if (hm->count >= hm->alloc)
+    if (hm->count >= hm->alloc || hm->max_psl == HASHMAP_MAX_PSL)
         return HASHMAP_E_RESIZE;
     
     __builtin_prefetch(&hm->value[pos]);
@@ -220,6 +230,9 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
         if (dist > psl
             || (dist == psl && keycmp(&new_key, &hm->key[i]) < 0))
         {
+            assert(dist <= HASHMAP_MAX_PSL);
+            if (dist > hm->max_psl)
+                hm->max_psl = dist;
             new_key.psl = dist;
             SWAP(new_key, hm->key[i]);
             SWAP(new_value, hm->value[i]);
@@ -231,6 +244,9 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
         dist++;
     }
 
+    assert(dist <= HASHMAP_MAX_PSL);
+    if (dist > hm->max_psl)
+        hm->max_psl = dist;
     new_key.psl = dist;
     SWAP(new_key, hm->key[i]);
     SWAP(new_value, hm->value[i]);
@@ -255,7 +271,10 @@ static inline int insert_helper(HashMap *hm, uint32_t hash, uint32_t index,
         r = hm_key_init(&new_key, key, key_len);
         if (r) return r;
 
-        return insert_robinhood(hm, hash, index, &new_key, new_value);
+        r = insert_robinhood(hm, hash, index, &new_key, new_value);
+        if (r) hm_key_fini(&new_key);
+
+        return r;
    }
 }
 
@@ -357,6 +376,7 @@ int hashmap_init(HashMap *hm, uint32_t size)
 
     hm->alloc = size;
     hm->count = 0;
+    hm->max_psl = 0;
     hm->seed = next_seed ++;
 
     hm->grow_threshold = size < HASHMAP_MAX_SIZE

@@ -17,6 +17,7 @@ typedef struct __attribute__((aligned(64))) {
     uint32_t *hash;
     uint32_t alloc;
     uint32_t count;
+    uint32_t max_psl;
     uint32_t seed;
     uint32_t grow_threshold;
     uint32_t shrink_threshold;
