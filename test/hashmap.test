@@ -797,7 +797,7 @@ static void do_load_factor(struct randbs *rbs, double load_factor)
         r = hashmap_put(&hm, word, strlen(word), (void *)(uintptr_t) i, NULL);
         assert_int_equal(HASHMAP_OK, r);
     }
-    dump_hashmap_stats(&hm);
+    if (verbose) dump_hashmap_stats(&hm);
     assert_hashmap_invariants(&hm);
 
     /* alternating random operations */
@@ -848,7 +848,7 @@ static void do_load_factor(struct randbs *rbs, double load_factor)
         }
     }
 
-    dump_hashmap_stats(&hm);
+    if (verbose) dump_hashmap_stats(&hm);
     assert_hashmap_invariants(&hm);
 
     hashmap_fini(&hm, NULL);
