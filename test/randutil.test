@@ -66,6 +66,39 @@ static unsigned bit_width(uint64_t i)
     return i > 0 ? 64 - __builtin_clzll(i) : 0;
 }
 
+static void fn_randbs_seed(NO_STATE)
+{
+    const unsigned test_counts[] = { 3, 4, 7, 8, 9, 11, 16 };
+    const size_t n_tests = sizeof(test_counts) / sizeof(test_counts[0]);
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        uint32_t *first_values, *repeat_values;
+        unsigned j;
+
+        first_values = calloc(test_counts[i], sizeof(first_values[0]));
+        repeat_values = calloc(test_counts[i], sizeof(repeat_values[0]));
+
+        randbs_seed(&bs, &seed128);
+        randu32v(&bs, first_values, test_counts[i], 0, UINT32_MAX);
+
+        for (j = 0; j < 10; j++) {
+            unsigned v;
+
+            randbs_seed(&bs, &seed128);
+            randu32v(&bs, repeat_values, test_counts[i], 0, UINT32_MAX);
+
+            for (v = 0; v < test_counts[i]; v++) {
+                assert_int_equal(first_values[v], repeat_values[v]);
+            }
+        }
+
+        free(repeat_values);
+        free(first_values);
+    }
+}
+
 static void fn_randbs_bits(NO_STATE)
 {
     const struct mock_rng32_state rng_init = {
@@ -1620,6 +1653,7 @@ static void gaussf64v_chi2(NO_STATE)
 const char *const um_group_name = "randutil";
 const struct CMUnitTest um_group_tests[] =
 {
+    cmocka_unit_test(fn_randbs_seed),
     cmocka_unit_test(fn_randbs_bits),
     cmocka_unit_test(fn_randbs_zeroes),
     cmocka_unit_test(randi8v_range),
