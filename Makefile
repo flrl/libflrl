@@ -154,7 +154,9 @@ coverage-setup:
 
 coverage-report:
 	$(MAKE) -B app_test.info
-	genhtml --config-file=lcovrc -o $(COVERDIR) app_base.info app_test.info
+	genhtml --config-file=lcovrc -o $(COVERDIR) --title="libflrl" \
+	    --header-title="$(shell git log -n 1 --no-decorate)"      \
+	    app_base.info app_test.info
 
 coverage:
 	$(MAKE) coverage-setup
