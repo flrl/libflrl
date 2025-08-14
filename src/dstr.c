@@ -10,6 +10,9 @@
 
 extern inline const char *dstr_cstr(const struct dstr *dstr);
 extern inline size_t dstr_len(const struct dstr *dstr);
+extern inline void dstr_putc(struct dstr *dstr, int c);
+extern inline void dstr_puts(struct dstr *dstr, const char *s);
+extern inline void dstr_printf(struct dstr *dstr, const char *fmt, ...);
 
 /* reserve space for at least n more chars, plus \0 */
 void dstr_reserve(struct dstr *dstr, size_t n)
@@ -87,30 +90,6 @@ void dstr_delete(struct dstr **pdstr)
 
     dstr_finish(dstr);
     free(dstr);
-}
-
-void dstr_putc(struct dstr *dstr, int c)
-{
-    dstr_reserve(dstr, 1);
-    dstr->buf[dstr->count++] = (char) c;
-}
-
-void dstr_puts(struct dstr *dstr, const char *s)
-{
-    size_t len = strlen(s);
-
-    dstr_reserve(dstr, len);
-    memcpy(dstr->buf + dstr->count, s, len);
-    dstr->count += len;
-}
-
-void dstr_printf(struct dstr *dstr, const char *fmt, ...)
-{
-    va_list ap;
-
-    va_start(ap, fmt);
-    dstr_vprintf(dstr, fmt, ap);
-    va_end(ap);
 }
 
 void dstr_vprintf(struct dstr *dstr, const char *fmt, va_list ap)
