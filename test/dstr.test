@@ -2,9 +2,220 @@
 
 #include "src/dstr.c"
 
+static void assert_dstr_invariants(const struct dstr *dstr)
+{
+    if (dstr->buf)
+        assert_int_not_equal(0, dstr->alloc);
+
+    if (dstr->alloc) {
+        size_t i;
+
+        assert_non_null(dstr->buf);
+        assert_in_range(dstr->count, 0, dstr->alloc - 1);
+
+        for (i = dstr->count; i < dstr->alloc; i++) {
+            assert_int_equal(0, dstr->buf[i]);
+        }
+    }
+    else {
+        assert_null(dstr->buf);
+        assert_int_equal(0, dstr->count);
+    }
+}
+
+static void fn_dstr_reserve(NO_STATE)
+{
+    static const struct {
+        size_t request;
+        size_t expect;
+    } tests[] = {
+        {                 0,     MIN_ALLOC },
+        {                10,     MIN_ALLOC },
+        {     MIN_ALLOC - 2,     MIN_ALLOC },
+        {     MIN_ALLOC - 1,     MIN_ALLOC },
+        {         MIN_ALLOC, 2 * MIN_ALLOC },
+        {     MIN_ALLOC + 1, 2 * MIN_ALLOC },
+        { 2 * MIN_ALLOC - 1, 2 * MIN_ALLOC },
+        {     2 * MIN_ALLOC, 4 * MIN_ALLOC },
+        { 2 * MIN_ALLOC + 1, 4 * MIN_ALLOC },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    struct dstr dstr = DSTR_INITIALIZER;
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        dstr_reserve(&dstr, tests[i].request);
+
+        assert_int_equal(tests[i].expect, dstr.alloc);
+        assert_int_equal(0, dstr.count);
+
+        assert_dstr_invariants(&dstr);
+    }
+
+    dstr_finish(&dstr);
+}
+
+static void fn_dstr_finish(NO_STATE)
+{
+    struct dstr dstr = DSTR_INITIALIZER;
+
+    dstr_puts(&dstr, "hello");
+    assert_non_null(dstr_cstr(&dstr));
+    assert_dstr_invariants(&dstr);
+    assert_int_equal(strlen("hello"), dstr_len(&dstr));
+    assert_int_equal(MIN_ALLOC, dstr.alloc);
+
+    dstr_finish(&dstr);
+    assert_null(dstr.buf);
+    assert_int_equal(0, dstr.alloc);
+    assert_int_equal(0, dstr.count);
+    assert_dstr_invariants(&dstr);
+}
+
+static void fn_dstr_release(NO_STATE)
+{
+    struct dstr dstr = DSTR_INITIALIZER;
+    char *released = NULL;
+
+    dstr_puts(&dstr, "hello");
+    released = dstr_release(&dstr);
+
+    assert_non_null(released);
+    assert_string_equal("hello", released);
+
+    assert_null(dstr.buf);
+    assert_int_equal(0, dstr.alloc);
+    assert_int_equal(0, dstr.count);
+    assert_dstr_invariants(&dstr);
+
+    free(released);
+}
+
+static void fn_dstr_new(NO_STATE)
+{
+    static const struct {
+        size_t reserve;
+        const char *initial;
+        size_t expect_len;
+        size_t expect_alloc;
+        const char *expect_str;
+    } tests[] = {
+        {  0, NULL,      0,     MIN_ALLOC, "" },
+        { 12, NULL,      0,     MIN_ALLOC, "" },
+        { 96, NULL,      0, 2 * MIN_ALLOC, "" },
+        {  0, "",        0,     MIN_ALLOC, "" },
+        {  5, "",        0,     MIN_ALLOC, "" },
+        { 96, "",        0, 2 * MIN_ALLOC, "" },
+        {  0, "hello",   5,     MIN_ALLOC, "hello" },
+        {  3, "hello",   5,     MIN_ALLOC, "hello" },
+        { 12, "hello",   5,     MIN_ALLOC, "hello" },
+        { 96, "hello",   5, 2 * MIN_ALLOC, "hello" },
+        {  0, "hel\0lo", 3,     MIN_ALLOC, "hel" },
+        { 12, "hel\0lo", 3,     MIN_ALLOC, "hel" },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        struct dstr *dstr = NULL;
+
+        dstr = dstr_new(tests[i].reserve, tests[i].initial);
+        assert_non_null(dstr);
+        assert_dstr_invariants(dstr);
+
+        assert_int_equal(tests[i].expect_len, dstr_len(dstr));
+        assert_int_equal(tests[i].expect_alloc, dstr->alloc);
+        assert_string_equal(tests[i].expect_str, dstr_cstr(dstr));
+
+        dstr_delete(&dstr);
+    }
+}
+
+static void fn_dstr_putc(NO_STATE)
+{
+    struct dstr dstr = DSTR_INITIALIZER;
+    size_t expect_len;
+    int c;
+
+    for (c = CHAR_MIN, expect_len = 1;
+         c <= CHAR_MAX;
+         c++, expect_len++)
+    {
+        dstr_putc(&dstr, c);
+
+        assert_dstr_invariants(&dstr);
+        assert_int_equal(expect_len, dstr_len(&dstr));
+    }
+
+    dstr_finish(&dstr);
+}
+
+static void fn_dstr_puts(NO_STATE)
+{
+    static const struct {
+        const char *str;
+        size_t expect_len;
+    } tests[] = {
+        { "",        0 },
+        { "hello",   5 },
+        { " world", 11 },
+        { "",       11 },
+        { ".",      12 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    struct dstr dstr = DSTR_INITIALIZER;
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        dstr_puts(&dstr, tests[i].str);
+        assert_dstr_invariants(&dstr);
+        assert_int_equal(tests[i].expect_len, dstr_len(&dstr));
+    }
+
+    dstr_finish(&dstr);
+}
+
+#define DO_DSTR_PRINTF(in, el, es, fmt, ...)                                \
+do {                                                                        \
+    const char *arg_initial = (in);                                         \
+    size_t arg_expect_len = (el);                                           \
+    const char *arg_expect_str = (es);                                      \
+    struct dstr dstr = DSTR_INITIALIZER;                                    \
+                                                                            \
+    if (arg_initial) {                                                      \
+        dstr_puts(&dstr, arg_initial);                                      \
+        assert_dstr_invariants(&dstr);                                      \
+    }                                                                       \
+                                                                            \
+    dstr_printf(&dstr, fmt __VA_OPT__(,) __VA_ARGS__);                      \
+    assert_dstr_invariants(&dstr);                                          \
+                                                                            \
+    assert_int_equal(arg_expect_len, dstr_len(&dstr));                      \
+    assert_string_equal(arg_expect_str, dstr_cstr(&dstr));                  \
+                                                                            \
+    dstr_finish(&dstr);                                                     \
+} while (0)
+
+static void fn_dstr_printf(NO_STATE)
+{
+    DO_DSTR_PRINTF(NULL,   5, "hello", "%s", "hello");
+    DO_DSTR_PRINTF("",     5, "hello", "%s", "hello");
+    DO_DSTR_PRINTF("oh, ", 9, "oh, hello", "%s", "hello");
+    DO_DSTR_PRINTF(NULL,   3, "123", "%d", 123);
+    DO_DSTR_PRINTF(NULL,   7, "123 456", "%d %d", 123, 456);
+    DO_DSTR_PRINTF(NULL,   5, "hello", "hello");
+}
+
 const char *const um_group_name = "dstr";
 const struct CMUnitTest um_group_tests[] =
 {
+    cmocka_unit_test(fn_dstr_reserve),
+    cmocka_unit_test(fn_dstr_finish),
+    cmocka_unit_test(fn_dstr_release),
+    cmocka_unit_test(fn_dstr_new),
+    cmocka_unit_test(fn_dstr_putc),
+    cmocka_unit_test(fn_dstr_puts),
+    cmocka_unit_test(fn_dstr_printf),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);
