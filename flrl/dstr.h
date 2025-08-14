@@ -14,14 +14,14 @@ struct dstr {
 
 #define DSTR_INITIALIZER (struct dstr){0}
 
-void dstr_reserve(struct dstr *dstr, size_t size);
-void dstr_finish(struct dstr *dstr);
-char *dstr_release(struct dstr *dstr);
+extern void dstr_reserve(struct dstr *dstr, size_t size);
+extern void dstr_finish(struct dstr *dstr);
+extern char *dstr_release(struct dstr *dstr);
 
-struct dstr *dstr_new(size_t reserve, const char *initial);
-void dstr_delete(struct dstr **pdstr);
+extern struct dstr *dstr_new(size_t reserve, const char *initial);
+extern void dstr_delete(struct dstr **pdstr);
 
-void dstr_vprintf(struct dstr *dstr, const char *fmt, va_list ap)
+extern void dstr_vprintf(struct dstr *dstr, const char *fmt, va_list ap)
     __attribute__((format(gnu_printf,2,0)));
 
 inline const char *dstr_cstr(const struct dstr *dstr)
