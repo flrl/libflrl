@@ -24,8 +24,6 @@ void dstr_delete(struct dstr **pdstr);
 void dstr_vprintf(struct dstr *dstr, const char *fmt, va_list ap)
     __attribute__((format(gnu_printf,2,0)));
 
-void dstr_reset(struct dstr *dstr);
-
 inline const char *dstr_cstr(const struct dstr *dstr)
 {
     return dstr->buf;
@@ -59,6 +57,19 @@ inline void dstr_printf(struct dstr *dstr, const char *fmt, ...)
     va_start(ap, fmt);
     dstr_vprintf(dstr, fmt, ap);
     va_end(ap);
+}
+
+inline void dstr_truncate(struct dstr *dstr, size_t new_len)
+{
+    if (new_len > dstr->count) {
+        dstr_reserve(dstr, new_len - dstr->count);
+        memset(dstr->buf + dstr->count, 0, new_len - dstr->count);
+    }
+    else if (new_len < dstr->count) {
+        memset(dstr->buf + new_len, 0, dstr->count - new_len);
+    }
+
+    dstr->count = new_len;
 }
 
 #endif

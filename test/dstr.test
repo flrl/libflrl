@@ -206,6 +206,48 @@ static void fn_dstr_printf(NO_STATE)
     DO_DSTR_PRINTF(NULL,   5, "hello", "hello");
 }
 
+static void fn_dstr_truncate(NO_STATE)
+{
+    static const struct {
+        const char *initial;
+        size_t truncate;
+    } tests[] = {
+        { "banana", 0 },
+        { "banana", 3 },
+        { "banana", 6 },
+        { "banana", 9 },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        struct dstr dstr = DSTR_INITIALIZER;
+        unsigned pre_len, pre_alloc;
+
+        dstr_puts(&dstr, tests[i].initial);
+        assert_dstr_invariants(&dstr);
+
+        pre_len = dstr_len(&dstr);
+        pre_alloc = dstr.alloc;
+
+        dstr_truncate(&dstr, tests[i].truncate);
+        assert_dstr_invariants(&dstr);
+
+        assert_int_equal(tests[i].truncate, dstr_len(&dstr));
+        assert_int_equal(pre_alloc, dstr.alloc);
+
+        if (tests[i].truncate > pre_len) {
+            unsigned j;
+
+            for (j = pre_len; j < tests[i].truncate; j++) {
+                assert_int_equal(0, dstr.buf[j]);
+            }
+        }
+
+        dstr_finish(&dstr);
+    }
+}
+
 const char *const um_group_name = "dstr";
 const struct CMUnitTest um_group_tests[] =
 {
@@ -216,6 +258,7 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test(fn_dstr_putc),
     cmocka_unit_test(fn_dstr_puts),
     cmocka_unit_test(fn_dstr_printf),
+    cmocka_unit_test(fn_dstr_truncate),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);
