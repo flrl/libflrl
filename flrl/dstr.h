@@ -16,11 +16,11 @@ void dstr_reserve(struct dstr *dstr, size_t size);
 void dstr_finish(struct dstr *dstr);
 char *dstr_release(struct dstr *dstr);
 
-struct dstr *dstr_new(const char *initial, size_t size);
+struct dstr *dstr_new(size_t reserve, const char *initial);
 void dstr_delete(struct dstr **pdstr);
 
 void dstr_putc(struct dstr *dstr, int c);
-void dstr_puts(struct dstr *dstr, size_t len, const char *s);
+void dstr_puts(struct dstr *dstr, const char *s);
 void dstr_printf(struct dstr *dstr, const char *fmt, ...)
     __attribute__((format(gnu_printf,2,3)));
 void dstr_vprintf(struct dstr *dstr, const char *fmt, va_list ap)

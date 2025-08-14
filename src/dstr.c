@@ -58,24 +58,19 @@ char *dstr_release(struct dstr *dstr)
 }
 
 /* allocate a new dstr on the heap, optionally:
- *    pre-reserving enough space for len chars, and
+ *    pre-reserving enough space for reserve chars, and
  *    pre-filling the buffer with the contents of initial
  */
-struct dstr *dstr_new(const char *initial, size_t len)
+struct dstr *dstr_new(size_t reserve, const char *initial)
 {
     struct dstr *dstr;
 
     dstr = calloc(1, sizeof *dstr);
     if (!dstr) abort();
 
-    if (len == 0 && initial != NULL)
-        len = strlen(initial);
-
-    dstr_reserve(dstr, len);
-    if (initial) {
-        strcpy(dstr->buf, initial);
-        dstr->count += len;
-    }
+    dstr_reserve(dstr, reserve);
+    if (initial)
+        dstr_puts(dstr, initial);
 
     return dstr;
 }
@@ -96,19 +91,16 @@ void dstr_delete(struct dstr **pdstr)
 
 void dstr_putc(struct dstr *dstr, int c)
 {
-    if (!c) return; /* do nothing at all if c == '\0' */
-
     dstr_reserve(dstr, 1);
     dstr->buf[dstr->count++] = (char) c;
 }
 
-void dstr_puts(struct dstr *dstr, size_t len, const char *s)
+void dstr_puts(struct dstr *dstr, const char *s)
 {
-    if (len == 0)
-        len = strlen(s);
+    size_t len = strlen(s);
 
     dstr_reserve(dstr, len);
-    strncpy(dstr->buf + dstr->count, s, len);
+    memcpy(dstr->buf + dstr->count, s, len);
     dstr->count += len;
 }
 
@@ -123,14 +115,15 @@ void dstr_printf(struct dstr *dstr, const char *fmt, ...)
 
 void dstr_vprintf(struct dstr *dstr, const char *fmt, va_list ap)
 {
+    va_list ap_copy;
     size_t len;
 
-    len = vsnprintf(NULL, 0, fmt, ap);
+    va_copy(ap_copy, ap);
+    len = vsnprintf(NULL, 0, fmt, ap_copy);
+    va_end(ap_copy);
 
     dstr_reserve(dstr, len);
-
-    vsnprintf(dstr->buf + dstr->count, len, fmt, ap);
-
+    vsnprintf(dstr->buf + dstr->count, dstr->alloc, fmt, ap);
     dstr->count += len;
 }
 
