@@ -13,6 +13,7 @@
 
 static struct {
     bool print_hash;
+    bool lines;
     uint32_t hash_mask;
     bool set_seed;
     uint32_t seed;
@@ -20,6 +21,7 @@ static struct {
     bool quiet;
 } options = {
     .print_hash = false,
+    .lines = false,
     .hash_mask = UINT32_MAX,
     .set_seed = false,
     .seed = UINT32_C(0),
@@ -72,7 +74,13 @@ static void hashmap_wc(const char *fname, int fd)
         for (i = 0; i < bytes_read; i++) {
             int c = readbuf[i];
 
-            if ((isalnum(c) || c == '_') && key_len < HASHMAP_MAX_KEYLEN) {
+            if (options.lines && c != '\n' && key_len < HASHMAP_MAX_KEYLEN) {
+                keybuf[key_len++] = c;
+            }
+            else if (!options.lines
+                     && (isalnum(c) || c == '_')
+                     && key_len < HASHMAP_MAX_KEYLEN)
+            {
                 keybuf[key_len++] = c;
             }
             else if (key_len) {
@@ -115,10 +123,13 @@ int main(int argc, char **argv)
 {
     int opt;
 
-    while (-1 != (opt = getopt(argc, argv, "hm:pqs:"))) {
+    while (-1 != (opt = getopt(argc, argv, "hlm:pqs:"))) {
         switch (opt) {
         case 'h':
             options.print_hash = true;
+            break;
+        case 'l':
+            options.lines = true;
             break;
         case 'm':
             errno = 0;
