@@ -1,15 +1,11 @@
 #include "flrl/randutil.h"
-#include "flrl/splitmix64.h"
 
-#include <assert.h>
+#include "flrl/splitmix64.h"
+#include "flrl/xassert.h"
+
 #include <math.h>
 #include <stdarg.h>
 #include <string.h>
-
-#ifdef UNIT_TESTING
-#undef assert
-#define assert(ignore) ((void) 0)
-#endif
 
 /* XXX these should be somewhere else... */
 #define MAX(a,b) ({         \
@@ -67,7 +63,7 @@ void shuffle(struct randbs *rbs, void *base, size_t n_elems, size_t elem_size)
 
     tmp = malloc(elem_size);
 
-    assert(tmp);
+    /* if malloc failed, order is unchanged, but that's a valid outcome */
     if (!tmp) return;
 
     for (i = 0; i < n_elems - 1; i++) {
@@ -127,20 +123,18 @@ unsigned sample32(struct randbs *bs,
     uint32_t rand;
     size_t i;
 
-    assert(n_weights > 0);
-    if (n_weights <= 1) return 0;
+    if (!xassert(n_weights > 0)) return 0;
 
     cdf = malloc(n_weights * sizeof(*cdf));
     if (!cdf) return 0;
 
     for (i = 0; i < n_weights; i++) {
         sum += weights[i];
-        assert(i == 0 || sum >= cdf[i - 1]); /* overflow detection */
+        hard_assert(i == 0 || sum >= cdf[i - 1]); /* overflow detection */
         cdf[i] = sum;
     }
 
-    assert(sum > 0);
-    if (sum == 0) return 0;
+    if (!xassert(sum > 0)) return 0;
 
     rand = randu32(bs, 0, sum - 1);
     for (i = 0; i < n_weights && rand >= cdf[i]; i++)
@@ -161,8 +155,7 @@ unsigned sample32v(struct randbs *bs,
     va_list ap;
     size_t i;
 
-    assert(n_pairs > 0);
-    if (n_pairs == 0) return 0;
+    if (!xassert(n_pairs > 0)) return 0;
 
     values = malloc(n_pairs * sizeof(*values));
     cdf = malloc(n_pairs * sizeof(*cdf));
@@ -177,14 +170,13 @@ unsigned sample32v(struct randbs *bs,
         unsigned weight = va_arg(ap, unsigned);
         unsigned value = va_arg(ap, unsigned);
         sum += weight;
-        assert(i == 0 || sum >= cdf[i - 1]); /* overflow detection */
+        hard_assert(i == 0 || sum >= cdf[i - 1]); /* overflow detection */
         values[i] = value;
         cdf[i] = sum;
     }
     va_end(ap);
 
-    assert(sum > 0);
-    if (sum == 0) return 0;
+    if (!xassert(sum > 0)) return 0;
 
     rand = randu32(bs, 0, sum - 1);
     for (i = 0; i < n_pairs && rand >= cdf[i]; i++)
@@ -208,8 +200,8 @@ unsigned sample32p(struct randbs *bs,
     uint32_t rand;
     size_t i;
 
-    assert(rows > 0);
-    assert(rowsize > 0);
+    hard_assert(rows > 0);
+    hard_assert(rowsize > 0);
 
     /* lazy load cdf when last cumulative value is zero */
     wp = (struct weight *)((data + (rows - 1) * rowsize) + weight_offset);
@@ -218,8 +210,7 @@ unsigned sample32p(struct randbs *bs,
         for (p = data; p < (data + rows * rowsize); p += rowsize) {
             wp = (struct weight *)(p + weight_offset);
             sum += wp->weight;
-            assert(prev == NULL || sum >= prev->cumulative); /* overflow */
-            (void) prev; /* XXX shush 'prev unused' with assertions off */
+            hard_assert(prev == NULL || sum >= prev->cumulative); /* overflow */
             wp->cumulative = sum;
             prev = wp;
         }
@@ -227,8 +218,8 @@ unsigned sample32p(struct randbs *bs,
     else {
         sum = wp->cumulative;
     }
-    assert(sum > 0);
-    if (sum == 0) return 0;
+
+    if (!xassert(sum > 0)) return 0;
 
     rand = randu32(bs, 0, sum - 1);
 
