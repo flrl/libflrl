@@ -1,6 +1,7 @@
 #include "flrl/dstr.h"
 
-#include <assert.h>
+#include "flrl/xassert.h"
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +23,7 @@ void dstr_reserve(struct dstr *dstr, size_t n)
     size_t size;
 
     /* better either have both buf and alloc, or neither */
-    assert((dstr->buf && dstr->alloc) || (!dstr->buf && !dstr->alloc));
+    hard_assert((dstr->buf && dstr->alloc) || (!dstr->buf && !dstr->alloc));
 
     /* big enough already */
     if (dstr->alloc >= dstr->count + n + 1)
