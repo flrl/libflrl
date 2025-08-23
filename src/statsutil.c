@@ -225,6 +225,7 @@ static const wchar_t *default_format_sample_cb(wchar_t buf[11], double sample)
 
     f = swprintf(buf, 11, L"%.4g", sample);
     assert(f > 0 && f < 11);
+    (void) f;
     return buf;
 }
 

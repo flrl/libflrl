@@ -347,6 +347,7 @@ const char *hashmap_strerr(int e)
     default:
         r = snprintf(buf, sizeof(buf), "unrecognised error code %d", e);
         assert(r < (int) sizeof(buf));
+        (void) r;
         return buf;
     }
 }
