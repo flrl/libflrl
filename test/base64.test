@@ -48,6 +48,20 @@ static void encode_known_values(NO_STATE)
     }
 }
 
+static void encode_too_long(NO_STATE)
+{
+    const char *too_long = "sentinel", *p;
+    char buf[9] = "SENTINEL";
+    size_t actual_encoded_len;
+
+    actual_encoded_len = base64_encoded_len(strlen(too_long));
+    assert_int_equal(12, actual_encoded_len);
+
+    p = base64_encode(buf, sizeof(buf), too_long, strlen(too_long));
+    assert_null(p);
+    assert_string_equal("SENTINEL", buf);
+}
+
 static void decode_known_values(NO_STATE)
 {
     unsigned i;
@@ -69,11 +83,43 @@ static void decode_known_values(NO_STATE)
     }
 }
 
+static void decoded_len(NO_STATE)
+{
+    const struct {
+        const char *input;
+        ssize_t expect_len;
+    } tests[] = {
+        { NULL,         -1 }, /* no input */
+        { "",           -1 }, /* empty */
+        { "====",       -1 }, /* empty */
+        { "B",          -1 }, /* incomplete byte */
+        { "B===",       -1 }, /* incomplete byte */
+        { "Be",          1 },
+        { "Be==",        1 },
+        { "Bee",         2 },
+        { "Bee=",        2 },
+        { "Beef",        3 },
+        { "Beefx",      -1 }, /* incomplete byte */
+        { "Bee\eface",  -1 }, /* invalid char */
+
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        ssize_t actual_len;
+
+        actual_len = base64_decoded_len(tests[i].input);
+        assert_int_equal(tests[i].expect_len, actual_len);
+    }
+}
+
 static void decode_bad_inputs(NO_STATE)
 {
     const struct {
         const char *input;
     } tests[] = {
+        { "B"           }, /* incomplete byte */
         { "B==="        }, /* incomplete byte */
         { "Beefx==="    }, /* incomplete byte */
         { "Bee\eface"   }, /* invalid char */
@@ -109,8 +155,8 @@ static void decode_uint64(NO_STATE)
         { "washingma===",   -1,                  0 }, /* incomplete byte */
         { "washingma",      -1,                  0 }, /* incomplete byte */
         { "washingm",        6, 0x000026788a21abc1 }, /* short input */
-        { "",                0,                  0 }, /* empty */
-        { "====",            0,                  0 }, /* also empty */
+        { "",               -1,                  0 }, /* empty */
+        { "====",           -1,                  0 }, /* also empty */
         { "-r_Q",            3, 0x0000000000d0bffa }, /* url */
         { "+r/Q",            3, 0x0000000000d0bffa }, /* standard */
         { "washin==\e\e\e",  4, 0x000000008a21abc1 }, /* ign junk after pad */
@@ -193,7 +239,9 @@ static void round_trip(NO_STATE)
 const char *const um_group_name = "base64";
 const struct CMUnitTest um_group_tests[] = {
     cmocka_unit_test(encode_known_values),
+    cmocka_unit_test(encode_too_long),
     cmocka_unit_test(decode_known_values),
+    cmocka_unit_test(decoded_len),
     cmocka_unit_test(decode_bad_inputs),
     cmocka_unit_test(decode_uint64),
     cmocka_unit_test(decode_whitespace),

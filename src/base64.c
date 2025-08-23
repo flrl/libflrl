@@ -59,7 +59,7 @@ const char *base64_encode(char *dest, size_t dest_len,
         bytes[2] = (uint8_t)(three_bytes >> 6)  & 0x3f;
         bytes[3] = (uint8_t)(three_bytes)       & 0x3f;
 
-        /* always at least dest chars per src byte */
+        /* always at least two dest chars per src byte */
         *p++ = encode_map[bytes[0]];
         *p++ = encode_map[bytes[1]];
 
@@ -103,6 +103,8 @@ ssize_t base64_decoded_len(const char *encoded)
             encoded_len ++;
         }
     }
+
+    if (encoded_len < 2) return -1; /* invalid */
 
     fours = encoded_len / 4;
     rem = encoded_len % 4;
