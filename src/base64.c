@@ -1,6 +1,7 @@
 #include "flrl/base64.h"
 
-#include <assert.h>
+#include "flrl/xassert.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -155,8 +156,7 @@ ssize_t base64_decode(void *dest_orig, size_t dest_len,
             buf = buf << 6 | c;
             if (++i == 4) {
                 len += 3;
-                assert(len <= dest_len);
-                if (len > dest_len) return -1;
+                if (!xassert(len <= dest_len)) return -1;
                 *p++ = (buf >> 16)  & 0xff;
                 *p++ = (buf >> 8)   & 0xff;
                 *p++ = (buf)        & 0xff;
@@ -168,15 +168,13 @@ ssize_t base64_decode(void *dest_orig, size_t dest_len,
 
     if (i == 3) {
         len += 2;
-        assert(len <= dest_len);
-        if (len > dest_len) return -1;
+        if (!xassert(len <= dest_len)) return -1;
         *p++ = (buf >> 10) & 0xff;
         *p++ = (buf >> 2)  & 0xff;
     }
     else if (i == 2) {
         len ++;
-        assert(len <= dest_len);
-        if (len > dest_len) return -1;
+        if (!xassert(len <= dest_len)) return -1;
         *p++ = (buf >> 4) & 0xff;
     }
 
