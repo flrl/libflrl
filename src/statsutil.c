@@ -1,8 +1,8 @@
 #include "flrl/statsutil.h"
 
 #include "flrl/fputil.h"
+#include "flrl/xassert.h"
 
-#include <assert.h>
 #include <inttypes.h>
 #include <math.h>
 #include <stdbool.h>
@@ -81,7 +81,7 @@ static void hist_print_header(const Histogram *hist, FILE *out)
     ansi_reset(out);
     fputc('\n', out);
 
-    assert(strlen(hist->title) < 80);
+    hard_assert(strlen(hist->title) < 80);
     ws = (80 - strlen(hist->title)) / 2;
     for (i = 0; (int) i < ws; i++)
         fputc(' ', out);
@@ -134,7 +134,7 @@ void histogram_print(const Histogram *hist, FILE *out)
         /* first line: lower bound label */
         ansi_colour_256(out, bucket_colours[i & 1]);
         ansi_bgcolour_256(out, bucket_bgcolours[i & 1]);
-        assert(strlen(bucket->lb_label) <= 9);
+        hard_assert(strlen(bucket->lb_label) <= 9);
         ws = 9 - strlen(bucket->lb_label);
         fputs(bucket->lb_label, out);
         for (p = 0; (int) p < ws; p++)
@@ -146,7 +146,7 @@ void histogram_print(const Histogram *hist, FILE *out)
 
         /* pips */
         ansi_colour_256(out, bucket_colours[i & 1]);
-        assert(bucket->pips <= 60);
+        hard_assert(bucket->pips <= 60);
         for (p = 0; p < bucket->pips; p++)
             fputwc(L'▄', out);
 
@@ -172,7 +172,7 @@ void histogram_print(const Histogram *hist, FILE *out)
         /* second line: upper bound label */
         ansi_colour_256(out, bucket_colours[i & 1]);
         ansi_bgcolour_256(out, bucket_bgcolours[i & 1]);
-        assert(strlen(bucket->ub_label) <= 9);
+        hard_assert(strlen(bucket->ub_label) <= 9);
         ws = 9 - strlen(bucket->ub_label);
         for (p = 0; (int) p < ws; p++)
             fputc(' ', out);
@@ -184,7 +184,7 @@ void histogram_print(const Histogram *hist, FILE *out)
 
         /* pips */
         ansi_colour_256(out, bucket_colours[i & 1]);
-        assert(bucket->pips <= 60);
+        hard_assert(bucket->pips <= 60);
         for (p = 0; p < bucket->pips; p++)
             fputwc(L'▀', out);
 
@@ -224,8 +224,7 @@ static const wchar_t *default_format_sample_cb(wchar_t buf[11], double sample)
     int f;
 
     f = swprintf(buf, 11, L"%.4g", sample);
-    assert(f > 0 && f < 11);
-    (void) f;
+    hard_assert(f > 0 && f < 11);
     return buf;
 }
 
@@ -538,9 +537,9 @@ void boxplot_print(const char *title,
         }
     }
 
-    assert(isfinite(overall_min));
-    assert(isfinite(overall_max));
-    assert(overall_max >= overall_min);
+    hard_assert(isfinite(overall_min));
+    hard_assert(isfinite(overall_max));
+    hard_assert(overall_max >= overall_min);
     if (overall_min == overall_max)
         overall_max = overall_min + 1;
 
@@ -596,7 +595,7 @@ void boxplot_print(const char *title,
                                               || meta->pos[5] > meta->pos[3]);
         right_outlier = meta->pos[6] >= 0 && meta->pos[6] > meta->pos[5];
 
-        assert(left_quartile == right_quartile);
+        hard_assert(left_quartile == right_quartile);
 
         if (left_outlier)
             meta->show[0] = meta->pos[0] >= 0 ? L'◊' : 0;

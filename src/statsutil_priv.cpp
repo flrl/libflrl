@@ -3,6 +3,7 @@ extern "C" {
 
 #include "flrl/fputil.h"
 #include "flrl/hashmap.h"
+#include "flrl/xassert.h"
 
 extern const double statsutil_nan;
 
@@ -32,7 +33,6 @@ static int hashmap_incr(const HashMap *hm,
 }
 
 #include <algorithm>
-#include <cassert>
 #include <cstring>
 #include <limits>
 #include <type_traits>
@@ -94,9 +94,9 @@ static inline double percentile(const T *values, std::size_t n_values,
     k = a;
     a -= k;
 
-    assert(k > 0);
+    hard_assert(k > 0);
     k--;
-    assert(k < n_values - 1);
+    hard_assert(k < n_values - 1);
 
     vk = values[k];
     vk1 = values[k + 1];
@@ -112,7 +112,7 @@ static int summary7(Summary7 *s7,
     T *copy = NULL;
     double min, lno, q25, med, q75, hno, max;
 
-    assert(fence >= FENCE_IQR15 && fence <= FENCE_PERC2);
+    hard_assert(fence >= FENCE_IQR15 && fence <= FENCE_PERC2);
 
     min = lno = q25 = med = q75 = hno = max = statsutil_nan;
 
