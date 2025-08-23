@@ -1,10 +1,10 @@
 #include "flrl/hashmap.h"
 
+#include "flrl/xassert.h"
 #include "flrl/fputil.h"
 #include "flrl/randutil.h"
 #include "flrl/statsutil.h"
 
-#include <assert.h>
 #include <inttypes.h>
 #include <stdalign.h>
 #include <stdbool.h>
@@ -103,8 +103,8 @@ static inline bool should_shrink(const HashMap *hm, uint32_t count)
 static inline int hm_key_init(struct hm_key *hm_key,
                               const void *key, size_t key_len)
 {
-    assert(key_len != HASHMAP_BUCKET_EMPTY);
-    assert(key_len <= HASHMAP_MAX_KEYLEN);
+    hard_assert(key_len != HASHMAP_BUCKET_EMPTY);
+    hard_assert(key_len <= HASHMAP_MAX_KEYLEN);
 
     if (key_len > HASHMAP_INLINE_KEYLEN) {
         hm_key->kptr = memndup(key, key_len);
@@ -215,7 +215,7 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
     uint32_t mask = hm->alloc - 1;
     uint32_t dist, i;
 
-    assert(hm->count <= hm->alloc);
+    hard_assert(hm->count <= hm->alloc);
     if (hm->count >= hm->alloc || hm->max_psl == HASHMAP_MAX_PSL)
         return HASHMAP_E_RESIZE;
     
@@ -230,7 +230,7 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
         if (dist > psl
             || (dist == psl && keycmp(&new_key, &hm->key[i]) < 0))
         {
-            assert(dist <= HASHMAP_MAX_PSL);
+            hard_assert(dist <= HASHMAP_MAX_PSL);
             if (dist > hm->max_psl)
                 hm->max_psl = dist;
             new_key.psl = dist;
@@ -244,7 +244,7 @@ static int insert_robinhood(HashMap *hm, uint32_t hash, uint32_t pos,
         dist++;
     }
 
-    assert(dist <= HASHMAP_MAX_PSL);
+    hard_assert(dist <= HASHMAP_MAX_PSL);
     if (dist > hm->max_psl)
         hm->max_psl = dist;
     new_key.psl = dist;
@@ -286,9 +286,9 @@ static int delete_robinhood(HashMap *hm, uint32_t pos, void **old_value)
                  ? hm->key[pos].kptr
                  : NULL;
 
-    assert(hm->count > 0);
-    assert(hm->alloc > 0);
-    assert(has_key_at_index(hm, pos));
+    hard_assert(hm->count > 0);
+    hard_assert(hm->alloc > 0);
+    hard_assert(has_key_at_index(hm, pos));
 
     __builtin_prefetch(&hm->value[pos]);
     __builtin_prefetch(&hm->hash[pos]);
@@ -327,7 +327,6 @@ static int delete_robinhood(HashMap *hm, uint32_t pos, void **old_value)
 const char *hashmap_strerr(int e)
 {
     static char buf[64] = {0};
-    int r;
 
     switch (e) {
     case HASHMAP_E_NOKEY:
@@ -345,9 +344,7 @@ const char *hashmap_strerr(int e)
     case HASHMAP_OK:
         return "ok";
     default:
-        r = snprintf(buf, sizeof(buf), "unrecognised error code %d", e);
-        assert(r < (int) sizeof(buf));
-        (void) r;
+        snprintf(buf, sizeof(buf), "unrecognised error code %d", e);
         return buf;
     }
 }
@@ -425,8 +422,7 @@ int hashmap_resize(HashMap *hm, uint32_t new_size)
     if (new_size < HASHMAP_MIN_SIZE)
         new_size = HASHMAP_MIN_SIZE;
 
-    assert(new_size >= hm->count);
-    if (new_size < hm->count)
+    if (!xassert(new_size >= hm->count))
         return HASHMAP_E_INVALID;
 
     r = hashmap_init(&new_hm, new_size);
@@ -450,12 +446,12 @@ int hashmap_resize(HashMap *hm, uint32_t new_size)
 
         hash = hm->hash[i];
         r = find(&new_hm, hash, HM_KEY(hm, i), hm->key[i].len, &new_i);
-        assert(r == HASHMAP_E_NOKEY); /* not found, but got a spot for it */
-        assert(new_i < new_hm.alloc);
+        hard_assert(r == HASHMAP_E_NOKEY); /* not found, but got a spot for it */
+        hard_assert(new_i < new_hm.alloc);
 
         /* steal the internals */
         r = insert_robinhood(&new_hm, hash, new_i, &hm->key[i], hm->value[i]);
-        assert(r == HASHMAP_OK);
+        hard_assert(r == HASHMAP_OK);
     }
 
     free(hm->key);
@@ -482,7 +478,7 @@ int hashmap_get(const HashMap *hm, const void *key, size_t key_len,
         r = HASHMAP_E_NOKEY;
         /* fall through */
     default:
-        if (value) *value= NULL;
+        if (value) *value = NULL;
         return r;
     }
 }
@@ -507,7 +503,8 @@ int hashmap_put(HashMap *hm,
         return hashmap_put(hm, key, key_len, new_value, old_value);
     }
     else if (r == HASHMAP_OK) {
-        assert(has_key_at_index(hm, i));
+        if (!xassert(has_key_at_index(hm, i)))
+            return HASHMAP_E_UNKNOWN;
 
         if (new_value != hm->value[i]) {
             if (old_value) *old_value = hm->value[i];
@@ -618,7 +615,7 @@ void hashmap_get_stats(const HashMap *hm, HashMapStats *hs)
         keylen[n_keys] = hm->key[i].len;
         n_keys ++;
     }
-    assert(n_keys == hm->count);
+    hard_assert(n_keys == hm->count);
 
     hs->load = 1.0 * hm->count / hm->alloc;
 
