@@ -123,7 +123,7 @@ unsigned sample32(struct randbs *bs,
     uint32_t rand;
     size_t i;
 
-    if (!xassert(n_weights > 0)) return 0;
+    if (!soft_assert(n_weights > 0)) return 0;
 
     cdf = malloc(n_weights * sizeof(*cdf));
     if (!cdf) return 0;
@@ -134,7 +134,7 @@ unsigned sample32(struct randbs *bs,
         cdf[i] = sum;
     }
 
-    if (!xassert(sum > 0)) return 0;
+    if (!soft_assert(sum > 0)) return 0;
 
     rand = randu32(bs, 0, sum - 1);
     for (i = 0; i < n_weights && rand >= cdf[i]; i++)
@@ -155,7 +155,7 @@ unsigned sample32v(struct randbs *bs,
     va_list ap;
     size_t i;
 
-    if (!xassert(n_pairs > 0)) return 0;
+    if (!soft_assert(n_pairs > 0)) return 0;
 
     values = malloc(n_pairs * sizeof(*values));
     cdf = malloc(n_pairs * sizeof(*cdf));
@@ -176,7 +176,7 @@ unsigned sample32v(struct randbs *bs,
     }
     va_end(ap);
 
-    if (!xassert(sum > 0)) return 0;
+    if (!soft_assert(sum > 0)) return 0;
 
     rand = randu32(bs, 0, sum - 1);
     for (i = 0; i < n_pairs && rand >= cdf[i]; i++)
@@ -219,7 +219,7 @@ unsigned sample32p(struct randbs *bs,
         sum = wp->cumulative;
     }
 
-    if (!xassert(sum > 0)) return 0;
+    if (!soft_assert(sum > 0)) return 0;
 
     rand = randu32(bs, 0, sum - 1);
 

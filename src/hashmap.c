@@ -422,7 +422,7 @@ int hashmap_resize(HashMap *hm, uint32_t new_size)
     if (new_size < HASHMAP_MIN_SIZE)
         new_size = HASHMAP_MIN_SIZE;
 
-    if (!xassert(new_size >= hm->count))
+    if (!soft_assert(new_size >= hm->count))
         return HASHMAP_E_INVALID;
 
     r = hashmap_init(&new_hm, new_size);
@@ -503,7 +503,7 @@ int hashmap_put(HashMap *hm,
         return hashmap_put(hm, key, key_len, new_value, old_value);
     }
     else if (r == HASHMAP_OK) {
-        if (!xassert(has_key_at_index(hm, i)))
+        if (!soft_assert(has_key_at_index(hm, i)))
             return HASHMAP_E_UNKNOWN;
 
         if (new_value != hm->value[i]) {

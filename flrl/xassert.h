@@ -16,17 +16,17 @@
 #define hard_assert(expr) (void)((!!(expr)) || (abort(), 0))
 #endif
 
-/* bool xassert(expr):
+/* bool soft_assert(expr):
  *
- *     if (!xassert(expr)) return -1;
+ *     if (!soft_assert(expr)) return -1;
  *
  * Assertion whose condition is always checked, and which evaluates to the
  * boolean result of the expression.  Normally, uses the standard assertion
  * mechanism to abort with a message if the condition is false.  When NDEBUG
  * is defined (i.e. normal assertions will be compiled out), the program
- * continues, but the result of xassert may be used to branch to custom error
- * handling.
+ * continues, but the result of soft_assert may be used to branch to custom
+ * error handling.
  */
-#define xassert(expr) (bool)(assert(expr),(!!(expr)))
+#define soft_assert(expr) (bool)(assert(expr),(!!(expr)))
 
 #endif
