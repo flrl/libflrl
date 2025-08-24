@@ -5,7 +5,8 @@ FEATURES := -fstrict-aliasing
 O := 3
 LCOVEXCLUDE := misc/* src/xoshiro*.c src/splitmix64.c
 UTMUX := $(shell which utmux 2>/dev/null)
-COVERAGE :=
+CCOVERAGE :=
+CXXCOVERAGE :=
 
 REQUIRES := cmocka
 
@@ -19,9 +20,9 @@ ITT_LDFLAGS  :=
 ITT_LDLIBS   :=
 endif
 
-FLRL_CFLAGS := -O$(O) -ggdb3 $(WARNINGS) $(FEATURES) $(COVERAGE) $(CFLAGS)
+FLRL_CFLAGS := -O$(O) -ggdb3 $(WARNINGS) $(FEATURES) $(CCOVERAGE) $(CFLAGS)
 FLRL_CXXFLAGS := -O$(O) -ggdb3 -std=c++2b -ffreestanding -fno-exceptions \
-				 $(WARNINGS) $(FEATURES) $(COVERAGE) $(CXXFLAGS)
+				 $(WARNINGS) $(FEATURES) $(CXXCOVERAGE) $(CXXFLAGS)
 FLRL_LDFLAGS := $(ITT_LDFLAGS) $(LDFLAGS)
 FLRL_CPPFLAGS := $(shell pkg-config --cflags $(REQUIRES)) \
 				 $(ITT_CPPFLAGS) $(CPPFLAGS)
@@ -150,7 +151,7 @@ app_test.info:
 
 coverage-setup:
 	$(MAKE) clean clean-coverage
-	$(MAKE) COVERAGE=--coverage app_base.info
+	$(MAKE) CCOVERAGE="--coverage -O0" CXXCOVERAGE=--coverage app_base.info
 
 coverage-report:
 	$(MAKE) -B app_test.info
