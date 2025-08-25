@@ -2,9 +2,39 @@
 
 #include "src/strutil.c"
 
+#include <string.h>
+
+static void fn_mnprintf(NO_STATE)
+{
+    static const struct {
+        const char *fmt;
+        int arg;
+        size_t maxlen;
+        size_t expect_len;
+        const char *expect_str;
+    } tests[] = {
+        { "okay %d",             12, 16,  7, "okay 12" },
+        { "september %d", 123456789, 16, 16, "september 123456" },
+        { "september %d", 123456789, 32, 19, "september 123456789" },
+    };
+    const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
+    unsigned i;
+
+    for (i = 0; i < n_tests; i++) {
+        char *s;
+
+        s = mnprintf(tests[i].maxlen, tests[i].fmt, tests[i].arg);
+        assert_non_null(s);
+        assert_int_equal(tests[i].expect_len, strlen(s));
+
+        free(s);
+    }
+}
+
 const char *const um_group_name = "strutil";
 const struct CMUnitTest um_group_tests[] =
 {
+    cmocka_unit_test(fn_mnprintf),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);
