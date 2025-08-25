@@ -161,7 +161,7 @@ coverage-report:
 
 coverage:
 	$(MAKE) coverage-setup
-	$(MAKE) vcheck
+	$(MAKE) check
 	$(MAKE) coverage-report
 
 $(DEPS):
