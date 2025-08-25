@@ -286,9 +286,9 @@ static int delete_robinhood(HashMap *hm, uint32_t pos, void **old_value)
                  ? hm->key[pos].kptr
                  : NULL;
 
-    hard_assert(hm->count > 0);
-    hard_assert(hm->alloc > 0);
-    hard_assert(has_key_at_index(hm, pos));
+    assert(hm->count > 0);
+    assert(hm->alloc > 0);
+    assert(has_key_at_index(hm, pos));
 
     __builtin_prefetch(&hm->value[pos]);
     __builtin_prefetch(&hm->hash[pos]);
@@ -503,8 +503,7 @@ int hashmap_put(HashMap *hm,
         return hashmap_put(hm, key, key_len, new_value, old_value);
     }
     else if (r == HASHMAP_OK) {
-        if (!soft_assert(has_key_at_index(hm, i)))
-            return HASHMAP_E_UNKNOWN;
+        assert(has_key_at_index(hm, i));
 
         if (new_value != hm->value[i]) {
             if (old_value) *old_value = hm->value[i];
