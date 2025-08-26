@@ -1,6 +1,8 @@
 #ifndef LIBFLRL_RANDUTIL_H
 #define LIBFLRL_RANDUTIL_H
 
+#include "flrl/flrl.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>

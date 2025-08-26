@@ -1,6 +1,8 @@
 #ifndef LIBFLRL_STATSUTIL_H
 #define LIBFLRL_STATSUTIL_H
 
+#include "flrl/flrl.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>

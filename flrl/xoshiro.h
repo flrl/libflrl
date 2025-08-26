@@ -1,6 +1,7 @@
 #ifndef LIBFLRL_XOSHIRO_H
 #define LIBFLRL_XOSHIRO_H
 
+#include "flrl/flrl.h"
 #include "flrl/randutil.h"
 
 #include <stdint.h>

@@ -1,6 +1,8 @@
 #ifndef LIBFLRL_BASE64_H
 #define LIBFLRL_BASE64_H
 
+#include "flrl/flrl.h"
+
 #include <stddef.h>
 
 /* like strlen -- number of chars excluding terminating \0 */

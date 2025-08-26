@@ -1,6 +1,8 @@
 #ifndef LIBFLRL_FPUTIL_H
 #define LIBFLRL_FPUTIL_H
 
+#include "flrl/flrl.h"
+
 #include <stdbool.h>
 #include <stdlib.h>
 

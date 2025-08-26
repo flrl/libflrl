@@ -1,4 +1,7 @@
-#ifndef FLRL_STRUTIL_H
+#ifndef LIBFLRL_STRUTIL_H
+#define LIBFLRL_STRUTIL_H
+
+#include "flrl/flrl.h"
 
 #include <stdarg.h>
 #include <stdio.h>

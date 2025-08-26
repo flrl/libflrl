@@ -1,6 +1,8 @@
 #ifndef FLRL_LIST_H
 #define FLRL_LIST_H
 
+#include "flrl/flrl.h"
+
 struct list;
 
 struct list *list_new(void (*free_func)(void *), void (*freepp_func)(void **));

@@ -1,4 +1,7 @@
-#ifndef FLRL_WORDLIST_H
+#ifndef LIBFLRL_WORDLIST_H
+#define LIBFLRL_WORDLIST_H
+
+#include "flrl/flrl.h"
 
 #include <stdlib.h>
 

@@ -1,6 +1,8 @@
 #ifndef LIBFLRL_PERF_H
 #define LIBFLRL_PERF_H
 
+#include "flrl/flrl.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 

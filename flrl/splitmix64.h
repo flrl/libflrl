@@ -1,6 +1,8 @@
 #ifndef LIBFLRL_SPLITMIX64_H
 #define LIBFLRL_SPLITMIX64_H
 
+#include "flrl/flrl.h"
+
 #include <stdint.h>
 
 /* This is a fixed-increment version of Java 8's SplittableRandom generator

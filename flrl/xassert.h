@@ -1,6 +1,8 @@
 #ifndef LIBFLRL_XASSERT_H
 #define LIBFLRL_XASSERT_H
 
+#include "flrl/flrl.h"
+
 #include <assert.h>
 #include <stdbool.h>
 

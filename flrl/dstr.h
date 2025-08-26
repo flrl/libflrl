@@ -1,6 +1,8 @@
 #ifndef LIBFLRL_DSTR_H
 #define LIBFLRL_DSTR_H
 
+#include "flrl/flrl.h"
+
 #include <stdarg.h>
 #include <stddef.h>
 #include <string.h>

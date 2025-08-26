@@ -1,6 +1,7 @@
 #ifndef FLRL_HASHMAP_H
 #define FLRL_HASHMAP_H
 
+#include "flrl/flrl.h"
 #include "flrl/statsutil.h"
 
 #include <limits.h>
