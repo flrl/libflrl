@@ -1,5 +1,5 @@
-#ifndef FLRL_HASHMAP_H
-#define FLRL_HASHMAP_H
+#ifndef LIBFLRL_HASHMAP_H
+#define LIBFLRL_HASHMAP_H
 
 #include "flrl/flrl.h"
 #include "flrl/statsutil.h"

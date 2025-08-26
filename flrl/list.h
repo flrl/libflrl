@@ -1,5 +1,5 @@
-#ifndef FLRL_LIST_H
-#define FLRL_LIST_H
+#ifndef LIBFLRL_LIST_H
+#define LIBFLRL_LIST_H
 
 #include "flrl/flrl.h"
 
