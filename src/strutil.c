@@ -18,7 +18,7 @@ char *vmnprintf(size_t maxlen, const char *restrict fmt, va_list args)
 
     len ++;
     str = malloc(len);
-    if (!str) return NULL;
+    if (MALLOC_FAILED(!str)) return NULL;
 
     vsnprintf(str, len, fmt, args);
     return str;

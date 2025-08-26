@@ -36,7 +36,7 @@ void dstr_reserve(struct dstr *dstr, size_t n)
         size += size;
 
     p = realloc(dstr->buf, size);
-    if (!p) abort();
+    if (MALLOC_FAILED(!p)) abort();
 
     dstr->buf = p;
     dstr->alloc = size;
@@ -71,7 +71,7 @@ struct dstr *dstr_new(size_t reserve, const char *initial)
     struct dstr *dstr;
 
     dstr = calloc(1, sizeof *dstr);
-    if (!dstr) abort();
+    if (MALLOC_FAILED(!dstr)) abort();
 
     dstr_reserve(dstr, reserve);
     if (initial)

@@ -71,7 +71,7 @@ static inline uint32_t nextpow2(uint32_t v)
 static inline void *memndup(const void *a, size_t len)
 {
     void *p = malloc(len);
-    if (!p) return NULL;
+    if (MALLOC_FAILED(!p)) return NULL;
 
     memcpy(p, a, len);
     return p;
@@ -108,9 +108,9 @@ static inline int hm_key_init(struct hm_key *hm_key,
 
     if (key_len > HASHMAP_INLINE_KEYLEN) {
         hm_key->kptr = memndup(key, key_len);
+        if (MALLOC_FAILED(!hm_key->kptr)) return HASHMAP_E_NOMEM;
+
         memcpy(hm_key->kcache, key, HASHMAP_CACHED_KEYLEN);
-        if (!hm_key->kptr)
-            return HASHMAP_E_NOMEM;
     }
     else {
         memcpy(hm_key->kval, key, key_len);
@@ -269,7 +269,7 @@ static inline int insert_helper(HashMap *hm, uint32_t hash, uint32_t index,
         int r;
 
         r = hm_key_init(&new_key, key, key_len);
-        if (r) return r;
+        if (MALLOC_FAILED(r)) return r;
 
         r = insert_robinhood(hm, hash, index, &new_key, new_value);
         if (r) hm_key_fini(&new_key);
@@ -364,12 +364,14 @@ int hashmap_init(HashMap *hm, uint32_t size)
     hm->value = calloc(size, sizeof(hm->value[0]));
     hm->hash = calloc(size, sizeof(hm->hash[0]));
 
-    if (!hm->key || !hm->value || !hm->hash) {
+    if (MALLOC_FAILED(!hm->key || !hm->value || !hm->hash)) {
+        // LCOV_EXCL_START
         free(hm->key);
         free(hm->value);
         free(hm->hash);
         memset(hm, 0, sizeof(*hm));
         return HASHMAP_E_NOMEM;
+        // LCOV_EXCL_STOP
     }
 
     hm->alloc = size;
@@ -595,11 +597,14 @@ void hashmap_get_stats(const HashMap *hm, HashMapStats *hs)
     psl = calloc(hm->alloc, sizeof(psl[0]));
     keylen = calloc(hm->alloc, sizeof(keylen[0]));
 
-    if (!bucket_desired_count || !psl) {
+    if (MALLOC_FAILED(!bucket_desired_count || !psl || !keylen)) {
+        // LCOV_EXCL_START
         memset(hs, 0, sizeof(*hs));
         free(bucket_desired_count);
         free(psl);
+        free(keylen);
         return;
+        // LCOV_EXCL_STOP
     }
 
     for (i = 0, n_keys = 0; i < hm->alloc; i++) {
