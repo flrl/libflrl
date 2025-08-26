@@ -83,6 +83,18 @@ static void dump_hashmap(const HashMap *hm)
     }
 }
 
+#define assert_hashmap_error(x, y) \
+    assert_hashmap_error_impl((x), (y), __FILE__, __LINE__)
+static void assert_hashmap_error_impl(int a, int b,
+                                      const char *const file, const int line)
+{
+    if (a != b) {
+        /* XXX this will have problems comparing two unknown errors */
+        cm_print_error("%s != %s\n", hashmap_strerr(a), hashmap_strerr(b));
+        _fail(file, line);
+    }
+}
+
 static void assert_hashmap_invariants(const HashMap *hm)
 {
     const uint32_t mask = hm->alloc - 1;
@@ -268,6 +280,30 @@ static void fn_hashmap_strerr(NO_STATE)
     }
 }
 
+static void fn_find(NO_STATE)
+{
+    HashMap hm;
+    void *key = SENTINEL;
+    int r;
+
+    r = hashmap_init(&hm, 0);
+    assert_hashmap_error(HASHMAP_OK, r);
+
+    /* NULL key */
+    r = find(&hm, 0, NULL, 12, NULL);
+    assert_hashmap_error(HASHMAP_E_INVALID, r);
+
+    /* zero-length key */
+    r = find(&hm, 0, key, 0, NULL);
+    assert_hashmap_error(HASHMAP_E_INVALID, r);
+
+    /* key too big */
+    r = find(&hm, 0, key, HASHMAP_MAX_KEYLEN + 1, NULL);
+    assert_hashmap_error(HASHMAP_E_KEYTOOBIG, r);
+
+    hashmap_fini(&hm, NULL);
+}
+
 static void init_fini(NO_STATE)
 {
     const struct {
@@ -302,7 +338,7 @@ static void init_fini(NO_STATE)
             assert_hashmap_invariants(&hm);
         }
         else {
-            assert_int_equal(tests[i].expect_r, r);
+            assert_hashmap_error(tests[i].expect_r, r);
             assert_int_equal(tests[i].expect_alloc, hm.alloc);
             assert_hashmap_invariants(&hm);
 
@@ -333,53 +369,53 @@ static void get_basic(NO_STATE)
 
     /* get a key that doesn't exist, don't care about value */
     r = hashmap_get(&hm, key, strlen(key), NULL);
-    assert_int_equal(HASHMAP_E_NOKEY, r);
+    assert_hashmap_error(HASHMAP_E_NOKEY, r);
 
     /* get a key that doesn't exist */
     r = hashmap_get(&hm, key, strlen(key), &value);
-    assert_int_equal(HASHMAP_E_NOKEY, r);
+    assert_hashmap_error(HASHMAP_E_NOKEY, r);
     assert_null(value);
 
     /* get a key that does exist with null value */
     r = hashmap_put(&hm, key, strlen(key), NULL, NULL);
-    assert_int_equal(HASHMAP_OK, r);
+    assert_hashmap_error(HASHMAP_OK, r);
     assert_hashmap_invariants(&hm);
     value = SENTINEL;
     r = hashmap_get(&hm, key, strlen(key), &value);
-    assert_int_equal(HASHMAP_OK, r);
+    assert_hashmap_error(HASHMAP_OK, r);
     assert_null(value);
 
     /* get a key that does exist with value */
     r = hashmap_put(&hm, key, strlen(key), (void *) 12, NULL);
-    assert_int_equal(HASHMAP_OK, r);
+    assert_hashmap_error(HASHMAP_OK, r);
     assert_hashmap_invariants(&hm);
     r = hashmap_get(&hm, key, strlen(key), &value);
-    assert_int_equal(HASHMAP_OK, r);
+    assert_hashmap_error(HASHMAP_OK, r);
     assert_ptr_equal((void *) 12, value);
 
     /* get a key that does exist, don't care about value */
     r = hashmap_get(&hm, key, strlen(key), NULL);
-    assert_int_equal(HASHMAP_OK, r);
+    assert_hashmap_error(HASHMAP_OK, r);
 
     /* get a key that was deleted */
     r = hashmap_del(&hm, key, strlen(key), &value);
-    assert_int_equal(HASHMAP_OK, r);
+    assert_hashmap_error(HASHMAP_OK, r);
     assert_ptr_equal((void *) 12, value);
     assert_hashmap_invariants(&hm);
     r = hashmap_get(&hm, key, strlen(key), &value);
-    assert_int_equal(HASHMAP_E_NOKEY, r);
+    assert_hashmap_error(HASHMAP_E_NOKEY, r);
     assert_null(value);
 
     /* get a long key that doesn't exist */
     r = hashmap_get(&hm, long_key, strlen(long_key), &value);
-    assert_int_equal(HASHMAP_E_NOKEY, r);
+    assert_hashmap_error(HASHMAP_E_NOKEY, r);
     assert_null(value);
 
     /* get a long key that does exist */
     r = hashmap_put(&hm, long_key, strlen(long_key), (void *) 12, NULL);
-    assert_int_equal(HASHMAP_OK, r);
+    assert_hashmap_error(HASHMAP_OK, r);
     r = hashmap_get(&hm, long_key, strlen(long_key), &value);
-    assert_int_equal(HASHMAP_OK, r);
+    assert_hashmap_error(HASHMAP_OK, r);
     assert_ptr_equal((void *) 12, value);
 
     hashmap_fini(&hm, NULL);
@@ -412,7 +448,7 @@ static void do_put_del(const char *const keys[], size_t n_keys, uint32_t seed)
                         strlen(keys[i]),
                         (void *)(uintptr_t) i,
                         &old_value);
-        assert_int_equal(HASHMAP_OK, r);
+        assert_hashmap_error(HASHMAP_OK, r);
         assert_null(old_value);
 
         assert_int_equal(expect_alloc, hm.alloc);
@@ -428,7 +464,7 @@ static void do_put_del(const char *const keys[], size_t n_keys, uint32_t seed)
 
         r = hashmap_del(&hm, keys[i], strlen(keys[i]),
                         &old_value);
-        assert_int_equal(HASHMAP_OK, r);
+        assert_hashmap_error(HASHMAP_OK, r);
         assert_ptr_equal(i, old_value);
 
         assert_int_equal(expect_alloc, hm.alloc);
@@ -442,7 +478,7 @@ static void do_put_del(const char *const keys[], size_t n_keys, uint32_t seed)
 
         r = hashmap_del(&hm, keys[i], strlen(keys[i]),
                         &old_value);
-        assert_int_equal(HASHMAP_E_NOKEY, r);
+        assert_hashmap_error(HASHMAP_E_NOKEY, r);
         assert_null(old_value);
 
         assert_int_equal(expect_alloc, hm.alloc);
@@ -461,7 +497,7 @@ static void do_put_del(const char *const keys[], size_t n_keys, uint32_t seed)
                         strlen(keys[i]),
                         (void *)(uintptr_t) i,
                         &old_value);
-        assert_int_equal(HASHMAP_OK, r);
+        assert_hashmap_error(HASHMAP_OK, r);
         assert_null(old_value);
 
         assert_int_equal(expect_alloc, hm.alloc);
@@ -482,7 +518,7 @@ static void do_put_del(const char *const keys[], size_t n_keys, uint32_t seed)
                         strlen(keys[i]),
                         (void *)(uintptr_t) i,
                         &old_value);
-        assert_int_equal(HASHMAP_OK, r);
+        assert_hashmap_error(HASHMAP_OK, r);
         assert_null(old_value);
 
         assert_int_equal(expect_alloc, hm.alloc);
@@ -499,7 +535,7 @@ static void do_put_del(const char *const keys[], size_t n_keys, uint32_t seed)
                         strlen(keys[i]),
                         (void *)(uintptr_t) i,
                         &old_value);
-        assert_int_equal(HASHMAP_OK, r);
+        assert_hashmap_error(HASHMAP_OK, r);
         assert_null(old_value);
 
         assert_int_equal(expect_alloc, hm.alloc);
@@ -516,7 +552,7 @@ static void do_put_del(const char *const keys[], size_t n_keys, uint32_t seed)
                         strlen(keys[i]),
                         (void *)(uintptr_t) (i & 0x80000000),
                         &old_value);
-        assert_int_equal(HASHMAP_OK, r);
+        assert_hashmap_error(HASHMAP_OK, r);
         assert_ptr_equal(i, old_value);
 
         assert_int_equal(expect_alloc, hm.alloc);
@@ -534,7 +570,7 @@ static void do_put_del(const char *const keys[], size_t n_keys, uint32_t seed)
                         keys[i],
                         strlen(keys[i]),
                         NULL);
-        assert_int_equal(HASHMAP_OK, r);
+        assert_hashmap_error(HASHMAP_OK, r);
 
         assert_int_equal(expect_alloc, hm.alloc);
         assert_int_equal(expect_count, hm.count);
@@ -685,7 +721,7 @@ static void full(NO_STATE)
 
         r = hashmap_put(&hm, keys[i], strlen(keys[i]),
                         (void *)(uintptr_t) i, NULL);
-        assert_int_equal(HASHMAP_OK, r);
+        assert_hashmap_error(HASHMAP_OK, r);
 
         assert_int_equal(expect_alloc, hm.alloc);
         assert_int_equal(expect_count, hm.count);
@@ -696,7 +732,7 @@ static void full(NO_STATE)
     for (i = 0; i < HASHMAP_MIN_SIZE; i++) {
         hash = hashmap_hash32(keys[i], strlen(keys[i]), hm.seed);
         r = find(&hm, hash, keys[i], strlen(keys[i]), &index);
-        assert_int_equal(HASHMAP_OK, r);
+        assert_hashmap_error(HASHMAP_OK, r);
         assert_in_range(index, 0, HASHMAP_MIN_SIZE);
     }
 
@@ -704,17 +740,17 @@ static void full(NO_STATE)
     for (; i < 2 * HASHMAP_MIN_SIZE; i++) {
         hash = hashmap_hash32(keys[i], strlen(keys[i]), hm.seed);
         r = find(&hm, hash, keys[i], strlen(keys[i]), &index);
-        assert_int_equal(HASHMAP_E_NOKEY, r);
+        assert_hashmap_error(HASHMAP_E_NOKEY, r);
         assert_in_range(index, 0, expect_alloc - 1);
 
         value = SENTINEL;
         r = hashmap_get(&hm, keys[i], strlen(keys[i]), &value);
-        assert_int_equal(HASHMAP_E_NOKEY, r);
+        assert_hashmap_error(HASHMAP_E_NOKEY, r);
         assert_null(value);
 
         value = SENTINEL;
         r = hashmap_del(&hm, keys[i], strlen(keys[i]), &value);
-        assert_int_equal(HASHMAP_E_NOKEY, r);
+        assert_hashmap_error(HASHMAP_E_NOKEY, r);
         assert_null(value);
     }
 
@@ -724,7 +760,7 @@ static void full(NO_STATE)
 
         value = SENTINEL;
         r = hashmap_del(&hm, keys[i], strlen(keys[i]), &value);
-        assert_int_equal(HASHMAP_OK, r);
+        assert_hashmap_error(HASHMAP_OK, r);
         assert_ptr_equal(i, value);
 
         assert_int_equal(expect_alloc, hm.alloc);
@@ -733,7 +769,7 @@ static void full(NO_STATE)
 
         hash = hashmap_hash32(keys[i], strlen(keys[i]), hm.seed);
         r = find(&hm, hash, keys[i], strlen(keys[i]), &index);
-        assert_int_equal(HASHMAP_E_NOKEY, r);
+        assert_hashmap_error(HASHMAP_E_NOKEY, r);
     }
 
     /* fill it back up */
@@ -746,7 +782,7 @@ static void full(NO_STATE)
         i++;
     } while (i < n_keys && r == HASHMAP_OK);
 
-    assert_int_equal(HASHMAP_E_RESIZE, r);
+    assert_hashmap_error(HASHMAP_E_RESIZE, r);
 
     assert_int_equal(expect_alloc, hm.alloc);
     assert_int_equal(expect_count, hm.count);
@@ -768,7 +804,7 @@ static int foreach_cb(const HashMap *hm,
     (*call_count) ++;
 
     r = hashmap_get(hm, key, key_len, &check_value);
-    assert_int_equal(HASHMAP_OK, r);
+    assert_hashmap_error(HASHMAP_OK, r);
     assert_ptr_equal(value, check_value);
 
     return 0;
@@ -804,7 +840,7 @@ static void fn_hashmap_foreach(NO_STATE)
     }
 
     r = hashmap_foreach(&hm, &foreach_cb, &cb_call_count);
-    assert_int_equal(HASHMAP_OK, r);
+    assert_hashmap_error(HASHMAP_OK, r);
     assert_int_equal(n_tests, cb_call_count);
 
     hashmap_fini(&hm, NULL);
@@ -838,7 +874,11 @@ static void do_load_factor(struct randbs *rbs, double load_factor)
         const char *word = random_printable(rbs);
 //         uint32_t key = randu32(rbs, 0, UINT32_MAX);
         r = hashmap_put(&hm, word, strlen(word), (void *)(uintptr_t) i, NULL);
-        assert_int_equal(HASHMAP_OK, r);
+        /* high target load_factor may run into psl limit and fail here */
+        if (r != HASHMAP_OK) {
+            assert_hashmap_error(HASHMAP_E_RESIZE, r);
+            break;
+        }
     }
     if (verbose) dump_hashmap_stats(&hm);
     assert_hashmap_invariants(&hm);
@@ -861,30 +901,30 @@ static void do_load_factor(struct randbs *rbs, double load_factor)
             r = hashmap_put(&hm, key, key_len, (void *)(uintptr_t) i, NULL);
 
             if (expect_full)
-                assert_int_equal(HASHMAP_E_RESIZE, r);
+                assert_hashmap_error(HASHMAP_E_RESIZE, r);
             else
-                assert_int_equal(HASHMAP_OK, r);
+                assert_hashmap_error(HASHMAP_OK, r);
             break;
         case 1:
             /* delete a random existing key */
             r = hashmap_random(&hm, rbs, &key, &key_len, NULL);
-            assert_int_equal(HASHMAP_OK, r);
+            assert_hashmap_error(HASHMAP_OK, r);
             if (r) continue;
 
             r = hashmap_del(&hm, key, key_len, NULL);
 
-            assert_int_equal(HASHMAP_OK, r);
+            assert_hashmap_error(HASHMAP_OK, r);
             free(key);
             break;
         case 2:
             /* get a random existing key */
             r = hashmap_random(&hm, rbs, &key, &key_len, NULL);
-            assert_int_equal(HASHMAP_OK, r);
+            assert_hashmap_error(HASHMAP_OK, r);
             if (r) continue;
 
             r = hashmap_get(&hm, key, key_len, NULL);
 
-            assert_int_equal(HASHMAP_OK, r);
+            assert_hashmap_error(HASHMAP_OK, r);
             free(key);
             break;
         case 3:
@@ -1067,13 +1107,13 @@ static void single_final_table(void **state)
 
         r = hashmap_init(&hm, 0);
         hm.seed = seed;
-        assert_int_equal(0, r);
+        assert_hashmap_error(HASHMAP_OK, r);
 
         for (i = 0; i < n_keys; i++) {
             k = permutations[p][i];
             r = hashmap_put(&hm, &keys[k], sizeof(keys[k]),
                             (void *)(uintptr_t) k, NULL);
-            assert_int_equal(0, r);
+            assert_hashmap_error(HASHMAP_OK, r);
         }
         assert_hashmap_invariants(&hm);
 
@@ -1102,6 +1142,7 @@ const struct CMUnitTest um_group_tests[] =
 {
     cmocka_unit_test(fn_hashmap_hash32),
     cmocka_unit_test(fn_hashmap_strerr),
+    cmocka_unit_test(fn_find),
     cmocka_unit_test(init_fini),
     cmocka_unit_test(get_basic),
     cmocka_unit_test(put_del_nocollide),
