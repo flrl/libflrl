@@ -14,6 +14,8 @@
 /* testing the interfaces/distributions, not the underlying randomness */
 #define N_VALUES (10000)
 
+#define DIM(x) (sizeof(x) / sizeof(x[0]))
+
 #define SWAP(pa, pb) do {   \
     __auto_type _t = pa;    \
     pa = pb;                \
@@ -1738,6 +1740,56 @@ static void shuffle_chi2(NO_STATE)
                           fma(3.0, chi2_stddev, n_buckets - 1.0));
 }
 
+static void sample_cdf_chi2(NO_STATE)
+{
+    static const unsigned weights[] = { 148, 102, 89, 87, 59, 9, 9, 6, 2 };
+    const size_t n_weights = DIM(weights);
+    const size_t n_values = 1 << 20; /* about a million, as a power of two */
+    unsigned cdf[DIM(weights)], buckets[DIM(weights)] = {0};
+    double bucket_p[DIM(weights)], chi2 = 0.0, chi2_stddev;
+    unsigned i, sum;
+
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
+
+    randbs_seed64(&bs, time(NULL));
+
+    /* init cdf and compute probabilities */
+    init_cdf(cdf, weights, n_weights, sizeof(weights[0]), 0);
+    sum = cdf[n_weights - 1];
+    for (i = 0; i < n_weights; i++) {
+        bucket_p[i] = 1.0 * weights[i] / sum;
+    }
+
+    /* collect and count samples */
+    for (i = 0; i < n_values; i++) {
+        unsigned sample = sample_cdf(&bs, cdf, n_weights);
+        assert_in_range(sample, 0, n_weights - 1);
+        buckets[sample]++;
+    }
+
+    /* compute chi2 */
+    for (i = 0; i < n_weights; i++) {
+        double e, x;
+
+        e = bucket_p[i] * n_values;
+        x = buckets[i] - e;
+
+        if (verbose) {
+            fprintf(stderr, "[%u] weight=%u cdf=%u p=%g e=%g n=%u, x=%g\n",
+                            i, weights[i], cdf[i], bucket_p[i],
+                            e, buckets[i], x);
+        }
+
+        // XXX kbn_sum?
+        chi2 += x * x / e;
+    }
+
+    chi2_stddev = sqrt(fma(2.0, n_weights, -2.0));
+    assert_float_in_range(chi2,
+                          fma(-3.0, chi2_stddev, n_weights - 1.0),
+                          fma(3.0, chi2_stddev, n_weights - 1.0));
+}
+
 const char *const um_group_name = "randutil";
 const struct CMUnitTest um_group_tests[] =
 {
@@ -1773,6 +1825,7 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test(gaussf64v_variance),
     cmocka_unit_test(gaussf64v_chi2),
     cmocka_unit_test(shuffle_chi2),
+    cmocka_unit_test(sample_cdf_chi2),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);

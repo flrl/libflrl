@@ -78,6 +78,40 @@ void shuffle(struct randbs *rbs, void *base, size_t n_elems, size_t elem_size)
     free(tmp);
 }
 
+void init_cdf(unsigned *cdf,
+              const void *base, size_t n_elems, size_t elem_size,
+              size_t weight_offset)
+{
+    const uint8_t *data = base;
+    unsigned i, sum = 0;
+
+    hard_assert(elem_size >= sizeof(unsigned));
+
+    for (i = 0; i < n_elems; i++) {
+        const uint8_t *p = data + i * elem_size;
+        unsigned w = *(const unsigned *)(p + weight_offset);
+
+        sum += w;
+        hard_assert(i == 0 || sum >= cdf[i - 1]); /* overflow detection */
+        cdf[i] = sum;
+    }
+}
+
+unsigned sample_cdf(struct randbs *bs,
+                    const unsigned *cdf, size_t n_elems)
+{
+    uint32_t rand;
+    unsigned i;
+
+    rand = randu32(bs, 0, cdf[n_elems - 1] - 1);
+    for (i = 0; i < n_elems && rand >= cdf[i]; i++)
+        ;
+
+    assert(i < n_elems);
+    assert(rand < cdf[i]);
+    return i;
+}
+
 extern inline void state128_seed(struct state128 *restrict state,
                                  const struct state128 *seed);
 extern inline void state128_seed64(struct state128 *state, uint64_t seed);
@@ -112,125 +146,3 @@ extern inline float wrandf32(struct wrandbs *bs, double min, double max);
 extern inline double wrandf64(struct wrandbs *bs, double min, double max);
 extern inline bool wcoin(struct wrandbs *bs, float p_true);
 #endif
-
-/* XXX legacy */
-
-unsigned sample32(struct randbs *bs,
-                  const unsigned weights[], size_t n_weights)
-{
-    unsigned *cdf = NULL;
-    unsigned sum = 0;
-    uint32_t rand;
-    size_t i;
-
-    if (!soft_assert(n_weights > 0)) return 0;
-
-    cdf = malloc(n_weights * sizeof(*cdf));
-    if (!cdf) return 0;
-
-    for (i = 0; i < n_weights; i++) {
-        sum += weights[i];
-        hard_assert(i == 0 || sum >= cdf[i - 1]); /* overflow detection */
-        cdf[i] = sum;
-    }
-
-    if (!soft_assert(sum > 0)) return 0;
-
-    rand = randu32(bs, 0, sum - 1);
-    for (i = 0; i < n_weights && rand >= cdf[i]; i++)
-        ;
-
-    free(cdf);
-    return i;
-}
-
-unsigned sample32v(struct randbs *bs,
-                   size_t n_pairs, ...)
-{
-    unsigned *values = NULL;
-    unsigned *cdf = NULL;
-    unsigned sum = 0;
-    unsigned ret;
-    uint32_t rand;
-    va_list ap;
-    size_t i;
-
-    if (!soft_assert(n_pairs > 0)) return 0;
-
-    values = malloc(n_pairs * sizeof(*values));
-    cdf = malloc(n_pairs * sizeof(*cdf));
-    if (!values || !cdf) {
-        free(values);
-        free(cdf);
-        return 0;
-    }
-
-    va_start(ap, n_pairs);
-    for (i = 0; i < n_pairs; i++) {
-        unsigned weight = va_arg(ap, unsigned);
-        unsigned value = va_arg(ap, unsigned);
-        sum += weight;
-        hard_assert(i == 0 || sum >= cdf[i - 1]); /* overflow detection */
-        values[i] = value;
-        cdf[i] = sum;
-    }
-    va_end(ap);
-
-    if (!soft_assert(sum > 0)) return 0;
-
-    rand = randu32(bs, 0, sum - 1);
-    for (i = 0; i < n_pairs && rand >= cdf[i]; i++)
-        ;
-
-    ret = values[i];
-    free(values);
-    free(cdf);
-
-    return ret;
-}
-
-/* n elems of size z with struct weight at offset t, save cdf, return index */
-unsigned sample32p(struct randbs *bs,
-                   void *data, size_t rows, size_t rowsize,
-                   size_t weight_offset)
-{
-    void *p;
-    struct weight *wp, *prev;
-    uint16_t sum = 0;
-    uint32_t rand;
-    size_t i;
-
-    hard_assert(rows > 0);
-    hard_assert(rowsize > 0);
-
-    /* lazy load cdf when last cumulative value is zero */
-    wp = (struct weight *)((data + (rows - 1) * rowsize) + weight_offset);
-    if (wp->cumulative == 0) {
-        prev = NULL;
-        for (p = data; p < (data + rows * rowsize); p += rowsize) {
-            wp = (struct weight *)(p + weight_offset);
-            sum += wp->weight;
-            hard_assert(prev == NULL || sum >= prev->cumulative); /* overflow */
-            wp->cumulative = sum;
-            prev = wp;
-        }
-    }
-    else {
-        sum = wp->cumulative;
-    }
-
-    if (!soft_assert(sum > 0)) return 0;
-
-    rand = randu32(bs, 0, sum - 1);
-
-    i = 0;
-    do {
-        wp = (struct weight *)((data + i * rowsize) + weight_offset);
-
-        if (rand < wp->cumulative) break;
-
-        i++;
-    } while (i < rows);
-
-    return i;
-}

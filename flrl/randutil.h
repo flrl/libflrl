@@ -246,6 +246,12 @@ extern void shuffle(struct randbs *rbs,
                     size_t n_elems,
                     size_t elem_size);
 
+extern void init_cdf(unsigned *cdf,
+                     const void *base, size_t n_elems, size_t elem_size,
+                     size_t weight_offset);
+extern unsigned sample_cdf(struct randbs *bs,
+                           const unsigned *cdf, size_t n_elems);
+
 extern void wrandi32v(struct wrandbs *bs,
                       int32_t *out,
                       size_t count,
@@ -339,24 +345,5 @@ inline bool wcoin(struct wrandbs *bs, float p_true)
 {
     return wrandf32(bs, 0.0, 1.0) <= p_true;
 }
-
-/* XXX legacy */
-struct weight {
-    uint16_t weight;
-    uint16_t cumulative;
-};
-
-/* n weights, build temp cdf, return index */
-extern unsigned sample32(struct randbs *bs,
-                         const unsigned weights[], size_t n_weights);
-
-/* n weight|value pairs, build temp cdf, return value */
-extern unsigned sample32v(struct randbs *bs,
-                          size_t n_pairs, ...);
-
-/* n elems of size z with struct weight at offset t, save cdf, return index */
-extern unsigned sample32p(struct randbs *bs,
-                          void *data, size_t rows, size_t rowsize,
-                          size_t weight_offset);
 
 #endif
