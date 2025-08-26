@@ -1,10 +1,11 @@
 extern "C" {
 #include "flrl/randutil.h"
+
+#include "flrl/xassert.h"
 }
 
 #include <algorithm>
 #include <bit>
-#include <cassert>
 #include <climits>
 #include <limits>
 #include <type_traits>
@@ -31,7 +32,7 @@ static uint64_t bs_bits(BS *bs, unsigned want_bits)
     uint64_t bits, extra = 0;
 
     if (!want_bits) return 0;
-    if (want_bits > RANDBS_MAX_BITS) abort();
+    hard_assert(want_bits <= RANDBS_MAX_BITS);
 
     while (bs->n_bits < want_bits) {
         uint64_t v;
@@ -159,7 +160,7 @@ static void randfv(BS *bs, T *out, std::size_t count, double min, double max)
 
     if (min > max) min = max;
     const double range = max - min;
-    if (range > std::numeric_limits<T>::max()) abort();
+    hard_assert(range <= std::numeric_limits<T>::max());
 
     /* we'll generate values in [0, 1], then scale and translate to [min,max]
      * we start with one less than the highest exponent because we may need
