@@ -148,6 +148,8 @@ ssize_t base64_decode(void *dest_orig, size_t dest_len,
         case WS:
             continue;
         case XX:
+            /* base64_decoded_len already rejected src in this case */
+            __builtin_unreachable();
             return -1;
         case PD:
             src = end;
