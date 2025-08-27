@@ -14,6 +14,12 @@
 /* testing the interfaces/distributions, not the underlying randomness */
 #define N_VALUES (10000)
 
+#define SWAP(pa, pb) do {   \
+    __auto_type _t = pa;    \
+    pa = pb;                \
+    pb = _t;                \
+} while(0)
+
 static const struct state128 seed128 = {{
     0x26457b9d,
     0x9c2fdf6b,
@@ -1650,6 +1656,88 @@ static void gaussf64v_chi2(NO_STATE)
     free(values);
 }
 
+/* Myrvold & Ruskey, Ranking and unranking permutations in linear time
+ *
+ * "A ranking function for the permutations on n symbols assigns a unique
+ *  integer in the range [0, n! − 1] to each of the n! permutations."
+ */
+static unsigned mr_rank1(unsigned n, unsigned *vec, unsigned *inv)
+{
+    unsigned s;
+
+    if (n < 2) return 0;
+
+    s = vec[n - 1];
+    SWAP(vec[n - 1], vec[inv[n - 1]]);
+    SWAP(inv[s], inv[n - 1]);
+    return s + n * mr_rank1(n - 1, vec, inv);
+}
+
+static unsigned get_rank(unsigned n, const unsigned *perm)
+{
+    unsigned i, r, *vec, *inv;
+
+    vec = calloc(n, sizeof(*vec));
+    inv = calloc(n, sizeof(*inv));
+
+    for (i = 0; i < n; i++) {
+        vec[i] = perm[i];
+        inv[vec[i]] = i;
+    }
+
+    r = mr_rank1(n, vec, inv);
+
+    free(inv);
+    free(vec);
+    return r;
+}
+
+static void shuffle_chi2(NO_STATE)
+{
+    const size_t n_shuffles = N_VALUES;
+    const size_t n_values = 6;
+    const size_t n_buckets = 720; /* 6! */
+    struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
+    unsigned bucket[n_buckets] = {};
+    double chi2 = 0.0, chi2_stddev;
+    unsigned i;
+
+    randbs_seed64(&bs, time(NULL));
+
+    for (i = 0; i < n_shuffles; i++) {
+        unsigned values[n_values];
+        unsigned j, r;
+
+        /* reset initial sequence the same each time */
+        for (j = 0; j < n_values; j++)
+            values[j] = j;
+
+        shuffle(&bs, values, n_values, sizeof(values[0]));
+        r = get_rank(n_values, values);
+        bucket[r]++;
+    }
+
+    for (i = 0; i < n_buckets; i++) {
+        const double e = 1.0 * N_VALUES / n_buckets;
+        double x;
+
+        x = bucket[i] - e;
+
+        if (verbose) {
+            fprintf(stderr, "[%u] e=%g n=%u x=%g\n",
+                            i, e, bucket[i], x);
+        }
+
+        // XXX kbn_sum?
+        chi2 += x * x / e;
+    }
+
+    chi2_stddev = sqrt(fma(2.0, n_buckets, -2.0));
+    assert_float_in_range(chi2,
+                          fma(-3.0, chi2_stddev, n_buckets - 1.0),
+                          fma(3.0, chi2_stddev, n_buckets - 1.0));
+}
+
 const char *const um_group_name = "randutil";
 const struct CMUnitTest um_group_tests[] =
 {
@@ -1684,6 +1772,7 @@ const struct CMUnitTest um_group_tests[] =
     cmocka_unit_test(gaussf64v_mean),
     cmocka_unit_test(gaussf64v_variance),
     cmocka_unit_test(gaussf64v_chi2),
+    cmocka_unit_test(shuffle_chi2),
 };
 const size_t um_group_n_tests = sizeof(um_group_tests)
                                 / sizeof(um_group_tests[0]);

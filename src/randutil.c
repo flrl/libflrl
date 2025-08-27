@@ -64,7 +64,7 @@ void shuffle(struct randbs *rbs, void *base, size_t n_elems, size_t elem_size)
     tmp = malloc(elem_size);
 
     /* if malloc failed, order is unchanged, but that's a valid outcome */
-    if (!tmp) return;
+    if (MALLOC_FAILED(!tmp)) return;
 
     for (i = 0; i < n_elems - 1; i++) {
         j = randu64(rbs, i, n_elems - 1);
