@@ -1404,6 +1404,7 @@ static void gaussf32v_chi2(NO_STATE)
     const size_t n_buckets = 8;
     const double bucket_p[8] = { 0.00135, 0.0214, 0.1359, 0.34135,
                                  0.34135, 0.1359, 0.0214, 0.00135 };
+    const double chi2_stddev = sqrt(fma(2.0, n_buckets, -2.0));
     struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     float *values;
     unsigned i;
@@ -1414,7 +1415,7 @@ static void gaussf32v_chi2(NO_STATE)
     assert_non_null(values);
 
     for (i = 0; i < n_tests; i++) {
-        double chi2 = 0.0;
+        double chi2 = 0.0, chi2_c = 0.0;
         unsigned bucket[8] = { 0 };
         unsigned j;
 
@@ -1452,10 +1453,9 @@ static void gaussf32v_chi2(NO_STATE)
 
             e = bucket_p[j] * n_values;
             x = bucket[j] - e;
-            chi2 += x * x / e;
+            kbn_sumf64_r(&chi2, &chi2_c, x * x / e);
         }
-
-        double chi2_stddev = sqrt(fma(2.0, n_buckets, -2.0));
+        chi2 += chi2_c;
 
         assert_float_in_range(chi2,
                               fma(-3.0, chi2_stddev, n_buckets - 1.0),
@@ -1597,6 +1597,7 @@ static void gaussf64v_chi2(NO_STATE)
     const size_t n_buckets = 8;
     const double bucket_p[8] = { 0.00135, 0.0214, 0.1359, 0.34135,
                                  0.34135, 0.1359, 0.0214, 0.00135 };
+    const double chi2_stddev = sqrt(fma(2.0, n_buckets, -2.0));
     struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     double *values;
     unsigned i;
@@ -1607,7 +1608,7 @@ static void gaussf64v_chi2(NO_STATE)
     assert_non_null(values);
 
     for (i = 0; i < n_tests; i++) {
-        double chi2 = 0.0;
+        double chi2 = 0.0, chi2_c = 0.0;
         unsigned bucket[8] = { 0 };
         unsigned j;
 
@@ -1645,10 +1646,9 @@ static void gaussf64v_chi2(NO_STATE)
 
             e = bucket_p[j] * n_values;
             x = bucket[j] - e;
-            chi2 += x * x / e;
+            kbn_sumf64_r(&chi2, &chi2_c, x * x / e);
         }
-
-        double chi2_stddev = sqrt(fma(2.0, n_buckets, -2.0));
+        chi2 += chi2_c;
 
         assert_float_in_range(chi2,
                               fma(-3.0, chi2_stddev, n_buckets - 1.0),
@@ -1699,9 +1699,10 @@ static void shuffle_chi2(NO_STATE)
     const size_t n_shuffles = N_VALUES;
     const size_t n_values = 6;
     const size_t n_buckets = 720; /* 6! */
+    const double chi2_stddev = sqrt(fma(2.0, n_buckets, -2.0));
     struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
     unsigned bucket[n_buckets] = {};
-    double chi2 = 0.0, chi2_stddev;
+    double chi2 = 0.0, chi2_c = 0.0;
     unsigned i;
 
     randbs_seed64(&bs, time(NULL));
@@ -1730,11 +1731,10 @@ static void shuffle_chi2(NO_STATE)
                             i, e, bucket[i], x);
         }
 
-        // XXX kbn_sum?
-        chi2 += x * x / e;
+        kbn_sumf64_r(&chi2, &chi2_c, x * x / e);
     }
+    chi2 += chi2_c;
 
-    chi2_stddev = sqrt(fma(2.0, n_buckets, -2.0));
     assert_float_in_range(chi2,
                           fma(-3.0, chi2_stddev, n_buckets - 1.0),
                           fma(3.0, chi2_stddev, n_buckets - 1.0));
@@ -1745,8 +1745,9 @@ static void sample_cdf_chi2(NO_STATE)
     static const unsigned weights[] = { 148, 102, 89, 87, 59, 9, 9, 6, 2 };
     const size_t n_weights = DIM(weights);
     const size_t n_values = 1 << 20; /* about a million, as a power of two */
+    const double chi2_stddev = sqrt(fma(2.0, n_weights, -2.0));
     unsigned cdf[DIM(weights)], buckets[DIM(weights)] = {0};
-    double bucket_p[DIM(weights)], chi2 = 0.0, chi2_stddev;
+    double bucket_p[DIM(weights)], chi2 = 0.0, chi2_c = 0.0;
     unsigned i, sum;
 
     struct randbs bs = RANDBS_INITIALIZER(xoshiro128plusplus_next);
@@ -1780,11 +1781,10 @@ static void sample_cdf_chi2(NO_STATE)
                             e, buckets[i], x);
         }
 
-        // XXX kbn_sum?
-        chi2 += x * x / e;
+        kbn_sumf64_r(&chi2, &chi2_c, x * x / e);
     }
+    chi2 += chi2_c;
 
-    chi2_stddev = sqrt(fma(2.0, n_weights, -2.0));
     assert_float_in_range(chi2,
                           fma(-3.0, chi2_stddev, n_weights - 1.0),
                           fma(3.0, chi2_stddev, n_weights - 1.0));
